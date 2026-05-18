@@ -3,1980 +3,1303 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cipher — Autonomous Coding Agent for Your Terminal</title>
-  <meta name="description" content="Cipher is an autonomous coding agent that runs in your terminal. Support 75+ AI providers including Ollama, OpenAI, Anthropic, and more. MIT licensed, open source, no vendor lock-in.">
+  <title>Cipher - Autonomous Coding Agent</title>
+  <meta name="description" content="Terminal-based coding agent. 75+ AI providers. MIT licensed. Open source.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+    h1, h2, h3, h4, .heading { font-family: 'Space Grotesk', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
     :root {
       --bg-primary: #050505;
       --bg-secondary: #0a0a0a;
       --bg-tertiary: #111111;
       --bg-card: #0d0d0d;
       --bg-hover: #151515;
-      --border: #1a1a1a;
-      --border-light: #222222;
-      --text-primary: #e5e5e5;
-      --text-secondary: #888888;
-      --text-muted: #555555;
+      --border-color: #1a1a1a;
+      --border-hover: #2a2a2a;
       --accent: #f5c542;
-      --accent-hover: #ffe066;
-      --accent-dim: rgba(245, 197, 66, 0.1);
-      --accent-glow: rgba(245, 197, 66, 0.15);
+      --accent-dim: rgba(245,197,66,0.1);
+      --accent-glow: rgba(245,197,66,0.15);
+      --text-primary: #e5e5e5;
+      --text-secondary: #a3a3a3;
+      --text-muted: #666666;
+      --text-dim: #444444;
       --green: #22c55e;
-      --green-dim: rgba(34, 197, 94, 0.1);
       --red: #ef4444;
-      --red-dim: rgba(239, 68, 68, 0.1);
       --blue: #3b82f6;
-      --blue-dim: rgba(59, 130, 246, 0.1);
-      --purple: #a855f7;
-      --purple-dim: rgba(168, 85, 247, 0.1);
-      --radius: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
-      --transition: 0.2s ease;
-      --font-heading: 'Space Grotesk', -apple-system, sans-serif;
-      --font-body: 'Inter', -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --cyan: #06b6d4;
     }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: var(--font-body);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
-    a:hover { color: var(--accent-hover); }
-    code {
-      font-family: var(--font-mono);
-      background: var(--bg-tertiary);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-    pre {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      overflow-x: auto;
-      font-family: var(--font-mono);
-      font-size: 0.875rem;
-      line-height: 1.7;
-    }
-    pre code { background: none; padding: 0; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-    .container-wide { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
 
-    /* Navigation */
-    .nav {
+    /* REVEAL ANIMATIONS */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-d1 { transition-delay: 0.1s; }
+    .reveal-d2 { transition-delay: 0.2s; }
+    .reveal-d3 { transition-delay: 0.3s; }
+    .reveal-d4 { transition-delay: 0.4s; }
+
+    /* NAV */
+    nav {
       position: fixed;
       top: 0;
-      left: 0;
-      right: 0;
+      width: 100%;
       z-index: 1000;
-      background: rgba(5, 5, 5, 0.8);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      height: 64px;
+      padding: 0 24px;
+      transition: background 0.3s, border 0.3s;
+      background: rgba(5,5,5,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
     }
     .nav-inner {
-      max-width: 1400px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 0 24px;
-      height: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 14px 0;
     }
-    .nav-brand {
+    .nav-logo {
       display: flex;
       align-items: center;
-      gap: 3px;
-      font-family: var(--font-heading);
-      font-size: 1.25rem;
-      font-weight: 700;
+      gap: 2px;
+      text-decoration: none;
       cursor: pointer;
     }
-    .logo-symbol { color: var(--accent); font-weight: 700; }
-    .logo-text { color: var(--text-primary); font-weight: 500; letter-spacing: -0.5px; }
+    .logo-symbol {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .logo-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: 2px;
+      line-height: 1;
+    }
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 32px;
+      list-style: none;
     }
-    .nav-link {
+    .nav-links a {
       color: var(--text-secondary);
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: all var(--transition);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 400;
+      transition: color 0.2s;
       cursor: pointer;
     }
-    .nav-link:hover { color: var(--text-primary); background: var(--bg-hover); }
-    .nav-link.active { color: var(--accent); background: var(--accent-dim); }
-    .nav-actions { display: flex; align-items: center; gap: 12px; }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      border-radius: var(--radius);
-      font-family: var(--font-body);
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: all var(--transition);
-    }
-    .btn-primary {
+    .nav-links a:hover,
+    .nav-links a.active { color: var(--text-primary); }
+    .nav-cta {
       background: var(--accent);
       color: #000;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s;
+      cursor: pointer;
     }
-    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
-    .btn-secondary {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-light); }
-    .btn-ghost {
-      background: transparent;
-      color: var(--text-secondary);
-      padding: 8px 12px;
-    }
-    .btn-ghost:hover { color: var(--text-primary); }
-    .github-link {
-      color: var(--text-secondary);
-      font-size: 1.25rem;
-      padding: 8px;
-      border-radius: var(--radius);
-      transition: all var(--transition);
-    }
-    .github-link:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .nav-cta:hover { background: var(--accent-hover); }
+
     .hamburger {
       display: none;
       flex-direction: column;
       gap: 5px;
       cursor: pointer;
-      padding: 8px;
-      border-radius: var(--radius);
       background: none;
       border: none;
+      padding: 4px;
     }
     .hamburger span {
       display: block;
-      width: 20px;
+      width: 22px;
       height: 2px;
       background: var(--text-primary);
-      transition: all var(--transition);
-      border-radius: 2px;
+      transition: 0.3s;
     }
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 64px;
-      left: 0;
-      right: 0;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      z-index: 999;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .mobile-menu.open { display: flex; }
-    .mobile-menu .nav-link { padding: 12px 16px; font-size: 1rem; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
-    /* Page Sections */
-    .page { display: none; opacity: 0; transition: opacity 0.3s ease; padding-top: 64px; min-height: 100vh; }
-    .page.active { display: block; opacity: 1; }
+    /* PAGES */
+    .page { display: none; }
+    .page.active { display: block; }
 
-    /* Hero */
+    /* HERO */
     .hero {
-      padding: 120px 0 80px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       text-align: center;
+      padding: 140px 24px 80px;
       position: relative;
       overflow: hidden;
     }
     .hero::before {
       content: '';
       position: absolute;
-      top: 0;
+      top: -300px;
       left: 50%;
       transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .hero-dot-pattern {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: radial-gradient(circle, var(--text-muted) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.15;
+      width: 900px;
+      height: 900px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
       pointer-events: none;
     }
     .hero-logo {
-      font-family: var(--font-mono);
-      font-size: 5rem;
+      font-size: clamp(72px, 14vw, 140px);
+      font-family: 'Space Grotesk', sans-serif;
       font-weight: 700;
       color: var(--accent);
+      letter-spacing: -6px;
+      line-height: 1;
       margin-bottom: 24px;
-      display: inline-block;
-      animation: logoFloat 3s ease-in-out infinite;
-      text-shadow: 0 0 40px var(--accent-glow);
-    }
-    @keyframes logoFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
+      position: relative;
     }
     .hero h1 {
-      font-family: var(--font-heading);
-      font-size: 3rem;
-      font-weight: 700;
+      font-size: clamp(28px, 5vw, 52px);
+      font-weight: 300;
+      letter-spacing: 2px;
+      color: var(--text-primary);
       margin-bottom: 16px;
-      letter-spacing: -1px;
-      line-height: 1.1;
+      position: relative;
     }
-    .hero h1 span { color: var(--accent); }
-    .hero-subtitle {
-      font-size: 1.25rem;
+    .hero h1 em { color: var(--accent); font-style: normal; }
+    .hero .subtitle {
+      font-size: clamp(15px, 2vw, 18px);
       color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto 40px;
+      max-width: 520px;
+      margin-bottom: 48px;
+      position: relative;
     }
     .hero-badges {
       display: flex;
-      justify-content: center;
       gap: 12px;
       margin-bottom: 40px;
-      flex-wrap: wrap;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 100px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-    }
-    .badge-gold { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-    .stars-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      margin-bottom: 32px;
-    }
-    .stars-badge svg { color: var(--accent); }
-
-    /* Install Tabs */
-    .install-section { margin-bottom: 60px; }
-    .install-tabs {
-      display: flex;
-      justify-content: center;
-      gap: 4px;
-      margin-bottom: 16px;
-    }
-    .install-tab {
-      padding: 8px 16px;
-      border-radius: var(--radius);
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      transition: all var(--transition);
-    }
-    .install-tab:hover { color: var(--text-primary); }
-    .install-tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-    .install-command {
-      display: none;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    .install-command.active { display: block; }
-    .install-command pre {
-      text-align: left;
-      border-color: var(--border-light);
       position: relative;
     }
+    .badge {
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+    .badge.accent { border-color: var(--accent); color: var(--accent); }
+
+    /* INSTALL TABS */
+    .install-tabs {
+      margin-top: 12px;
+      max-width: 520px;
+      width: 100%;
+      position: relative;
+    }
+    .tab-buttons {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      border-bottom-color: transparent;
+    }
+    .tab-content {
+      display: none;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+      position: relative;
+    }
+    .tab-content.active { display: block; }
+    .tab-content code { color: var(--green); }
     .copy-btn {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      padding: 4px 8px;
-      background: var(--bg-hover);
-      border: 1px solid var(--border);
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 10px;
       border-radius: 4px;
-      color: var(--text-secondary);
-      font-size: 0.75rem;
       cursor: pointer;
-      font-family: var(--font-body);
-      transition: all var(--transition);
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
     }
-    .copy-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
-    .copy-btn.copied { color: var(--green); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-    /* Feature Badges Row */
-    .feature-badges {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin-bottom: 80px;
-      flex-wrap: wrap;
-    }
-    .feature-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 24px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      transition: all var(--transition);
-    }
-    .feature-badge:hover {
-      border-color: var(--border-light);
-      transform: translateY(-2px);
-    }
-    .feature-badge-icon {
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius);
-      background: var(--accent-dim);
-      color: var(--accent);
-      font-size: 1.25rem;
-    }
-    .feature-badge-text { text-align: left; }
-    .feature-badge-text h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
-    .feature-badge-text p { font-size: 0.8rem; color: var(--text-secondary); }
-
-    /* Sections */
-    .section { padding: 80px 0; }
-    .section-header { text-align: center; margin-bottom: 60px; }
-    .section-header h2 {
-      font-family: var(--font-heading);
-      font-size: 2.25rem;
-      font-weight: 700;
-      margin-bottom: 12px;
-      letter-spacing: -0.5px;
-    }
-    .section-header p {
-      color: var(--text-secondary);
-      font-size: 1.1rem;
-      max-width: 600px;
+    /* SECTIONS */
+    .section {
+      padding: 100px 24px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     .section-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      font-size: 12px;
       color: var(--accent);
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 3px;
+      font-weight: 500;
       margin-bottom: 12px;
     }
+    .section h2 {
+      font-size: clamp(24px, 4vw, 40px);
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+    .section h2 em { color: var(--accent); font-style: normal; }
+    .section-desc {
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin-bottom: 56px;
+      font-size: 15px;
+    }
 
-    /* Features Grid */
+    /* FEATURES GRID */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
     }
     .feature-card {
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
       padding: 28px;
-      transition: all var(--transition);
+      transition: all 0.3s;
       position: relative;
       overflow: hidden;
     }
     .feature-card:hover {
-      border-color: var(--border-light);
-      transform: translateY(-3px);
-    }
-    .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0;
-      transition: opacity var(--transition);
-    }
-    .feature-card:hover::before { opacity: 0.5; }
-    .feature-card-icon {
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius);
-      margin-bottom: 16px;
-      font-size: 1.5rem;
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
     }
     .feature-card h3 {
-      font-family: var(--font-heading);
-      font-size: 1.15rem;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 500;
       margin-bottom: 8px;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
     }
-    .feature-card p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
-    .icon-lsp { background: var(--blue-dim); color: var(--blue); }
-    .icon-session { background: var(--purple-dim); color: var(--purple); }
-    .icon-share { background: var(--green-dim); color: var(--green); }
-    .icon-github { background: var(--bg-tertiary); color: var(--text-primary); }
-    .icon-openai { background: var(--bg-tertiary); color: var(--green); }
-    .icon-models { background: var(--accent-dim); color: var(--accent); }
-    .icon-sandbox { background: var(--red-dim); color: var(--red); }
-    .icon-diff { background: var(--green-dim); color: var(--green); }
-
-    /* Providers */
-    .providers-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-      gap: 24px;
+    .feature-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
     }
-    .provider-category {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-    }
-    .provider-category h3 {
-      font-family: var(--font-heading);
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .provider-category h3 .cat-icon {
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius);
-      font-size: 1rem;
-    }
-    .cat-free { background: var(--green-dim); color: var(--green); }
-    .cat-cloud { background: var(--blue-dim); color: var(--blue); }
-    .cat-premium { background: var(--accent-dim); color: var(--accent); }
-    .cat-enterprise { background: var(--purple-dim); color: var(--purple); }
-    .provider-list { display: flex; flex-direction: column; gap: 12px; }
-    .provider-item {
-      padding: 12px 16px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      transition: all var(--transition);
-    }
-    .provider-item:hover { border-color: var(--border-light); background: var(--bg-hover); }
-    .provider-name {
-      font-weight: 600;
-      font-size: 0.9rem;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .provider-models {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      line-height: 1.5;
-    }
-    .provider-tag {
+    .feature-tag {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: 100px;
-      font-size: 0.7rem;
+      border-radius: 4px;
+      font-size: 10px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
     }
-    .tag-free { background: var(--green-dim); color: var(--green); }
-    .tag-api { background: var(--accent-dim); color: var(--accent); }
-    .tag-enterprise { background: var(--purple-dim); color: var(--purple); }
+    .tag-free { background: rgba(34,197,94,0.1); color: var(--green); }
+    .tag-api { background: rgba(59,130,246,0.1); color: var(--blue); }
+    .tag-local { background: rgba(6,182,212,0.1); color: var(--cyan); }
+
+    /* PROVIDER GRID */
+    .provider-category {
+      margin-bottom: 48px;
+    }
+    .provider-category h3 {
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .provider-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+    .provider-card:hover { border-color: var(--border-hover); }
+    .provider-card h4 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      color: var(--text-primary);
+    }
+    .provider-card p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .provider-card .models {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
 
     /* CTA */
-    .cta {
-      padding: 100px 0;
+    .cta-section {
+      padding: 100px 24px;
       text-align: center;
       position: relative;
     }
-    .cta::before {
+    .cta-section::before {
       content: '';
       position: absolute;
-      top: 0;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 300px;
-      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
       pointer-events: none;
     }
-    .cta h2 {
-      font-family: var(--font-heading);
-      font-size: 2.5rem;
-      font-weight: 700;
+    .cta-section h2 {
+      font-size: clamp(24px, 4vw, 44px);
+      font-weight: 400;
+      letter-spacing: 2px;
       margin-bottom: 16px;
-      letter-spacing: -1px;
+      position: relative;
     }
-    .cta p {
+    .cta-section h2 em { color: var(--accent); font-style: normal; }
+    .cta-section p {
       color: var(--text-secondary);
-      font-size: 1.1rem;
       margin-bottom: 32px;
+      font-size: 15px;
+      position: relative;
     }
-    .cta-buttons { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border: none;
+      position: relative;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      border: 1px solid var(--border-color);
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .btn-secondary:hover { border-color: var(--border-hover); background: var(--bg-secondary); }
 
-    /* Docs Page */
+    /* DOCS PAGE */
     .docs-layout {
       display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 48px;
-      padding-top: 96px;
-      padding-bottom: 80px;
-      min-height: calc(100vh - 64px);
+      grid-template-columns: 240px 1fr;
+      gap: 60px;
+      padding-top: 100px;
+      min-height: 100vh;
     }
     .docs-sidebar {
       position: sticky;
-      top: 96px;
+      top: 80px;
       height: fit-content;
-      max-height: calc(100vh - 120px);
-      overflow-y: auto;
-      padding-right: 16px;
+      padding: 20px 0;
     }
-    .docs-sidebar::-webkit-scrollbar { width: 4px; }
-    .docs-sidebar::-webkit-scrollbar-track { background: transparent; }
-    .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-    .docs-nav-group { margin-bottom: 24px; }
-    .docs-nav-title {
-      font-family: var(--font-heading);
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-muted);
+    .docs-sidebar h4 {
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
-      padding: 0 12px;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      margin-top: 24px;
     }
-    .docs-nav-item {
+    .docs-sidebar h4:first-child { margin-top: 0; }
+    .docs-sidebar a {
       display: block;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      font-size: 0.875rem;
       color: var(--text-secondary);
-      cursor: pointer;
-      transition: all var(--transition);
-      border-left: 2px solid transparent;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 0;
+      transition: color 0.2s;
     }
-    .docs-nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
-    .docs-nav-item.active {
-      color: var(--accent);
-      background: var(--accent-dim);
-      border-left-color: var(--accent);
+    .docs-sidebar a:hover,
+    .docs-sidebar a.active { color: var(--accent); }
+    .docs-content {
+      padding: 20px 0 80px;
+      max-width: 720px;
     }
-    .docs-content { max-width: 800px; }
     .docs-content h1 {
-      font-family: var(--font-heading);
-      font-size: 2rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-      letter-spacing: -0.5px;
+      font-size: 28px;
+      font-weight: 400;
+      margin-bottom: 8px;
+    }
+    .docs-content .docs-version {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
     }
     .docs-content h2 {
-      font-family: var(--font-heading);
-      font-size: 1.5rem;
-      font-weight: 600;
+      font-size: 20px;
+      font-weight: 400;
       margin-top: 48px;
       margin-bottom: 16px;
       padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border-color);
     }
     .docs-content h3 {
-      font-family: var(--font-heading);
-      font-size: 1.2rem;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 500;
       margin-top: 32px;
       margin-bottom: 12px;
     }
-    .docs-content p { color: var(--text-secondary); margin-bottom: 16px; line-height: 1.7; }
-    .docs-content ul, .docs-content ol { color: var(--text-secondary); margin-bottom: 16px; padding-left: 24px; }
-    .docs-content li { margin-bottom: 6px; }
-    .docs-section { display: none; }
-    .docs-section.active { display: block; }
-    .doc-tip {
-      background: var(--accent-dim);
-      border: 1px solid rgba(245, 197, 66, 0.2);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin: 20px 0;
-      font-size: 0.9rem;
+    .docs-content p {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      line-height: 1.7;
     }
-    .doc-tip strong { color: var(--accent); }
-    .doc-table {
+    .docs-content code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--green);
+    }
+    .docs-content pre {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+    .docs-content pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .docs-content table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      margin: 16px 0;
     }
-    .doc-table th, .doc-table td {
-      padding: 12px 16px;
+    .docs-content th,
+    .docs-content td {
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
       text-align: left;
-      border: 1px solid var(--border);
-      font-size: 0.875rem;
+      font-size: 13px;
     }
-    .doc-table th {
+    .docs-content th {
       background: var(--bg-tertiary);
-      font-weight: 600;
       color: var(--text-primary);
+      font-weight: 500;
     }
-    .doc-table td { color: var(--text-secondary); }
+    .docs-content td { color: var(--text-secondary); }
+    .docs-tip {
+      background: var(--accent-dim);
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .docs-tip strong { color: var(--accent); }
 
-    /* Changelog */
-    .changelog-page { padding-top: 96px; padding-bottom: 80px; }
-    .changelog-header { text-align: center; margin-bottom: 60px; padding-top: 40px; }
-    .changelog-header h1 {
-      font-family: var(--font-heading);
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 12px;
+    /* CHANGELOG */
+    .changelog-list {
+      padding-top: 100px;
+      max-width: 800px;
+      margin: 0 auto;
     }
-    .changelog-header p { color: var(--text-secondary); font-size: 1.1rem; }
-    .timeline { max-width: 800px; margin: 0 auto; position: relative; }
-    .timeline::before {
-      content: '';
-      position: absolute;
-      left: 24px;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--border);
+    .changelog-entry {
+      padding: 32px 0;
+      border-bottom: 1px solid var(--border-color);
     }
-    .timeline-item {
-      position: relative;
-      padding-left: 64px;
-      padding-bottom: 48px;
-    }
-    .timeline-item:last-child { padding-bottom: 0; }
-    .timeline-dot {
-      position: absolute;
-      left: 16px;
-      top: 6px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--bg-primary);
-      border: 3px solid var(--accent);
-    }
-    .timeline-item:first-child .timeline-dot { background: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
-    .timeline-version {
-      font-family: var(--font-heading);
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 4px;
+    .changelog-entry:last-child { border-bottom: none; }
+    .changelog-version {
       display: flex;
       align-items: center;
       gap: 12px;
-    }
-    .timeline-date {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-    .timeline-tag {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 100px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-    .tag-current { background: var(--accent-dim); color: var(--accent); }
-    .tag-stable { background: var(--green-dim); color: var(--green); }
-    .tag-legacy { background: var(--bg-tertiary); color: var(--text-muted); }
-    .timeline-content {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      margin-top: 12px;
-    }
-    .timeline-content h4 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
-    .timeline-content ul { list-style: none; padding: 0; }
-    .timeline-content li {
+    .changelog-version h3 {
+      font-size: 20px;
+      font-weight: 400;
+    }
+    .changelog-version .date {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .changelog-version .tag-current {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--accent-dim);
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .changelog-entry ul {
+      list-style: none;
+      padding: 0;
+    }
+    .changelog-entry li {
       padding: 6px 0;
+      padding-left: 20px;
+      position: relative;
       color: var(--text-secondary);
-      font-size: 0.9rem;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
+      font-size: 14px;
     }
-    .timeline-content li::before {
-      content: '+';
-      color: var(--green);
-      font-weight: 700;
-      font-family: var(--font-mono);
-      flex-shrink: 0;
+    .changelog-entry li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
     }
+    .changelog-entry li.new::before { background: var(--green); }
+    .changelog-entry li.fix::before { background: var(--blue); }
 
     /* FAQ */
-    .faq-page { padding-top: 96px; padding-bottom: 80px; }
-    .faq-header { text-align: center; margin-bottom: 60px; padding-top: 40px; }
-    .faq-header h1 {
-      font-family: var(--font-heading);
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 12px;
+    .faq-list {
+      padding-top: 100px;
+      max-width: 800px;
+      margin: 0 auto;
     }
-    .faq-header p { color: var(--text-secondary); font-size: 1.1rem; }
-    .faq-list { max-width: 800px; margin: 0 auto; }
     .faq-item {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      margin-bottom: 12px;
-      overflow: hidden;
-      transition: all var(--transition);
+      border-bottom: 1px solid var(--border-color);
     }
-    .faq-item:hover { border-color: var(--border-light); }
-    .faq-item.open { border-color: rgba(245, 197, 66, 0.3); }
     .faq-question {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 20px 24px;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 20px 0;
+      text-align: left;
       cursor: pointer;
-      background: var(--bg-card);
-      transition: background var(--transition);
-      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-primary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      transition: color 0.2s;
     }
-    .faq-question:hover { background: var(--bg-hover); }
-    .faq-question h3 { font-size: 1rem; font-weight: 600; }
+    .faq-question:hover { color: var(--accent); }
     .faq-arrow {
       color: var(--text-muted);
-      transition: transform var(--transition);
-      font-size: 1.25rem;
+      transition: transform 0.3s;
+      font-size: 14px;
     }
-    .faq-item.open .faq-arrow { transform: rotate(180deg); color: var(--accent); }
+    .faq-item.open .faq-arrow { transform: rotate(180deg); }
     .faq-answer {
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.3s ease;
     }
     .faq-answer-inner {
-      padding: 0 24px 20px;
+      padding: 0 0 20px;
       color: var(--text-secondary);
+      font-size: 14px;
       line-height: 1.7;
     }
-    .faq-answer-inner p { margin-bottom: 12px; }
-    .faq-answer-inner code { background: var(--bg-tertiary); }
+    .faq-item.open .faq-answer { max-height: 300px; }
 
-    /* Forum */
-    .forum-page { padding-top: 96px; padding-bottom: 80px; }
-    .forum-header { text-align: center; margin-bottom: 40px; padding-top: 40px; }
-    .forum-header h1 {
-      font-family: var(--font-heading);
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 12px;
+    /* FORUM */
+    .forum-container {
+      padding-top: 100px;
+      max-width: 900px;
+      margin: 0 auto;
     }
-    .forum-header p { color: var(--text-secondary); font-size: 1.1rem; }
-    .forum-toolbar {
+    .forum-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      align-items: center;
       margin-bottom: 24px;
-      flex-wrap: wrap;
     }
     .forum-search {
-      flex: 1;
-      min-width: 250px;
-      position: relative;
-    }
-    .forum-search input {
-      width: 100%;
-      padding: 12px 16px 12px 44px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 16px;
       color: var(--text-primary);
-      font-family: var(--font-body);
-      font-size: 0.9rem;
-      transition: all var(--transition);
+      font-size: 14px;
+      width: 300px;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    .forum-search input:focus { outline: none; border-color: var(--accent); }
-    .forum-search input::placeholder { color: var(--text-muted); }
-    .forum-search-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-    }
+    .forum-search:focus { border-color: var(--accent); }
+    .forum-search::placeholder { color: var(--text-muted); }
     .forum-categories {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
       margin-bottom: 24px;
+      flex-wrap: wrap;
     }
     .forum-cat {
-      padding: 8px 16px;
-      border-radius: 100px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      border: 1px solid var(--border-color);
+      background: transparent;
       color: var(--text-secondary);
-      transition: all var(--transition);
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .forum-cat:hover { color: var(--text-primary); border-color: var(--border-light); }
-    .forum-cat.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .forum-cat:hover,
+    .forum-cat.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
     .forum-thread {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 24px;
-      padding: 20px 24px;
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
       margin-bottom: 12px;
-      transition: all var(--transition);
+      transition: border-color 0.2s;
       cursor: pointer;
     }
-    .forum-thread:hover { border-color: var(--border-light); }
-    .thread-title {
-      font-weight: 600;
-      font-size: 1rem;
+    .forum-thread:hover { border-color: var(--border-hover); }
+    .forum-thread-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
       margin-bottom: 6px;
     }
-    .thread-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 0.8rem;
+    .forum-thread-meta {
+      font-size: 12px;
       color: var(--text-muted);
-      flex-wrap: wrap;
     }
-    .thread-author { color: var(--text-secondary); font-weight: 500; }
-    .thread-tag {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 100px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-    .tag-general { background: var(--bg-tertiary); color: var(--text-secondary); }
-    .tag-providers { background: var(--blue-dim); color: var(--blue); }
-    .tag-bug { background: var(--red-dim); color: var(--red); }
-    .tag-feature { background: var(--accent-dim); color: var(--accent); }
-    .tag-show { background: var(--green-dim); color: var(--green); }
-    .thread-stats {
+    .forum-thread-tags {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      min-width: 80px;
+      gap: 6px;
+      margin-top: 8px;
     }
-    .thread-replies {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--text-primary);
+    .forum-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
     }
-    .thread-replies-label { font-size: 0.7rem; color: var(--text-muted); }
-    .forum-cta {
+    .forum-empty {
       text-align: center;
-      padding: 60px 24px;
-      background: var(--bg-card);
-      border: 1px dashed var(--border);
-      border-radius: var(--radius-xl);
-      margin-top: 32px;
+      padding: 80px 24px;
+      color: var(--text-muted);
     }
-    .forum-cta h3 { margin-bottom: 8px; font-family: var(--font-heading); }
-    .forum-cta p { color: var(--text-secondary); margin-bottom: 20px; }
+    .forum-empty h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
 
-    /* Footer */
-    .footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 0;
-      margin-top: 80px;
+    /* FOOTER */
+    footer {
+      padding: 48px 24px;
+      border-top: 1px solid var(--border-color);
     }
     .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 20px;
-    }
-    .footer-left { display: flex; align-items: center; gap: 20px; }
-    .footer-version {
-      padding: 4px 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
+      gap: 16px;
     }
     .footer-mit {
-      padding: 4px 12px;
-      background: var(--green-dim);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 100px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--green);
-    }
-    .footer-links { display: flex; gap: 24px; }
-    .footer-links a { color: var(--text-muted); font-size: 0.875rem; }
-    .footer-links a:hover { color: var(--text-primary); }
-    .footer-copy { color: var(--text-muted); font-size: 0.8rem; }
-
-    /* Code block styles */
-    .terminal-block {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin: 20px 0;
-    }
-    .terminal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11px;
       background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
     }
-    .terminal-dots { display: flex; gap: 6px; }
-    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot-red { background: #ff5f57; }
-    .dot-yellow { background: #febc2e; }
-    .dot-green { background: #28c840; }
-    .terminal-title { font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
-    .terminal-body { padding: 16px; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.8; }
-    .terminal-body .prompt { color: var(--green); }
-    .terminal-body .cmd { color: var(--text-primary); }
-    .terminal-body .comment { color: var(--text-muted); }
-    .terminal-body .string { color: var(--accent); }
-    .terminal-body .key { color: var(--blue); }
-    .terminal-body .value { color: var(--green); }
+    .footer-version {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text-primary); }
+    .footer-right {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
 
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .docs-layout { grid-template-columns: 220px 1fr; gap: 32px; }
-    }
+    /* MOBILE */
     @media (max-width: 768px) {
       .nav-links { display: none; }
-      .nav-actions .btn { display: none; }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background: var(--bg-primary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 24px;
+        gap: 16px;
+      }
       .hamburger { display: flex; }
-      .hero h1 { font-size: 2rem; }
-      .hero-subtitle { font-size: 1rem; }
-      .hero-logo { font-size: 3.5rem; }
+      .hero-logo { font-size: 80px; letter-spacing: -4px; }
+      .hero h1 { font-size: 24px; }
       .features-grid { grid-template-columns: 1fr; }
-      .providers-grid { grid-template-columns: 1fr; }
-      .docs-layout { grid-template-columns: 1fr; gap: 24px; }
-      .docs-sidebar { position: static; max-height: none; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
-      .section-header h2 { font-size: 1.75rem; }
-      .cta h2 { font-size: 1.75rem; }
-      .forum-thread { grid-template-columns: 1fr; }
-      .thread-stats { flex-direction: row; align-items: center; gap: 16px; }
-      .footer-inner { flex-direction: column; text-align: center; }
-      .footer-left { flex-wrap: wrap; justify-content: center; }
-    }
-    @media (max-width: 480px) {
-      .hero { padding: 80px 0 60px; }
-      .hero h1 { font-size: 1.75rem; }
-      .feature-badges { flex-direction: column; align-items: center; }
-      .install-tabs { flex-wrap: wrap; }
+      .provider-grid { grid-template-columns: 1fr 1fr; }
+      .docs-layout { grid-template-columns: 1fr; }
+      .docs-sidebar { position: static; }
+      .forum-search { width: 100%; }
+      .forum-header { flex-direction: column; gap: 12px; }
     }
   </style>
 </head>
 <body>
-  <!-- Navigation -->
-  <nav class="nav">
+
+  <!-- NAV -->
+  <nav>
     <div class="nav-inner">
-      <div class="nav-brand" onclick="navigate('home')">
+      <div class="nav-logo" onclick="navigate('home')">
         <span class="logo-symbol">//</span><span class="logo-text">cipher</span>
       </div>
-      <div class="nav-links">
-        <a class="nav-link active" data-page="home" onclick="navigate('home')">Home</a>
-        <a class="nav-link" data-page="docs" onclick="navigate('docs')">Docs</a>
-        <a class="nav-link" data-page="changelog" onclick="navigate('changelog')">Changelog</a>
-        <a class="nav-link" data-page="faq" onclick="navigate('faq')">FAQ</a>
-        <a class="nav-link" data-page="forum" onclick="navigate('forum')">Forum</a>
-      </div>
-      <div class="nav-actions">
-        <a href="https://github.com/cipher-agent/cipher" target="_blank" class="github-link" title="GitHub">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-        </a>
-        <a class="btn btn-primary" onclick="navigate('docs')">Get Started</a>
-      </div>
-      <button class="hamburger" onclick="toggleMobile()" aria-label="Menu">
+      <ul class="nav-links" id="nav-links">
+        <li><a onclick="navigate('home')" data-page="home">Home</a></li>
+        <li><a onclick="navigate('docs')" data-page="docs">Docs</a></li>
+        <li><a onclick="navigate('changelog')" data-page="changelog">Changelog</a></li>
+        <li><a onclick="navigate('faq')" data-page="faq">FAQ</a></li>
+        <li><a onclick="navigate('forum')" data-page="forum">Forum</a></li>
+        <li><a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a></li>
+        <li><a class="nav-cta" onclick="navigate('home')">Get Started</a></li>
+      </ul>
+      <button class="hamburger" id="hamburger" onclick="toggleMobileNav()">
         <span></span><span></span><span></span>
       </button>
     </div>
   </nav>
 
-  <!-- Mobile Menu -->
-  <div class="mobile-menu" id="mobileMenu">
-    <a class="nav-link active" data-page="home" onclick="navigate('home'); toggleMobile();">Home</a>
-    <a class="nav-link" data-page="docs" onclick="navigate('docs'); toggleMobile();">Docs</a>
-    <a class="nav-link" data-page="changelog" onclick="navigate('changelog'); toggleMobile();">Changelog</a>
-    <a class="nav-link" data-page="faq" onclick="navigate('faq'); toggleMobile();">FAQ</a>
-    <a class="nav-link" data-page="forum" onclick="navigate('forum'); toggleMobile();">Forum</a>
-    <a class="btn btn-primary" style="margin-top:8px;text-align:center;" onclick="navigate('docs'); toggleMobile();">Get Started</a>
-  </div>
-
   <!-- HOME PAGE -->
   <div class="page active" id="page-home">
-    <div class="hero">
-      <div class="hero-dot-pattern"></div>
-      <div class="container">
-        <div class="hero-logo">//</div>
-        <h1>Autonomous coding agent<br>for your <span>terminal</span></h1>
-        <p class="hero-subtitle">75+ AI providers. Any editor. Zero lock-in. Let Cipher write, edit, and debug code directly from your command line.</p>
-        <div class="hero-badges">
-          <span class="badge badge-gold">MIT License</span>
-          <span class="badge">Open Source</span>
-          <span class="badge">No Vendor Lock-in</span>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-logo">//</div>
+      <h1 class="reveal">Autonomous coding agent<br><em>for your terminal</em></h1>
+      <p class="subtitle reveal reveal-d1">Cipher writes, edits, and runs code with any AI provider. MIT licensed. Zero vendor lock-in.</p>
+      <div class="hero-badges reveal reveal-d2">
+        <span class="badge accent">MIT License</span>
+        <span class="badge">Open Source</span>
+        <span class="badge">v0.0.3</span>
+      </div>
+      <div class="install-tabs reveal reveal-d3">
+        <div class="tab-buttons">
+          <button class="tab-btn active" onclick="switchInstall('win', this)">Windows</button>
+          <button class="tab-btn" onclick="switchInstall('mac', this)">macOS</button>
+          <button class="tab-btn" onclick="switchInstall('linux', this)">Linux</button>
         </div>
-        <div class="stars-badge">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span>Trusted by developers worldwide</span>
+        <div class="tab-content active" id="install-win">
+          <code>irm https://cipher.elevenpct.com/install.ps1 | iex</code>
+          <button class="copy-btn" onclick="copyInstall('install-win', this)">Copy</button>
         </div>
-        <div class="install-section">
-          <div class="install-tabs">
-            <button class="install-tab active" data-tab="windows" onclick="switchInstall('windows')">Windows</button>
-            <button class="install-tab" data-tab="macos" onclick="switchInstall('macos')">macOS / Linux</button>
-            <button class="install-tab" data-tab="npm" onclick="switchInstall('npm')">npm</button>
-          </div>
-          <div class="install-command active" id="install-windows">
-            <pre><code><span class="prompt">PS&gt; </span><span class="cmd">irm https://cipher.elevenpct.com/install.ps1 | iex</span><button class="copy-btn" onclick="copyInstall(this)">Copy</button></code></pre>
-          </div>
-          <div class="install-command" id="install-macos">
-            <pre><code><span class="prompt">$ </span><span class="cmd">curl -fsSL https://cipher.elevenpct.com/install.sh | bash</span><button class="copy-btn" onclick="copyInstall(this)">Copy</button></code></pre>
-          </div>
-          <div class="install-command" id="install-npm">
-            <pre><code><span class="prompt">$ </span><span class="cmd">npm install -g @cipher/cli</span><button class="copy-btn" onclick="copyInstall(this)">Copy</button></code></pre>
-          </div>
+        <div class="tab-content" id="install-mac">
+          <code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code>
+          <button class="copy-btn" onclick="copyInstall('install-mac', this)">Copy</button>
+        </div>
+        <div class="tab-content" id="install-linux">
+          <code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code>
+          <button class="copy-btn" onclick="copyInstall('install-linux', this)">Copy</button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Feature Badges -->
-    <div class="container">
-      <div class="feature-badges">
-        <div class="feature-badge">
-          <div class="feature-badge-icon">&#9889;</div>
-          <div class="feature-badge-text"><h4>LSP Enabled</h4><p>Auto-loads the right LSPs</p></div>
+    <!-- FEATURES -->
+    <section class="section">
+      <div class="section-label reveal">Capabilities</div>
+      <h2 class="reveal">What Cipher <em>does</em></h2>
+      <p class="section-desc reveal">Built for developers who want a coding agent that stays out of the way and gets the job done.</p>
+      <div class="features-grid">
+        <div class="feature-card reveal">
+          <span class="feature-tag tag-local">Agent</span>
+          <h3>Autonomous Execution</h3>
+          <p>Describes a plan, writes complete files, runs commands. No placeholders, no partial implementations.</p>
         </div>
-        <div class="feature-badge">
-          <div class="feature-badge-icon">&#9203;</div>
-          <div class="feature-badge-text"><h4>Multi-Session</h4><p>Parallel agents on same project</p></div>
+        <div class="feature-card reveal reveal-d1">
+          <span class="feature-tag tag-local">Terminal</span>
+          <h3>TUI Interface</h3>
+          <p>Full terminal app with chat input, message history, code diffs, settings panel, and keyboard shortcuts.</p>
         </div>
-        <div class="feature-badge">
-          <div class="feature-badge-icon">&#128279;</div>
-          <div class="feature-badge-text"><h4>Share Links</h4><p>Share any session for reference</p></div>
+        <div class="feature-card reveal reveal-d2">
+          <span class="feature-tag tag-local">Sandbox</span>
+          <h3>Project Isolation</h3>
+          <p>Only operates within your project directory. Cannot access files outside or use relative path escapes.</p>
         </div>
-        <div class="feature-badge">
-          <div class="feature-badge-icon">&#128737;</div>
-          <div class="feature-badge-text"><h4>Sandboxed</h4><p>Only touches project files</p></div>
+        <div class="feature-card reveal reveal-d3">
+          <span class="feature-tag tag-local">Diff</span>
+          <h3>Visual Code Diffs</h3>
+          <p>Green additions, red deletions. See exactly what changed before and after each file write.</p>
+        </div>
+        <div class="feature-card reveal">
+          <span class="feature-tag tag-local">Config</span>
+          <h3>Slash Commands</h3>
+          <p>15 built-in commands: /clear, /stats, /cd, /provider, /model, /config, /history, /help, and more.</p>
+        </div>
+        <div class="feature-card reveal reveal-d1">
+          <span class="feature-tag tag-local">Setup</span>
+          <h3>Interactive Setup</h3>
+          <p>Multi-screen provider and model selection. Walks you through choosing an AI provider and entering API keys.</p>
+        </div>
+        <div class="feature-card reveal reveal-d2">
+          <span class="feature-tag tag-local">Multi</span>
+          <h3>75+ Models</h3>
+          <p>27 providers across 4 categories: local free, cloud free, premium API, and enterprise. Switch anytime.</p>
+        </div>
+        <div class="feature-card reveal reveal-d3">
+          <span class="feature-tag tag-local">Open</span>
+          <h3>No Vendor Lock-in</h3>
+          <p>Uses LiteLLM as a unified layer. Switch providers without changing your workflow or configuration.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Features Section -->
-    <div class="section">
-      <div class="container">
-        <div class="section-header">
-          <div class="section-label">&#9733; Features</div>
-          <h2>Everything you need, nothing you don't</h2>
-          <p>Cipher is built for developers who want the power of AI without sacrificing control, privacy, or flexibility.</p>
-        </div>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-card-icon icon-lsp">&#9889;</div>
-            <h3>LSP Enabled</h3>
-            <p>Automatically loads the right Language Server Protocol for your project and LLM. Get intelligent code understanding without manual configuration.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-session">&#9203;</div>
-            <h3>Multi-Session</h3>
-            <p>Start multiple agents in parallel on the same project. Run refactoring in one session while debugging in another. True parallel development.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-share">&#128279;</div>
-            <h3>Share Links</h3>
-            <p>Share a link to any session for reference or to debug with your team. Collaborate asynchronously with full context preserved.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-github">&#128187;</div>
-            <h3>GitHub Copilot</h3>
-            <p>Log in with GitHub to use your Copilot account directly. No additional API keys needed if you already have a Copilot subscription.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-openai">&#129302;</div>
-            <h3>ChatGPT Plus/Pro</h3>
-            <p>Log in with OpenAI to use your ChatGPT Plus or Pro account. Leverage your existing subscription for coding tasks.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-models">&#127760;</div>
-            <h3>Any Model</h3>
-            <p>75+ LLM providers through Models.dev, including local models. Use Ollama, LM Studio, cloud APIs, or enterprise platforms. Your choice.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-sandbox">&#128737;</div>
-            <h3>Sandboxed</h3>
-            <p>Only touches files in your project directory. Your system files, configs, and personal data are never accessed. Safety by design.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card-icon icon-diff">&#9989;</div>
-            <h3>Visual Diff</h3>
-            <p>Green/red code diffs with expandable explanations. See exactly what changed and why before accepting any modifications.</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- PROVIDERS -->
+    <section class="section">
+      <div class="section-label reveal">Providers</div>
+      <h2 class="reveal">Every <em>major AI provider</em></h2>
+      <p class="section-desc reveal">Local models, free cloud tiers, premium APIs, and enterprise platforms. Pick what fits your workflow.</p>
 
-    <!-- Providers Section -->
-    <div class="section" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
-      <div class="container">
-        <div class="section-header">
-          <div class="section-label">&#127760; Providers</div>
-          <h2>75+ AI providers supported</h2>
-          <p>From local models running on your machine to enterprise-grade cloud APIs. Cipher works with everything.</p>
-        </div>
-        <div class="providers-grid">
-          <!-- Free/Local -->
-          <div class="provider-category">
-            <h3><span class="cat-icon cat-free">&#128187;</span> Free / Local <span class="provider-tag tag-free">No API Key</span></h3>
-            <div class="provider-list">
-              <div class="provider-item">
-                <div class="provider-name">Ollama</div>
-                <div class="provider-models">qwen3:14b, qwen3:32b, llama3.3:70b, deepseek-r1:32b, codestral:22b, phi4:14b, mistral:7b, gemma3:12b, llama3.1:8b, qwen2.5-coder:32b</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">LM Studio</div>
-                <div class="provider-models">Any model via local OpenAI-compatible server</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">vLLM</div>
-                <div class="provider-models">Local OpenAI-compatible server with high throughput</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">llama.cpp</div>
-                <div class="provider-models">Local GGUF models with CPU/GPU inference</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Jan.ai</div>
-                <div class="provider-models">Local desktop app for running LLMs offline</div>
-              </div>
-            </div>
+      <div class="provider-category reveal">
+        <h3>Local - Free (No API Key)</h3>
+        <div class="provider-grid">
+          <div class="provider-card">
+            <h4>OLLAMA</h4>
+            <p>Local models via ollama run</p>
+            <div class="models">qwen3, llama3.3, deepseek-r1, codestral, phi4, gemma3</div>
           </div>
-          <!-- Cloud Free -->
-          <div class="provider-category">
-            <h3><span class="cat-icon cat-cloud">&#9729;</span> Cloud Free Tiers <span class="provider-tag tag-free">Free Tier</span></h3>
-            <div class="provider-list">
-              <div class="provider-item">
-                <div class="provider-name">DeepSeek</div>
-                <div class="provider-models">Chat V3, Coder, Reasoner R1</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Groq</div>
-                <div class="provider-models">llama-3.3-70b, mixtral-8x7b, gemma2-9b, deepseek-r1-distill</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Google Gemini</div>
-                <div class="provider-models">gemini-2.0-flash, gemini-2.5-pro, gemini-2.5-flash</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">HuggingFace</div>
-                <div class="provider-models">Free inference API for thousands of models</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Fireworks AI</div>
-                <div class="provider-models">llama-v3p3-70b, qwen2p5-coder-32b</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Azure AI</div>
-                <div class="provider-models">Free tier models with Azure credits</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Cohere Command</div>
-                <div class="provider-models">Free tier with command-r and command-r-plus</div>
-              </div>
-            </div>
+          <div class="provider-card">
+            <h4>LM STUDIO</h4>
+            <p>Local OpenAI-compatible server</p>
+            <div class="models">Any GGUF model</div>
           </div>
-          <!-- Premium -->
-          <div class="provider-category">
-            <h3><span class="cat-icon cat-premium">&#11088;</span> Premium <span class="provider-tag tag-api">API Key</span></h3>
-            <div class="provider-list">
-              <div class="provider-item">
-                <div class="provider-name">OpenAI</div>
-                <div class="provider-models">gpt-4o, gpt-4.1, gpt-4.1-mini, o1, o3-mini, o4-mini</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Anthropic</div>
-                <div class="provider-models">claude-sonnet-4, claude-opus-4, claude-3.7-sonnet, claude-3.5-haiku</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Mistral</div>
-                <div class="provider-models">mistral-large, codestral, ministral-8b</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">xAI / Grok</div>
-                <div class="provider-models">grok-3, grok-3-mini</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Together AI</div>
-                <div class="provider-models">llama-3.3-70b, qwen2.5-72b, llama-3.1-405b</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">OpenRouter</div>
-                <div class="provider-models">100+ models including all major providers</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Perplexity</div>
-                <div class="provider-models">sonar, sonar-pro, sonar-reasoning</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Cerebras</div>
-                <div class="provider-models">llama-3.3-70b, llama-3.1-70b (inference-speed)</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">DeepInfra</div>
-                <div class="provider-models">Various open models at competitive pricing</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Sambanova</div>
-                <div class="provider-models">llama-3.1-405b, mixtral (ultra-low latency)</div>
-              </div>
-            </div>
+          <div class="provider-card">
+            <h4>vLLM</h4>
+            <p>High-throughput local serving</p>
+            <div class="models">Any HF model</div>
           </div>
-          <!-- Enterprise -->
-          <div class="provider-category">
-            <h3><span class="cat-icon cat-enterprise">&#127970;</span> Enterprise <span class="provider-tag tag-enterprise">Enterprise</span></h3>
-            <div class="provider-list">
-              <div class="provider-item">
-                <div class="provider-name">AWS Bedrock</div>
-                <div class="provider-models">claude, llama, titan models via AWS infrastructure</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Google Vertex AI</div>
-                <div class="provider-models">gemini, codey models with GCP integration</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Azure OpenAI Service</div>
-                <div class="provider-models">gpt-4, gpt-3.5-turbo with enterprise SLA</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">IBM Watsonx</div>
-                <div class="provider-models">granite models with enterprise governance</div>
-              </div>
-              <div class="provider-item">
-                <div class="provider-name">Oracle Cloud AI</div>
-                <div class="provider-models">cohere, llama models on OCI infrastructure</div>
-              </div>
-            </div>
+          <div class="provider-card">
+            <h4>llama.cpp</h4>
+            <p>Local GGUF inference</p>
+            <div class="models">Any GGUF model</div>
+          </div>
+          <div class="provider-card">
+            <h4>Jan.ai</h4>
+            <p>Local desktop app</p>
+            <div class="models">Any supported model</div>
           </div>
         </div>
       </div>
-    </div>
+
+      <div class="provider-category reveal">
+        <h3>Cloud - Free Tiers</h3>
+        <div class="provider-grid">
+          <div class="provider-card">
+            <h4>DEEPSEEK</h4>
+            <p>Free tier, strong at coding</p>
+            <div class="models">Chat V3, Coder, Reasoner R1</div>
+          </div>
+          <div class="provider-card">
+            <h4>GROQ</h4>
+            <p>Fastest inference</p>
+            <div class="models">Llama 3.3 70B, Mixtral, Gemma 2</div>
+          </div>
+          <div class="provider-card">
+            <h4>GEMINI</h4>
+            <p>Google, free tier</p>
+            <div class="models">2.0 Flash, 2.5 Pro, 2.5 Flash</div>
+          </div>
+          <div class="provider-card">
+            <h4>FIREWORKS AI</h4>
+            <p>Free tier, fast</p>
+            <div class="models">Llama 3.3, Qwen2.5 Coder</div>
+          </div>
+          <div class="provider-card">
+            <h4>HUGGINGFACE</h4>
+            <p>Free inference API</p>
+            <div class="models">100K+ models</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="provider-category reveal">
+        <h3>Premium - API Key</h3>
+        <div class="provider-grid">
+          <div class="provider-card">
+            <h4>OPENAI</h4>
+            <p>GPT and o-series models</p>
+            <div class="models">GPT-4o, GPT-4.1, o1, o3, o4</div>
+          </div>
+          <div class="provider-card">
+            <h4>ANTHROPIC</h4>
+            <p>Claude family</p>
+            <div class="models">Sonnet 4, Opus 4, 3.7 Sonnet</div>
+          </div>
+          <div class="provider-card">
+            <h4>OPENROUTER</h4>
+            <p>100+ models, single API</p>
+            <div class="models">All major providers</div>
+          </div>
+          <div class="provider-card">
+            <h4>MISTRAL</h4>
+            <p>European, open-weight</p>
+            <div class="models">Large, Codestral, Ministral</div>
+          </div>
+          <div class="provider-card">
+            <h4>XAI</h4>
+            <p>Grok models</p>
+            <div class="models">Grok 3, Grok 3 Mini</div>
+          </div>
+          <div class="provider-card">
+            <h4>TOGETHER AI</h4>
+            <p>Open model serving</p>
+            <div class="models">Llama, Qwen, DeepSeek</div>
+          </div>
+          <div class="provider-card">
+            <h4>PERPLEXITY</h4>
+            <p>Web-connected reasoning</p>
+            <div class="models">Sonar, Sonar Pro</div>
+          </div>
+          <div class="provider-card">
+            <h4>COHERE</h4>
+            <p>Command series</p>
+            <div class="models">Command R+, Command R</div>
+          </div>
+          <div class="provider-card">
+            <h4>CEREBRAS</h4>
+            <p>Wafer-scale inference</p>
+            <div class="models">Llama 3.3 70B</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="provider-category reveal">
+        <h3>Enterprise</h3>
+        <div class="provider-grid">
+          <div class="provider-card">
+            <h4>AWS BEDROCK</h4>
+            <p>Managed model access</p>
+            <div class="models">Claude, Llama, Titan</div>
+          </div>
+          <div class="provider-card">
+            <h4>GOOGLE VERTEX AI</h4>
+            <p>GCP enterprise</p>
+            <div class="models">Gemini, Codey</div>
+          </div>
+          <div class="provider-card">
+            <h4>AZURE OPENAI</h4>
+            <p>Enterprise GPT</p>
+            <div class="models">GPT-4, GPT-3.5 Turbo</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- CTA -->
-    <div class="cta">
-      <div class="container">
-        <h2>Ready to build faster?</h2>
-        <p>Install Cipher in seconds and start coding with AI.</p>
-        <div class="cta-buttons">
-          <a class="btn btn-primary" onclick="navigate('docs')">Read the Docs</a>
-          <a class="btn btn-secondary" href="https://github.com/cipher-agent/cipher" target="_blank">View on GitHub</a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-      <div class="container">
-        <div class="footer-inner">
-          <div class="footer-left">
-            <span class="footer-version">v0.3.0</span>
-            <span class="footer-mit">MIT License</span>
-            <span class="footer-copy">&copy; 2026 Cipher</span>
-          </div>
-          <div class="footer-links">
-            <a onclick="navigate('docs')">Docs</a>
-            <a onclick="navigate('changelog')">Changelog</a>
-            <a onclick="navigate('faq')">FAQ</a>
-            <a href="https://github.com/cipher-agent/cipher" target="_blank">GitHub</a>
-          </div>
-        </div>
-      </div>
-    </div>
+    <section class="cta-section">
+      <h2 class="reveal">Start <em>building</em></h2>
+      <p class="reveal reveal-d1">One command. Any AI. Your terminal.</p>
+      <a class="btn-primary reveal reveal-d2" onclick="navigate('home')">Install Cipher</a>
+    </section>
   </div>
 
   <!-- DOCS PAGE -->
   <div class="page" id="page-docs">
-    <div class="container-wide">
+    <div class="section">
       <div class="docs-layout">
         <aside class="docs-sidebar">
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">Getting Started</div>
-            <a class="docs-nav-item active" data-doc="install" onclick="switchDoc('install')">Install</a>
-            <a class="docs-nav-item" data-doc="quickstart" onclick="switchDoc('quickstart')">Quick Start</a>
-            <a class="docs-nav-item" data-doc="firstrun" onclick="switchDoc('firstrun')">First Run</a>
-          </div>
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">Configuration</div>
-            <a class="docs-nav-item" data-doc="configfile" onclick="switchDoc('configfile')">Config File</a>
-            <a class="docs-nav-item" data-doc="envvars" onclick="switchDoc('envvars')">Environment Variables</a>
-            <a class="docs-nav-item" data-doc="providers" onclick="switchDoc('providers')">Providers</a>
-          </div>
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">Usage</div>
-            <a class="docs-nav-item" data-doc="commands" onclick="switchDoc('commands')">Commands</a>
-            <a class="docs-nav-item" data-doc="chat" onclick="switchDoc('chat')">Chat</a>
-            <a class="docs-nav-item" data-doc="slash" onclick="switchDoc('slash')">Slash Commands</a>
-            <a class="docs-nav-item" data-doc="shortcuts" onclick="switchDoc('shortcuts')">Keyboard Shortcuts</a>
-          </div>
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">Advanced</div>
-            <a class="docs-nav-item" data-doc="sysprompt" onclick="switchDoc('sysprompt')">Custom System Prompt</a>
-            <a class="docs-nav-item" data-doc="isolation" onclick="switchDoc('isolation')">Project Isolation</a>
-            <a class="docs-nav-item" data-doc="apisetup" onclick="switchDoc('apisetup')">API Setup</a>
-          </div>
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">Troubleshooting</div>
-            <a class="docs-nav-item" data-doc="commonissues" onclick="switchDoc('commonissues')">Common Issues</a>
-            <a class="docs-nav-item" data-doc="debugmode" onclick="switchDoc('debugmode')">Debug Mode</a>
-            <a class="docs-nav-item" data-doc="logs" onclick="switchDoc('logs')">Logs</a>
-          </div>
-          <div class="docs-nav-group">
-            <div class="docs-nav-title">API Reference</div>
-            <a class="docs-nav-item" data-doc="providerconfig" onclick="switchDoc('providerconfig')">Provider Config</a>
-            <a class="docs-nav-item" data-doc="modelselection" onclick="switchDoc('modelselection')">Model Selection</a>
-          </div>
+          <h4>Getting Started</h4>
+          <a href="#install-docs" class="active">Install</a>
+          <a href="#quick-start">Quick Start</a>
+          <a href="#first-run">First Run</a>
+          <h4>Configuration</h4>
+          <a href="#config-file">Config File</a>
+          <a href="#env-vars">Environment Variables</a>
+          <a href="#providers-docs">Providers</a>
+          <h4>Usage</h4>
+          <a href="#commands">Commands</a>
+          <a href="#chat">Chat</a>
+          <a href="#slash-commands">Slash Commands</a>
+          <a href="#shortcuts">Keyboard Shortcuts</a>
+          <h4>Advanced</h4>
+          <a href="#system-prompt">System Prompt</a>
+          <a href="#project-isolation">Project Isolation</a>
+          <a href="#api-setup">API Key Setup</a>
+          <h4>Troubleshooting</h4>
+          <a href="#common-issues">Common Issues</a>
+          <a href="#debug">Debug Mode</a>
         </aside>
-        <main class="docs-content">
-          <!-- Install -->
-          <div class="docs-section active" id="doc-install">
-            <h1>Install Cipher</h1>
-            <p>Cipher can be installed on any platform with a single command. Choose your preferred method below.</p>
-            <h2>Recommended: Install Script</h2>
-            <p>The install script auto-detects your platform and installs the latest version.</p>
-            <div class="terminal-block">
-              <div class="terminal-header">
-                <div class="terminal-dots"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div></div>
-                <span class="terminal-title">terminal</span>
-              </div>
-              <div class="terminal-body">
-                <span class="comment"># macOS / Linux</span><br>
-                <span class="prompt">$ </span><span class="cmd">curl -fsSL https://cipher.elevenpct.com/install.sh | bash</span><br><br>
-                <span class="comment"># Windows (PowerShell)</span><br>
-                <span class="prompt">PS&gt; </span><span class="cmd">irm https://cipher.elevenpct.com/install.ps1 | iex</span>
-              </div>
-            </div>
-            <div class="doc-tip"><strong>Tip:</strong> The install script adds Cipher to your PATH automatically. No restart required.</div>
-            <h2>Alternative: npm (Future)</h2>
-            <p>When available, install via npm:</p>
-            <pre><code>npm install -g @cipher/cli</code></pre>
-            <h2>Verify Installation</h2>
-            <pre><code>cipher --version</code></pre>
-            <p>You should see <code>v0.3.0</code> or later.</p>
-            <h2>Requirements</h2>
-            <ul>
-              <li><strong>OS:</strong> Windows 10+, macOS 12+, or Linux (Ubuntu 20.04+, Debian 11+, etc.)</li>
-              <li><strong>Node.js:</strong> 18+ (only for npm install method)</li>
-              <li><strong>RAM:</strong> 4GB minimum (8GB recommended for local models)</li>
-              <li><strong>Internet:</strong> Required for cloud providers; optional for local models</li>
-            </ul>
-          </div>
-          <!-- Quick Start -->
-          <div class="docs-section" id="doc-quickstart">
-            <h1>Quick Start</h1>
-            <p>Get up and running with Cipher in under 2 minutes.</p>
-            <h2>Step 1: Navigate to your project</h2>
-            <pre><code>cd my-project</code></pre>
-            <h2>Step 2: Start Cipher</h2>
-            <pre><code>cipher</code></pre>
-            <h2>Step 3: Choose your provider</h2>
-            <p>On first run, Cipher will guide you through provider setup:</p>
-            <div class="terminal-block">
-              <div class="terminal-header">
-                <div class="terminal-dots"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div></div>
-                <span class="terminal-title">cipher setup</span>
-              </div>
-              <div class="terminal-body">
-                <span class="prompt">&gt; </span><span class="cmd">Choose an AI provider:</span><br>
-                <span class="cmd">  1. Ollama (free, local)</span><br>
-                <span class="cmd">  2. OpenAI (API key required)</span><br>
-                <span class="cmd">  3. Anthropic (API key required)</span><br>
-                <span class="cmd">  4. GitHub Copilot (login required)</span><br>
-                <span class="cmd">  5. Configure manually</span><br><br>
-                <span class="prompt">&gt; </span><span class="cmd">Select [1-5]: 1</span><br>
-                <span class="comment"># Ollama detected! Using qwen2.5-coder:32b</span><br>
-                <span class="comment"># Ready! Type a message to start coding...</span>
-              </div>
-            </div>
-            <h2>Step 4: Start coding</h2>
-            <pre><code>&gt; Create a REST API with Express.js for a todo app</code></pre>
-            <p>Cipher will analyze your project, understand the context, and generate the code with diffs you can review.</p>
-            <div class="doc-tip"><strong>Tip:</strong> Use <code>/help</code> to see all available slash commands at any time.</div>
-          </div>
-          <!-- First Run -->
-          <div class="docs-section" id="doc-firstrun">
-            <h1>First Run</h1>
-            <p>What happens when you run Cipher for the first time.</p>
-            <h2>Initialization</h2>
-            <p>On first run, Cipher creates a <code>.cipher/</code> directory in your project root:</p>
-            <pre><code>.cipher/
-  config.json      # Your provider and model settings
-  sessions/        # Session history
-  cache/           # LSP and model cache
-  logs/            # Debug logs</code></pre>
-            <h2>Provider Detection</h2>
-            <p>Cipher automatically scans for available providers:</p>
-            <ul>
-              <li>Checks if Ollama is running on <code>localhost:11434</code></li>
-              <li>Checks for <code>OLLAMA_BASE_URL</code> environment variable</li>
-              <li>Checks for API keys in environment (<code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, etc.)</li>
-              <li>Checks for GitHub Copilot token</li>
-            </ul>
-            <h2>Interactive Setup Wizard</h2>
-            <p>If no provider is detected, Cipher launches an interactive wizard to help you configure your first provider. The wizard supports all 75+ providers.</p>
-            <h2>Sandbox Boundaries</h2>
-            <p>Cipher establishes sandbox boundaries at startup:</p>
-            <ul>
-              <li>Only files within your project directory can be read or modified</li>
-              <li>System files, user home directory, and other projects are off-limits</li>
-              <li>Command execution requires explicit confirmation</li>
-            </ul>
-          </div>
-          <!-- Config File -->
-          <div class="docs-section" id="doc-configfile">
-            <h1>Configuration File</h1>
-            <p>Cipher uses a <code>config.json</code> file in your project's <code>.cipher/</code> directory.</p>
-            <h2>Example Config</h2>
-            <div class="terminal-block">
-              <div class="terminal-header">
-                <div class="terminal-dots"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div></div>
-                <span class="terminal-title">.cipher/config.json</span>
-              </div>
-              <div class="terminal-body">
-                <span class="key">{</span><br>
-                &nbsp;&nbsp;<span class="key">"provider"</span>: <span class="string">"ollama"</span>,<br>
-                &nbsp;&nbsp;<span class="key">"model"</span>: <span class="string">"qwen2.5-coder:32b"</span>,<br>
-                &nbsp;&nbsp;<span class="key">"temperature"</span>: <span class="value">0.7</span>,<br>
-                &nbsp;&nbsp;<span class="key">"max_tokens"</span>: <span class="value">4096</span>,<br>
-                &nbsp;&nbsp;<span class="key">"system_prompt"</span>: <span class="string">"You are a senior developer..."</span>,<br>
-                &nbsp;&nbsp;<span class="key">"sandbox"</span>: <span class="key">true</span>,<br>
-                &nbsp;&nbsp;<span class="key">"auto_apply"</span>: <span class="key">false</span>,<br>
-                &nbsp;&nbsp;<span class="key">"context_files"</span>: <span class="key">[</span><span class="string">"**/*.ts"</span>, <span class="string">"**/*.js"</span><span class="key">]</span>,<br>
-                &nbsp;&nbsp;<span class="key">"exclude"</span>: <span class="key">[</span><span class="string">"node_modules"</span>, <span class="string">"dist"</span><span class="key">]</span><br>
-                <span class="key">}</span>
-              </div>
-            </div>
-            <h2>Configuration Options</h2>
-            <table class="doc-table">
-              <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>provider</code></td><td>string</td><td>"ollama"</td><td>AI provider identifier</td></tr>
-                <tr><td><code>model</code></td><td>string</td><td>"qwen2.5-coder:32b"</td><td>Model name/identifier</td></tr>
-                <tr><td><code>temperature</code></td><td>number</td><td>0.7</td><td>Sampling temperature (0.0-2.0)</td></tr>
-                <tr><td><code>max_tokens</code></td><td>number</td><td>4096</td><td>Maximum response tokens</td></tr>
-                <tr><td><code>system_prompt</code></td><td>string</td><td>""</td><td>Custom system prompt</td></tr>
-                <tr><td><code>sandbox</code></td><td>boolean</td><td>true</td><td>Enable file sandboxing</td></tr>
-                <tr><td><code>auto_apply</code></td><td>boolean</td><td>false</td><td>Auto-apply diffs without confirmation</td></tr>
-                <tr><td><code>context_files</code></td><td>array</td><td>["**/*"]</td><td>Glob patterns for context files</td></tr>
-                <tr><td><code>exclude</code></td><td>array</td><td>["node_modules"]</td><td>Paths to exclude from context</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Env Vars -->
-          <div class="docs-section" id="doc-envvars">
-            <h1>Environment Variables</h1>
-            <p>Configure Cipher using environment variables for CI/CD or shared setups.</p>
-            <h2>Core Variables</h2>
-            <table class="doc-table">
-              <thead><tr><th>Variable</th><th>Description</th><th>Example</th></tr></thead>
-              <tbody>
-                <tr><td><code>CIPHER_PROVIDER</code></td><td>Default AI provider</td><td><code>openai</code></td></tr>
-                <tr><td><code>CIPHER_MODEL</code></td><td>Default model</td><td><code>gpt-4o</code></td></tr>
-                <tr><td><code>CIPHER_TEMPERATURE</code></td><td>Sampling temperature</td><td><code>0.7</code></td></tr>
-                <tr><td><code>CIPHER_DEBUG</code></td><td>Enable debug logging</td><td><code>true</code></td></tr>
-                <tr><td><code>CIPHER_CONFIG</code></td><td>Custom config path</td><td><code>./my-config.json</code></td></tr>
-              </tbody>
-            </table>
-            <h2>Provider API Keys</h2>
-            <table class="doc-table">
-              <thead><tr><th>Variable</th><th>Provider</th></tr></thead>
-              <tbody>
-                <tr><td><code>OPENAI_API_KEY</code></td><td>OpenAI</td></tr>
-                <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic</td></tr>
-                <tr><td><code>GROQ_API_KEY</code></td><td>Groq</td></tr>
-                <tr><td><code>DEEPSEEK_API_KEY</code></td><td>DeepSeek</td></tr>
-                <tr><td><code>GOOGLE_API_KEY</code></td><td>Google Gemini</td></tr>
-                <tr><td><code>MISTRAL_API_KEY</code></td><td>Mistral</td></tr>
-                <tr><td><code>XAI_API_KEY</code></td><td>xAI / Grok</td></tr>
-                <tr><td><code>COHERE_API_KEY</code></td><td>Cohere</td></tr>
-                <tr><td><code>OPENROUTER_API_KEY</code></td><td>OpenRouter</td></tr>
-                <tr><td><code>TOGETHER_API_KEY</code></td><td>Together AI</td></tr>
-                <tr><td><code>FIREWORKS_API_KEY</code></td><td>Fireworks AI</td></tr>
-                <tr><td><code>PERPLEXITY_API_KEY</code></td><td>Perplexity</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Providers Doc -->
-          <div class="docs-section" id="doc-providers">
-            <h1>Provider Configuration</h1>
-            <p>Detailed setup instructions for each provider type.</p>
-            <h2>Local Providers</h2>
-            <h3>Ollama</h3>
-            <pre><code># Install Ollama first: https://ollama.ai
-ollama pull qwen2.5-coder:32b
+        <div class="docs-content">
+          <h1>Documentation</h1>
+          <p class="docs-version">v0.0.3 - Last updated May 2026</p>
 
-# Cipher auto-detects running Ollama instances
-# Or set manually:
-export OLLAMA_BASE_URL=http://localhost:11434</code></pre>
-            <h3>LM Studio</h3>
-            <pre><code># Start LM Studio server, then:
-export CIPHER_PROVIDER=openai
-export CIPHER_MODEL=local-model
-export OPENAI_API_BASE_URL=http://localhost:1234/v1
-export OPENAI_API_KEY=not-needed</code></pre>
-            <h2>Cloud Providers</h2>
-            <h3>OpenAI</h3>
-            <pre><code>export CIPHER_PROVIDER=openai
-export CIPHER_MODEL=gpt-4o
-export OPENAI_API_KEY=sk-...</code></pre>
-            <h3>Anthropic</h3>
-            <pre><code>export CIPHER_PROVIDER=anthropic
-export CIPHER_MODEL=claude-sonnet-4
-export ANTHROPIC_API_KEY=sk-ant-...</code></pre>
-            <h3>GitHub Copilot</h3>
-            <pre><code># Interactive login:
-cipher auth github
+          <h2 id="install-docs">Install</h2>
+          <p>Cipher requires Python 3.10 or higher. The installer handles everything else.</p>
+          <h3>Windows</h3>
+          <pre><code>irm https://cipher.elevenpct.com/install.ps1 | iex</code></pre>
+          <h3>macOS / Linux</h3>
+          <pre><code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code></pre>
+          <div class="docs-tip">
+            <strong>Tip:</strong> Make sure Python is installed first. On macOS: <code>brew install python3</code>. On Linux: <code>sudo apt install python3 python3-pip</code>.
+          </div>
 
-# Or use existing token:
-export GITHUB_COPILOT_TOKEN=your-token-here</code></pre>
-            <h2>Enterprise Providers</h2>
-            <p>Enterprise providers (AWS Bedrock, Azure OpenAI, Google Vertex) require additional configuration. See the <code>apisetup</code> section for details.</p>
-          </div>
-          <!-- Commands -->
-          <div class="docs-section" id="doc-commands">
-            <h1>Commands</h1>
-            <p>All available Cipher CLI commands.</p>
-            <table class="doc-table">
-              <thead><tr><th>Command</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>cipher</code></td><td>Start interactive session</td></tr>
-                <tr><td><code>cipher init</code></td><td>Initialize Cipher in current project</td></tr>
-                <tr><td><code>cipher auth</code></td><td>Manage authentication</td></tr>
-                <tr><td><code>cipher config</code></td><td>Open config in editor</td></tr>
-                <tr><td><code>cipher list</code></td><td>List available providers</td></tr>
-                <tr><td><code>cipher models</code></td><td>List available models</td></tr>
-                <tr><td><code>cipher share</code></td><td>Share current session</td></tr>
-                <tr><td><code>cipher sessions</code></td><td>List saved sessions</td></tr>
-                <tr><td><code>cipher update</code></td><td>Update to latest version</td></tr>
-                <tr><td><code>cipher --version</code></td><td>Show version</td></tr>
-                <tr><td><code>cipher --help</code></td><td>Show help</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Chat -->
-          <div class="docs-section" id="doc-chat">
-            <h1>Chat</h1>
-            <p>Interacting with Cipher through the chat interface.</p>
-            <h2>Basic Chat</h2>
-            <p>After starting <code>cipher</code>, simply type your request:</p>
-            <div class="terminal-block">
-              <div class="terminal-header">
-                <div class="terminal-dots"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div></div>
-                <span class="terminal-title">cipher</span>
-              </div>
-              <div class="terminal-body">
-                <span class="comment">// Connected to ollama (qwen2.5-coder:32b)</span><br>
-                <span class="comment">// 14 files loaded as context</span><br><br>
-                <span class="prompt">&gt; </span><span class="cmd">Add error handling to the auth middleware</span><br><br>
-                <span class="comment">// Cipher analyzes your code and proposes changes...</span><br>
-                <span class="comment">// Proposed changes (3 files):</span><br>
-                <span class="value">+ </span><span class="cmd">src/middleware/auth.ts</span><br>
-                <span class="value">+ </span><span class="cmd">src/types/errors.ts</span><br>
-                <span class="value">+ </span><span class="cmd">src/utils/logger.ts</span><br><br>
-                <span class="prompt">&gt; </span><span class="cmd">Apply? (y/n/diff): </span>
-              </div>
-            </div>
-            <h2>Multi-turn Conversations</h2>
-            <p>Cipher maintains conversation context across messages. Reference previous changes naturally:</p>
-            <pre><code>&gt; Add error handling to the auth middleware
-// ...changes applied...
-&gt; Now add unit tests for the new error handlers</code></pre>
-            <h2>File References</h2>
-            <p>Reference specific files in your messages:</p>
-            <pre><code>&gt; Refactor src/utils/parser.ts to handle CSV format</code></pre>
-          </div>
-          <!-- Slash Commands -->
-          <div class="docs-section" id="doc-slash">
-            <h1>Slash Commands</h1>
-            <p>Special commands available during a session (prefix with <code>/</code>).</p>
-            <table class="doc-table">
-              <thead><tr><th>Command</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>/help</code></td><td>Show available commands</td></tr>
-                <tr><td><code>/clear</code></td><td>Clear conversation history</td></tr>
-                <tr><td><code>/model [name]</code></td><td>Switch AI model</td></tr>
-                <tr><td><code>/provider [name]</code></td><td>Switch AI provider</td></tr>
-                <tr><td><code>/config</code></td><td>Show current configuration</td></tr>
-                <tr><td><code>/tokens</code></td><td>Show token usage stats</td></tr>
-                <tr><td><code>/share</code></td><td>Generate share link</td></tr>
-                <tr><td><code>/save</code></td><td>Save current session</td></tr>
-                <tr><td><code>/load [name]</code></td><td>Load a saved session</td></tr>
-                <tr><td><code>/sessions</code></td><td>List saved sessions</td></tr>
-                <tr><td><code>/files</code></td><td>Show loaded context files</td></tr>
-                <tr><td><code>/diff</code></td><td>Show pending changes as diff</td></tr>
-                <tr><td><code>/undo</code></td><td>Undo last applied change</td></tr>
-                <tr><td><code>/exit</code></td><td>Exit Cipher</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Shortcuts -->
-          <div class="docs-section" id="doc-shortcuts">
-            <h1>Keyboard Shortcuts</h1>
-            <p>Navigation and productivity shortcuts in the chat interface.</p>
-            <table class="doc-table">
-              <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
-              <tbody>
-                <tr><td><code>Enter</code></td><td>Send message</td></tr>
-                <tr><td><code>Shift+Enter</code></td><td>New line</td></tr>
-                <tr><td><code>Ctrl+C</code></td><td>Cancel / Interrupt</td></tr>
-                <tr><td><code>Ctrl+L</code></td><td>Clear screen</td></tr>
-                <tr><td><code>Ctrl+K</code></td><td>Clear conversation</td></tr>
-                <tr><td><code>Up Arrow</code></td><td>Previous message</td></tr>
-                <tr><td><code>Ctrl+Up/Down</code></td><td>Scroll history</td></tr>
-                <tr><td><code>Tab</code></td><td>Autocomplete command</td></tr>
-                <tr><td><code>Ctrl+R</code></td><td>Reverse search history</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- System Prompt -->
-          <div class="docs-section" id="doc-sysprompt">
-            <h1>Custom System Prompt</h1>
-            <p>Customize Cipher's behavior with a custom system prompt.</p>
-            <h2>Setting a System Prompt</h2>
-            <p>In your <code>.cipher/config.json</code>:</p>
-            <pre><code>{
-  "system_prompt": "You are a senior TypeScript developer. Follow these rules:\n- Always use strict null checks\n- Prefer interfaces over types\n- Write comprehensive JSDoc comments\n- Use async/await over promises"
+          <h2 id="quick-start">Quick Start</h2>
+          <pre><code># Navigate to your project
+cd my-project
+
+# Run setup (interactive)
+cip --setup
+
+# Start coding
+cip</code></pre>
+
+          <h2 id="first-run">First Run</h2>
+          <p>On first run, Cipher will guide you through selecting an AI provider and model. You will see:</p>
+          <ol style="color: var(--text-secondary); padding-left: 20px; margin-bottom: 16px;">
+            <li>A list of providers grouped by Free / API Key</li>
+            <li>Click a provider to select it</li>
+            <li>If the provider has multiple models, choose one</li>
+            <li>If an API key is needed, you will be prompted to enter it</li>
+          </ol>
+          <p>Your selection is saved to <code>~/.cipher/config.json</code> and used for future sessions.</p>
+
+          <h2 id="config-file">Config File</h2>
+          <p>Cipher saves settings to <code>~/.cipher/config.json</code>:</p>
+          <pre><code>{
+  "provider": "ollama",
+  "model": "ollama/qwen3:14b",
+  "show_plan": true,
+  "show_code": true,
+  "show_diff": true,
+  "show_tool_exec": true,
+  "compact_mode": false,
+  "auto_confirm": false,
+  "expand_explanations": false
 }</code></pre>
-            <h2>Per-Project Prompts</h2>
-            <p>Each project can have its own system prompt. This is useful for enforcing project-specific conventions.</p>
-            <h2>Dynamic Variables</h2>
-            <p>System prompts support dynamic variables:</p>
-            <ul>
-              <li><code>{{project_name}}</code> - Current project directory name</li>
-              <li><code>{{language}}</code> - Detected primary language</li>
-              <li><code>{{framework}}</code> - Detected framework (React, Express, etc.)</li>
-              <li><code>{{date}}</code> - Current date</li>
-            </ul>
-          </div>
-          <!-- Isolation -->
-          <div class="docs-section" id="doc-isolation">
-            <h1>Project Isolation</h1>
-            <p>How Cipher keeps your project safe.</p>
-            <h2>Sandbox Model</h2>
-            <p>Cipher operates within a strict sandbox:</p>
-            <ul>
-              <li><strong>Read access:</strong> Only files within your project directory</li>
-              <li><strong>Write access:</strong> Only files within your project directory</li>
-              <li><strong>Command execution:</strong> Requires explicit user confirmation</li>
-              <li><strong>Network access:</strong> Only for AI provider API calls</li>
-            </ul>
-            <h2>Excluded Paths</h2>
-            <p>By default, Cipher ignores these directories:</p>
-            <pre><code>"exclude": [
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  ".next",
-  "coverage",
-  ".cipher"
-]</code></pre>
-            <h2>Override Sandbox</h2>
-            <p>For trusted projects, you can disable sandboxing:</p>
-            <pre><code>{
-  "sandbox": false
-}</code></pre>
-            <div class="doc-tip"><strong>Warning:</strong> Disabling sandbox allows Cipher to read/write files outside your project directory. Only do this if you fully trust the AI provider and your configuration.</div>
-          </div>
-          <!-- API Setup -->
-          <div class="docs-section" id="doc-apisetup">
-            <h1>API Setup Guide</h1>
-            <p>Step-by-step guides for setting up popular API providers.</p>
-            <h2>OpenAI</h2>
-            <ol>
-              <li>Go to <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
-              <li>Sign up or log in</li>
-              <li>Navigate to API Keys section</li>
-              <li>Create a new API key</li>
-              <li>Set environment variable: <code>export OPENAI_API_KEY=sk-...</code></li>
-            </ol>
-            <h2>Anthropic</h2>
-            <ol>
-              <li>Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></li>
-              <li>Sign up or log in</li>
-              <li>Navigate to API Keys</li>
-              <li>Create a new API key</li>
-              <li>Set environment variable: <code>export ANTHROPIC_API_KEY=sk-ant-...</code></li>
-            </ol>
-            <h2>AWS Bedrock</h2>
-            <ol>
-              <li>Open AWS Console</li>
-              <li>Navigate to Amazon Bedrock</li>
-              <li>Request model access for Claude/LLaMA</li>
-              <li>Configure IAM credentials</li>
-              <li>Set <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code></li>
-            </ol>
-          </div>
-          <!-- Common Issues -->
-          <div class="docs-section" id="doc-commonissues">
-            <h1>Common Issues</h1>
-            <p>Solutions to frequently encountered problems.</p>
-            <h2>"Provider not found"</h2>
-            <p>Ensure your provider is correctly configured. Run <code>cipher list</code> to see available providers.</p>
-            <h2>"Model not available"</h2>
-            <p>The specified model may not be supported by your provider. Run <code>cipher models</code> to list compatible models.</p>
-            <h2>"Connection refused" (Ollama)</h2>
-            <p>Make sure Ollama is running:</p>
-            <pre><code>ollama serve</code></pre>
-            <h2>"Rate limit exceeded"</h2>
-            <p>Your API key has hit rate limits. Wait a few minutes or switch to a different provider.</p>
-            <h2>"Permission denied" (macOS/Linux)</h2>
-            <p>Make the install script executable:</p>
-            <pre><code>chmod +x install.sh
-./install.sh</code></pre>
-          </div>
-          <!-- Debug Mode -->
-          <div class="docs-section" id="doc-debugmode">
-            <h1>Debug Mode</h1>
-            <p>Enable verbose logging for troubleshooting.</p>
-            <h2>Enable Debug Mode</h2>
-            <pre><code># Via environment variable:
-export CIPHER_DEBUG=true
+          <p>You can edit this file directly or use the settings panel (Ctrl+S) in the TUI.</p>
 
-# Via command flag:
-cipher --debug
+          <h2 id="env-vars">Environment Variables</h2>
+          <table>
+            <tr><th>Variable</th><th>Description</th></tr>
+            <tr><td><code>CIPHER_PROVIDER</code></td><td>Provider ID (ollama, openai, etc.)</td></tr>
+            <tr><td><code>CIPHER_MODEL</code></td><td>Model ID (ollama/qwen3:14b, etc.)</td></tr>
+            <tr><td><code>OPENAI_API_KEY</code></td><td>OpenAI API key</td></tr>
+            <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic API key</td></tr>
+            <tr><td><code>GROQ_API_KEY</code></td><td>Groq API key</td></tr>
+          </table>
 
-# Via config:
-{
-  "debug": true
-}</code></pre>
-            <h2>Debug Output</h2>
-            <p>Debug mode shows:</p>
-            <ul>
-              <li>API request/response payloads</li>
-              <li>Token usage per message</li>
-              <li>File loading and context building</li>
-              <li>LSP connection status</li>
-              <li>Sandbox access logs</li>
-            </ul>
-          </div>
-          <!-- Logs -->
-          <div class="docs-section" id="doc-logs">
-            <h1>Logs</h1>
-            <p>Understanding and accessing Cipher logs.</p>
-            <h2>Log Location</h2>
-            <pre><code># Project-level logs:
-.cipher/logs/cipher.log
+          <h2 id="commands">Commands</h2>
+          <pre><code># Start with interactive setup
+cip --setup
 
-# Global logs:
-~/.cipher/logs/cipher.log</code></pre>
-            <h2>Log Format</h2>
-            <pre><code>[2026-01-15 10:30:00] [INFO] Provider initialized: ollama
-[2026-01-15 10:30:01] [INFO] Model loaded: qwen2.5-coder:32b
-[2026-01-15 10:30:02] [INFO] Context: 14 files, 8,234 tokens
-[2026-01-15 10:30:15] [INFO] User message: "Add error handling"
-[2026-01-15 10:30:22] [INFO] Response: 1,456 tokens (3 files changed)</code></pre>
-            <h2>Log Levels</h2>
-            <ul>
-              <li><code>INFO</code> - Normal operation messages</li>
-              <li><code>WARN</code> - Non-critical warnings</li>
-              <li><code>ERROR</code> - Errors that require attention</li>
-              <li><code>DEBUG</code> - Verbose debugging (only in debug mode)</li>
-            </ul>
-          </div>
-          <!-- Provider Config Reference -->
-          <div class="docs-section" id="doc-providerconfig">
-            <h1>Provider Config Reference</h1>
-            <p>Complete provider configuration reference.</p>
-            <h2>Provider Identifiers</h2>
-            <table class="doc-table">
-              <thead><tr><th>Identifier</th><th>Provider</th><th>API Key Env Var</th></tr></thead>
-              <tbody>
-                <tr><td><code>ollama</code></td><td>Ollama</td><td>None (local)</td></tr>
-                <tr><td><code>openai</code></td><td>OpenAI</td><td><code>OPENAI_API_KEY</code></td></tr>
-                <tr><td><code>anthropic</code></td><td>Anthropic</td><td><code>ANTHROPIC_API_KEY</code></td></tr>
-                <tr><td><code>groq</code></td><td>Groq</td><td><code>GROQ_API_KEY</code></td></tr>
-                <tr><td><code>deepseek</code></td><td>DeepSeek</td><td><code>DEEPSEEK_API_KEY</code></td></tr>
-                <tr><td><code>google</code></td><td>Google Gemini</td><td><code>GOOGLE_API_KEY</code></td></tr>
-                <tr><td><code>mistral</code></td><td>Mistral</td><td><code>MISTRAL_API_KEY</code></td></tr>
-                <tr><td><code>xai</code></td><td>xAI / Grok</td><td><code>XAI_API_KEY</code></td></tr>
-                <tr><td><code>openrouter</code></td><td>OpenRouter</td><td><code>OPENROUTER_API_KEY</code></td></tr>
-                <tr><td><code>cohere</code></td><td>Cohere</td><td><code>COHERE_API_KEY</code></td></tr>
-                <tr><td><code>together</code></td><td>Together AI</td><td><code>TOGETHER_API_KEY</code></td></tr>
-                <tr><td><code>perplexity</code></td><td>Perplexity</td><td><code>PERPLEXITY_API_KEY</code></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Model Selection -->
-          <div class="docs-section" id="doc-modelselection">
-            <h1>Model Selection</h1>
-            <p>How to choose and switch between models.</p>
-            <h2>Listing Models</h2>
-            <pre><code># List available models for current provider
-cipher models
+# Specify provider and model
+cip --provider ollama --model ollama/qwen3:14b
 
-# List all models across all providers
-cipher models --all</code></pre>
-            <h2>Switching Models</h2>
-            <p>During a session:</p>
-            <pre><code>&gt; /model gpt-4o
-Switched to gpt-4o (openai)</code></pre>
-            <h2>Recommended Models by Task</h2>
-            <table class="doc-table">
-              <thead><tr><th>Task</th><th>Recommended Model</th></tr></thead>
-              <tbody>
-                <tr><td>General coding</td><td><code>claude-sonnet-4</code>, <code>gpt-4o</code></td></tr>
-                <tr><td>Complex refactoring</td><td><code>claude-opus-4</code>, <code>gpt-4.1</code></td></tr>
-                <tr><td>Quick edits</td><td><code>claude-3.5-haiku</code>, <code>gpt-4.1-mini</code></td></tr>
-                <tr><td>Local/offline</td><td><code>qwen2.5-coder:32b</code>, <code>codestral:22b</code></td></tr>
-                <tr><td>Budget-friendly</td><td><code>deepseek-chat-v3</code>, <code>gemma2-9b</code></td></tr>
-                <tr><td>Reasoning</td><td><code>o1</code>, <code>deepseek-r1</code>, <code>claude-3.7-sonnet</code></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </main>
+# Specify working directory
+cip --dir /path/to/project
+
+# Use custom API key
+cip --api-key your-key-here</code></pre>
+
+          <h2 id="slash-commands">Slash Commands</h2>
+          <table>
+            <tr><th>Command</th><th>Description</th></tr>
+            <tr><td><code>/help</code></td><td>Show all available commands</td></tr>
+            <tr><td><code>/clear</code></td><td>Clear chat history</td></tr>
+            <tr><td><code>/stats</code></td><td>Show session statistics</td></tr>
+            <tr><td><code>/cd &lt;path&gt;</code></td><td>Change working directory</td></tr>
+            <tr><td><code>/provider</code></td><td>Show current provider</td></tr>
+            <tr><td><code>/provider &lt;id&gt;</code></td><td>Switch provider</td></tr>
+            <tr><td><code>/model</code></td><td>Show current model</td></tr>
+            <tr><td><code>/model &lt;name&gt;</code></td><td>Switch model</td></tr>
+            <tr><td><code>/providers</code></td><td>List all available providers</td></tr>
+            <tr><td><code>/models</code></td><td>List models for current provider</td></tr>
+            <tr><td><code>/config</code></td><td>Show current configuration</td></tr>
+            <tr><td><code>/dir</code></td><td>Show working directory</td></tr>
+            <tr><td><code>/history</code></td><td>Show command history</td></tr>
+            <tr><td><code>/new</code></td><td>Start new session</td></tr>
+            <tr><td><code>/quit</code></td><td>Exit Cipher</td></tr>
+          </table>
+
+          <h2 id="shortcuts">Keyboard Shortcuts</h2>
+          <table>
+            <tr><th>Key</th><th>Action</th></tr>
+            <tr><td><code>Ctrl+S</code></td><td>Open settings panel</td></tr>
+            <tr><td><code>Ctrl+L</code></td><td>Clear chat</td></tr>
+            <tr><td><code>Ctrl+Q</code></td><td>Quit Cipher</td></tr>
+            <tr><td><code>Esc</code></td><td>Clear input</td></tr>
+            <tr><td><code>Up / Down</code></td><td>Command history</td></tr>
+          </table>
+
+          <h2 id="system-prompt">System Prompt</h2>
+          <p>Cipher sends a system prompt to the AI that instructs it to use XML-style action tags: <code>&lt;plan&gt;</code>, <code>&lt;write&gt;</code>, <code>&lt;run&gt;</code>, <code>&lt;read&gt;</code>, <code>&lt;ls&gt;</code>. You can modify this in <code>cipher/app.py</code> if needed.</p>
+
+          <h2 id="project-isolation">Project Isolation</h2>
+          <p>Cipher validates all file paths against the working directory. It will reject any attempt to access files outside the project root, including <code>../</code> escapes and absolute paths.</p>
+
+          <h2 id="common-issues">Common Issues</h2>
+          <h3>Command not found: cip</h3>
+          <p>Make sure Python's Scripts directory is in your PATH. On Windows: <code>%LOCALAPPDATA%\Programs\Python\Python312\Scripts</code></p>
+          <h3>Blank screen on startup</h3>
+          <p>This was fixed in v0.0.3. If you still see it, update: <code>pip install --upgrade cipher-agent</code></p>
+          <h3>Ollama connection refused</h3>
+          <p>Make sure Ollama is running: <code>ollama serve</code></p>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- CHANGELOG PAGE -->
   <div class="page" id="page-changelog">
-    <div class="changelog-page">
-      <div class="container">
-        <div class="changelog-header">
-          <div class="section-label">&#128203; Changelog</div>
-          <h1>Version History</h1>
-          <p>Track every improvement, feature, and fix.</p>
+    <div class="section">
+      <div class="changelog-list">
+        <div class="section-label">Changelog</div>
+        <h2>Version History</h2>
+        <p class="section-desc">Track changes to Cipher.</p>
+
+        <div class="changelog-entry">
+          <div class="changelog-version">
+            <h3>v0.0.3</h3>
+            <span class="date">May 2026</span>
+            <span class="tag-current">Current</span>
+          </div>
+          <ul>
+            <li class="new">Added 15 slash commands for chat control</li>
+            <li class="new">Expanded to 27 providers with 75+ models</li>
+            <li class="new">Added LM Studio, vLLM, llama.cpp, Jan.ai local providers</li>
+            <li class="new">Added Fireworks AI, Cohere, Perplexity, Cerebras providers</li>
+            <li class="new">Visual status bar showing agent state</li>
+            <li class="new">Command history with Up/Down navigation</li>
+            <li class="fix">Fixed setup screen rendering crash</li>
+            <li class="fix">Fixed SettingsModal compatibility with Textual</li>
+            <li class="fix">Fixed provider selection going to wrong provider</li>
+            <li class="fix">Added crash protection to restore terminal on errors</li>
+            <li class="fix">Fixed CSS margin syntax in TUI</li>
+          </ul>
         </div>
-        <div class="timeline">
-          <!-- v0.3.0 -->
-          <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-version">
-              v0.3.0
-              <span class="timeline-date">May 2026</span>
-              <span class="timeline-tag tag-current">Current</span>
-            </div>
-            <div class="timeline-content">
-              <h4>What's New</h4>
-              <ul>
-                <li>Multi-page documentation site with SPA routing</li>
-                <li>75+ AI provider support through unified interface</li>
-                <li>New slash commands: /model, /provider, /tokens, /share, /sessions, /load, /diff, /undo</li>
-                <li>LSP integration: auto-detects and loads language servers</li>
-                <li>Multi-session support: run parallel agents on the same project</li>
-                <li>Session sharing with public links</li>
-                <li>GitHub Copilot authentication</li>
-                <li>ChatGPT Plus/Pro account integration</li>
-                <li>Improved visual diff viewer with expandable explanations</li>
-                <li>Project isolation with configurable sandbox boundaries</li>
-                <li>New providers: Together AI, OpenRouter, Perplexity, Cerebras, DeepInfra, Sambanova</li>
-                <li>Enterprise support: AWS Bedrock, Google Vertex AI, Azure OpenAI, IBM Watsonx, Oracle Cloud AI</li>
-              </ul>
-            </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version">
+            <h3>v0.0.2</h3>
+            <span class="date">May 2026</span>
           </div>
-          <!-- v0.2.0 -->
-          <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-version">
-              v0.2.0
-              <span class="timeline-date">February 2026</span>
-              <span class="timeline-tag tag-stable">Stable</span>
-            </div>
-            <div class="timeline-content">
-              <h4>What's New</h4>
-              <ul>
-                <li>Textual TUI with improved terminal interface</li>
-                <li>9 AI provider support (Ollama, OpenAI, Anthropic, Groq, DeepSeek, Google, Mistral, Together, Cohere)</li>
-                <li>Interactive setup wizard on first run</li>
-                <li>Code diff viewer with green/red highlighting</li>
-                <li>Context-aware file loading from project directory</li>
-                <li>Configuration file (.cipher/config.json)</li>
-                <li>Environment variable support for all API keys</li>
-                <li>Session saving and loading</li>
-                <li>Basic slash commands: /help, /clear, /config, /exit</li>
-                <li>Keyboard shortcuts for navigation</li>
-              </ul>
-            </div>
+          <ul>
+            <li class="new">Textual TUI with chat interface</li>
+            <li class="new">9 AI providers (Ollama, DeepSeek, Groq, Gemini, OpenAI, Anthropic, Mistral, xAI, Together)</li>
+            <li class="new">Interactive setup flow</li>
+            <li class="new">Code diff display with green/red highlighting</li>
+            <li class="new">Settings panel (Ctrl+S)</li>
+            <li class="new">Expandable explanations</li>
+            <li class="new">Post-response config saving</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version">
+            <h3>v0.0.1</h3>
+            <span class="date">May 2026</span>
           </div>
-          <!-- v0.1.0 -->
-          <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-version">
-              v0.1.0
-              <span class="timeline-date">November 2025</span>
-              <span class="timeline-tag tag-legacy">Legacy</span>
-            </div>
-            <div class="timeline-content">
-              <h4>Initial Release</h4>
-              <ul>
-                <li>Basic terminal chat interface</li>
-                <li>Ollama-only provider support</li>
-                <li>Simple file reading from project directory</li>
-                <li>Basic code generation and editing</li>
-                <li>MIT license, open source from day one</li>
-              </ul>
-            </div>
-          </div>
+          <ul>
+            <li class="new">Initial release</li>
+            <li class="new">Ollama-only provider</li>
+            <li class="new">Basic terminal chat interface</li>
+            <li class="new">File write and command execution</li>
+            <li class="new">Project directory sandbox</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -1984,140 +1307,129 @@ Switched to gpt-4o (openai)</code></pre>
 
   <!-- FAQ PAGE -->
   <div class="page" id="page-faq">
-    <div class="faq-page">
-      <div class="container">
-        <div class="faq-header">
-          <div class="section-label">&#10067; FAQ</div>
-          <h1>Frequently Asked Questions</h1>
-          <p>Everything you need to know about Cipher.</p>
+    <div class="section">
+      <div class="faq-list">
+        <div class="section-label">FAQ</div>
+        <h2>Frequently Asked Questions</h2>
+        <p class="section-desc">Answers to common questions about Cipher.</p>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            What is Cipher?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Cipher is a terminal-based autonomous coding agent. You describe what you want, it plans and writes the code, runs commands, and shows you the results — all in a terminal UI. It works with any AI provider through LiteLLM.</div>
+          </div>
         </div>
-        <div class="faq-list">
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>What is Cipher?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Cipher is an autonomous coding agent that runs in your terminal. It connects to 75+ AI providers and can read, write, and edit code in your project directory. Think of it as an AI pair programmer that lives in your command line, works with any editor, and gives you complete control over which AI model to use.</p>
-            </div></div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Is Cipher free?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes. Cipher is MIT licensed and open source. The AI providers have their own pricing — many offer free tiers (Ollama local, DeepSeek, Groq, Gemini). Premium providers like OpenAI and Anthropic require API keys.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Is it free?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Yes! Cipher itself is completely free and open source under the MIT license. However, some AI providers require API keys with associated costs. You can use Cipher for free with local providers like Ollama, LM Studio, or llama.cpp, which run models on your own hardware at no cost.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            What AI providers does it support?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">27 providers across 4 categories: Local (Ollama, LM Studio, vLLM, llama.cpp, Jan.ai), Cloud Free (DeepSeek, Groq, Gemini, Fireworks AI, HuggingFace), Premium (OpenAI, Anthropic, OpenRouter, Mistral, xAI, Together AI, Perplexity, Cohere, Cerebras), and Enterprise (AWS Bedrock, Google Vertex, Azure OpenAI).</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>What AI providers does it support?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Cipher supports 75+ providers across four categories:</p>
-              <p><strong>Free/Local:</strong> Ollama, LM Studio, vLLM, llama.cpp, Jan.ai</p>
-              <p><strong>Cloud Free Tiers:</strong> DeepSeek, Groq, Google Gemini, HuggingFace, Fireworks AI, Azure AI, Cohere</p>
-              <p><strong>Premium:</strong> OpenAI, Anthropic, Mistral, xAI/Grok, Together AI, OpenRouter, Perplexity, Cerebras, DeepInfra, Sambanova</p>
-              <p><strong>Enterprise:</strong> AWS Bedrock, Google Vertex AI, Azure OpenAI, IBM Watsonx, Oracle Cloud AI</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Does it work offline?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes, if you use local providers like Ollama or LM Studio. Once the model is downloaded, no internet connection is needed. Cloud providers require an active connection.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Does it work offline?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Yes, when using local providers like Ollama, LM Studio, vLLM, or llama.cpp. These providers run AI models directly on your hardware, so no internet connection is needed. Cloud providers obviously require an internet connection for API calls.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            How is it different from Cursor or Copilot?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Cipher runs in your terminal as an autonomous agent — it plans, writes, and executes code without you switching windows. Cursor and Copilot are IDE extensions that assist you while you type. Cipher is more hands-off; you describe the outcome and it works toward it.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>How is it different from Cursor or GitHub Copilot?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Unlike Cursor (which is a standalone editor) or Copilot (which is tied to VS Code), Cipher is editor-agnostic. It runs in your terminal and works with any editor — Vim, VS Code, Sublime, IntelliJ, or even no editor at all. Additionally, Cipher doesn't lock you into a single AI provider; you can switch between 75+ providers at any time.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Is my code sent to AI providers?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">When using cloud providers, yes — file contents are sent as part of the AI conversation context. Local providers like Ollama process everything on your machine. Check each provider's privacy policy for data retention details.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Is my code sent to AI providers?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>When using cloud providers, yes — your code context is sent to the provider's API for processing. However, Cipher is sandboxed and only sends files within your project directory. When using local providers (Ollama, LM Studio, etc.), your code never leaves your machine. For maximum privacy, use a local provider.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Can I use my own API keys?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes. Set them as environment variables (e.g., <code>OPENAI_API_KEY</code>) or enter them during setup. Cipher stores your provider choice but not your API keys — those stay in your environment.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Can I use my own API keys?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Absolutely. Cipher is designed to work with your own API keys. Simply set the appropriate environment variable (e.g., <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>) and Cipher will use it. You maintain full control over your API usage and billing.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            How do I install it?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">One command: <code>irm https://cipher.elevenpct.com/install.ps1 | iex</code> on Windows, or <code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code> on macOS/Linux. Requires Python 3.10+.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>How do I install it?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p><strong>macOS/Linux:</strong></p>
-              <pre><code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code></pre>
-              <p><strong>Windows (PowerShell):</strong></p>
-              <pre><code>irm https://cipher.elevenpct.com/install.ps1 | iex</code></pre>
-              <p><strong>npm (future):</strong></p>
-              <pre><code>npm install -g @cipher/cli</code></pre>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Does it work on Mac and Linux?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes. Cipher is cross-platform. The TUI uses Textual which works on all terminals. Install via the shell script on macOS/Linux.</div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Does it work on Mac/Linux?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Yes! Cipher is cross-platform and works on macOS (12+), Linux (Ubuntu 20.04+, Debian 11+, and most major distributions), and Windows 10+. The terminal interface is consistent across all platforms.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            How do I update Cipher?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Run the install command again. It will pull the latest version from GitHub. Or run: <code>pip install --upgrade cipher-agent</code></div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Can I customize the AI behavior?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Yes. You can customize Cipher's behavior through:</p>
-              <ul>
-                <li><strong>System prompts</strong> — Set custom instructions in your config</li>
-                <li><strong>Temperature</strong> — Control creativity (0.0 to 2.0)</li>
-                <li><strong>Max tokens</strong> — Limit response length</li>
-                <li><strong>Context files</strong> — Choose which files are loaded as context</li>
-                <li><strong>Sandbox</strong> — Enable/disable file access restrictions</li>
-                <li><strong>Auto-apply</strong> — Toggle automatic diff application</li>
-              </ul>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Is it open source?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes. MIT licensed. Source code is available at <a href="https://github.com/elevenpercent/cipher" style="color: var(--accent);">github.com/elevenpercent/cipher</a></div>
           </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>How do I update Cipher?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Run the update command:</p>
-              <pre><code>cipher update</code></pre>
-              <p>Or re-run the install script, which will detect the existing installation and upgrade it.</p>
-            </div></div>
-          </div>
-          <div class="faq-item">
-            <div class="faq-question" onclick="toggleFaq(this)">
-              <h3>Is it open source?</h3>
-              <span class="faq-arrow">&#9662;</span>
-            </div>
-            <div class="faq-answer"><div class="faq-answer-inner">
-              <p>Yes! Cipher is 100% open source under the MIT license. You can view the source code, contribute, fork, or modify it however you like. Find it on GitHub at <a href="https://github.com/cipher-agent/cipher" target="_blank">github.com/cipher-agent/cipher</a>.</p>
-            </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Can I customize the AI behavior?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">You can modify the system prompt in <code>cipher/app.py</code> to change how the AI plans and executes tasks. You can also configure display preferences (show/hide plans, code, diffs, tool results) through the settings panel or config file.</div>
           </div>
         </div>
       </div>
@@ -2126,269 +1438,154 @@ Switched to gpt-4o (openai)</code></pre>
 
   <!-- FORUM PAGE -->
   <div class="page" id="page-forum">
-    <div class="forum-page">
-      <div class="container">
+    <div class="section">
+      <div class="forum-container">
+        <div class="section-label">Community</div>
+        <h2>Forum</h2>
+        <p class="section-desc">Discuss Cipher, report issues, and share what you have built.</p>
+
         <div class="forum-header">
-          <div class="section-label">&#128172; Community</div>
-          <h1>Forum</h1>
-          <p>Discuss Cipher, share ideas, and get help from the community.</p>
+          <input type="text" class="forum-search" placeholder="Search topics..." id="forum-search" oninput="filterThreads()">
+          <a href="https://github.com/elevenpercent/cipher/discussions" target="_blank" class="btn-secondary" style="white-space: nowrap;">GitHub Discussions</a>
         </div>
-        <div class="forum-toolbar">
-          <div class="forum-search">
-            <span class="forum-search-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            </span>
-            <input type="text" placeholder="Search discussions..." />
-          </div>
-          <a class="btn btn-primary" href="https://github.com/cipher-agent/cipher/discussions" target="_blank">Start a Topic</a>
-        </div>
+
         <div class="forum-categories">
-          <span class="forum-cat active" onclick="filterForum('all', this)">All Topics</span>
-          <span class="forum-cat" onclick="filterForum('general', this)">General</span>
-          <span class="forum-cat" onclick="filterForum('providers', this)">Providers</span>
-          <span class="forum-cat" onclick="filterForum('bugs', this)">Bugs</span>
-          <span class="forum-cat" onclick="filterForum('features', this)">Feature Requests</span>
-          <span class="forum-cat" onclick="filterForum('show', this)">Show & Tell</span>
+          <button class="forum-cat active" onclick="filterCategory('all', this)">All</button>
+          <button class="forum-cat" onclick="filterCategory('general', this)">General</button>
+          <button class="forum-cat" onclick="filterCategory('providers', this)">Providers</button>
+          <button class="forum-cat" onclick="filterCategory('bugs', this)">Bugs</button>
+          <button class="forum-cat" onclick="filterCategory('features', this)">Feature Requests</button>
+          <button class="forum-cat" onclick="filterCategory('showcase', this)">Show & Tell</button>
         </div>
-        <div class="forum-threads">
-          <div class="forum-thread" data-category="general">
-            <div>
-              <div class="thread-title">Welcome to the Cipher community!</div>
-              <div class="thread-meta">
-                <span class="thread-author">cipher-team</span>
-                <span>May 15, 2026</span>
-                <span class="thread-tag tag-general">General</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">24</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
+
+        <div id="forum-threads">
+          <div class="forum-empty">
+            <h3>No topics yet</h3>
+            <p>Start a discussion on <a href="https://github.com/elevenpercent/cipher/discussions" target="_blank" style="color: var(--accent);">GitHub Discussions</a>.</p>
           </div>
-          <div class="forum-thread" data-category="providers">
-            <div>
-              <div class="thread-title">Best local model for TypeScript development?</div>
-              <div class="thread-meta">
-                <span class="thread-author">dev-sarah</span>
-                <span>May 14, 2026</span>
-                <span class="thread-tag tag-providers">Providers</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">18</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="features">
-            <div>
-              <div class="thread-title">Feature request: Multi-file refactoring with preview</div>
-              <div class="thread-meta">
-                <span class="thread-author">alex-code</span>
-                <span>May 13, 2026</span>
-                <span class="thread-tag tag-feature">Feature Request</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">12</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="bugs">
-            <div>
-              <div class="thread-title">Bug: Ollama connection timeout on Windows 11</div>
-              <div class="thread-meta">
-                <span class="thread-author">win-dev-42</span>
-                <span>May 12, 2026</span>
-                <span class="thread-tag tag-bug">Bug</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">8</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="show">
-            <div>
-              <div class="thread-title">I built a full React app using only Cipher — here's how</div>
-              <div class="thread-meta">
-                <span class="thread-author">jess-builds</span>
-                <span>May 11, 2026</span>
-                <span class="thread-tag tag-show">Show & Tell</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">31</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="providers">
-            <div>
-              <div class="thread-title">Comparing Claude Sonnet 4 vs GPT-4o for code generation</div>
-              <div class="thread-meta">
-                <span class="thread-author">model-bench</span>
-                <span>May 10, 2026</span>
-                <span class="thread-tag tag-providers">Providers</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">27</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="general">
-            <div>
-              <div class="thread-title">Tips for using Cipher with Vim/Neovim</div>
-              <div class="thread-meta">
-                <span class="thread-author">vim-wizard</span>
-                <span>May 9, 2026</span>
-                <span class="thread-tag tag-general">General</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">15</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="features">
-            <div>
-              <div class="thread-title">Request: Support for custom LSP servers</div>
-              <div class="thread-meta">
-                <span class="thread-author">lsp-fan</span>
-                <span>May 8, 2026</span>
-                <span class="thread-tag tag-feature">Feature Request</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">9</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="providers">
-            <div>
-              <div class="thread-title">DeepSeek R1 vs OpenAI o1 for complex reasoning tasks</div>
-              <div class="thread-meta">
-                <span class="thread-author">ai-researcher</span>
-                <span>May 7, 2026</span>
-                <span class="thread-tag tag-providers">Providers</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">22</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-          <div class="forum-thread" data-category="show">
-            <div>
-              <div class="thread-title">Migrated our entire codebase to TypeScript with Cipher</div>
-              <div class="thread-meta">
-                <span class="thread-author">ts-convert</span>
-                <span>May 6, 2026</span>
-                <span class="thread-tag tag-show">Show & Tell</span>
-              </div>
-            </div>
-            <div class="thread-stats">
-              <div class="thread-replies">19</div>
-              <div class="thread-replies-label">replies</div>
-            </div>
-          </div>
-        </div>
-        <div class="forum-cta">
-          <h3>Join the Discussion</h3>
-          <p>Head over to GitHub Discussions to start a new topic or join existing conversations.</p>
-          <a class="btn btn-primary" href="https://github.com/cipher-agent/cipher/discussions" target="_blank">GitHub Discussions</a>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-left">
+        <span class="footer-mit">MIT License</span>
+        <span class="footer-version">v0.0.3</span>
+        <span class="footer-links">
+          <a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a>
+          <a href="https://github.com/elevenpercent/cipher/issues" target="_blank">Issues</a>
+          <a href="https://github.com/elevenpercent/cipher/discussions" target="_blank">Discussions</a>
+        </span>
+      </div>
+      <div class="footer-right">Built by elevenpct</div>
+    </div>
+  </footer>
+
   <script>
-    // Page navigation
+    // NAVIGATION
     function navigate(page) {
-      document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); });
-      document.querySelectorAll('.nav-link').forEach(l => { l.classList.remove('active'); });
-      const target = document.getElementById('page-' + page);
-      if (target) {
-        target.classList.add('active');
-        setTimeout(() => { target.style.opacity = '1'; }, 10);
-      }
-      document.querySelectorAll('.nav-link[data-page="' + page + '"]').forEach(l => { l.classList.add('active'); });
-      window.location.hash = page === 'home' ? '' : page;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + page).classList.add('active');
+      document.querySelectorAll('.nav-links a[data-page]').forEach(a => {
+        a.classList.toggle('active', a.dataset.page === page);
+      });
+      window.location.hash = page;
+      window.scrollTo(0, 0);
+      closeMobileNav();
+      initRevealAnimations();
     }
 
-    // Hash-based routing
-    function handleHash() {
-      const hash = window.location.hash.replace('#', '') || 'home';
-      navigate(hash);
-    }
-    window.addEventListener('hashchange', handleHash);
-    window.addEventListener('load', handleHash);
+    // Handle hash on load and back/forward
+    window.addEventListener('hashchange', () => {
+      const page = window.location.hash.slice(1) || 'home';
+      navigate(page);
+    });
 
-    // Install tab switching
-    function switchInstall(tab) {
-      document.querySelectorAll('.install-tab').forEach(t => { t.classList.remove('active'); });
-      document.querySelectorAll('.install-command').forEach(c => { c.classList.remove('active'); });
-      document.querySelector('.install-tab[data-tab="' + tab + '"]').classList.add('active');
-      document.getElementById('install-' + tab).classList.add('active');
+    window.addEventListener('load', () => {
+      const page = window.location.hash.slice(1) || 'home';
+      navigate(page);
+    });
+
+    // MOBILE NAV
+    function toggleMobileNav() {
+      document.getElementById('nav-links').classList.toggle('open');
+      document.getElementById('hamburger').classList.toggle('open');
+    }
+    function closeMobileNav() {
+      document.getElementById('nav-links').classList.remove('open');
+      document.getElementById('hamburger').classList.remove('open');
+    }
+
+    // INSTALL TABS
+    function switchInstall(os, btn) {
+      document.querySelectorAll('.install-tabs .tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.install-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('install-' + os).classList.add('active');
+      btn.classList.add('active');
     }
 
     // Auto-detect OS
     (function() {
       const ua = navigator.userAgent;
-      if (ua.includes('Windows')) { switchInstall('windows'); }
-      else if (ua.includes('Mac') || ua.includes('Linux')) { switchInstall('macos'); }
+      if (/Mac|Linux/.test(ua) && !/Windows/.test(ua)) {
+        const winBtn = document.querySelector('.install-tabs .tab-btn');
+        if (winBtn && (ua.includes('Mac') ? winBtn.nextElementSibling : winBtn.nextElementSibling.nextElementSibling)) {
+          const target = ua.includes('Mac') ? 'mac' : 'linux';
+          switchInstall(target, document.querySelector(`.tab-btn[onclick*="${target}"]`));
+        }
+      }
     })();
 
-    // Copy install command
-    function copyInstall(btn) {
-      const cmd = btn.closest('pre').querySelector('.cmd').textContent.trim();
-      navigator.clipboard.writeText(cmd).then(() => {
+    function copyInstall(tabId, btn) {
+      const code = document.querySelector('#' + tabId + ' code');
+      if (code) {
+        navigator.clipboard.writeText(code.textContent.trim());
         btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-      });
-    }
-
-    // Docs navigation
-    function switchDoc(doc) {
-      document.querySelectorAll('.docs-nav-item').forEach(i => { i.classList.remove('active'); });
-      document.querySelectorAll('.docs-section').forEach(s => { s.classList.remove('active'); });
-      document.querySelector('.docs-nav-item[data-doc="' + doc + '"]').classList.add('active');
-      document.getElementById('doc-' + doc).classList.add('active');
-    }
-
-    // FAQ accordion
-    function toggleFaq(el) {
-      const item = el.closest('.faq-item');
-      const answer = item.querySelector('.faq-answer');
-      const isOpen = item.classList.contains('open');
-      document.querySelectorAll('.faq-item.open').forEach(openItem => {
-        openItem.classList.remove('open');
-        openItem.querySelector('.faq-answer').style.maxHeight = '0';
-      });
-      if (!isOpen) {
-        item.classList.add('open');
-        answer.style.maxHeight = answer.scrollHeight + 'px';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
       }
     }
 
-    // Forum category filter
-    function filterForum(cat, el) {
-      document.querySelectorAll('.forum-cat').forEach(c => { c.classList.remove('active'); });
-      el.classList.add('active');
+    // FAQ
+    function toggleFaq(btn) {
+      const item = btn.parentElement;
+      item.classList.toggle('open');
+    }
+
+    // FORUM
+    function filterCategory(cat, btn) {
+      document.querySelectorAll('.forum-cat').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function filterThreads() {
+      const query = document.getElementById('forum-search').value.toLowerCase();
       document.querySelectorAll('.forum-thread').forEach(t => {
-        if (cat === 'all' || t.dataset.category === cat) {
-          t.style.display = '';
-        } else {
-          t.style.display = 'none';
+        const title = t.querySelector('.forum-thread-title').textContent.toLowerCase();
+        t.style.display = title.includes(query) ? '' : 'none';
+      });
+    }
+
+    // SCROLL REVEAL
+    function initRevealAnimations() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach(el => {
+        if (!el.classList.contains('visible')) {
+          observer.observe(el);
         }
       });
     }
 
-    // Mobile menu
-    function toggleMobile() {
-      document.getElementById('mobileMenu').classList.toggle('open');
-    }
+    initRevealAnimations();
   </script>
 </body>
 </html>
