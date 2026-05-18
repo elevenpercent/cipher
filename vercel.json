@@ -1,9 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "*.html", "use": "@vercel/static" }
+    { "src": "*.html", "use": "@vercel/static" },
+    { "src": "install.sh", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/install.sh", "dest": "/install.sh", "headers": { "Content-Type": "text/x-shellscript" } },
     { "src": "/install", "dest": "/install.html" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]

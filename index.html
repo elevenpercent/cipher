@@ -685,7 +685,7 @@
         <button class="tab-btn" data-tab="linux" onclick="switchTab('linux', this)">Linux</button>
       </div>
       <div class="tab-content active" id="tab-windows">
-        <code>irm <span class="accent">github.com/elevenpercent/cipher/raw/master/install.ps1</span> | iex</code>
+        <code>irm <span class="accent">raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1</span> | iex</code>
       </div>
       <div class="tab-content" id="tab-macos">
         <code>curl <span class="accent">-fsSL cipher.elevenpct.com/install.sh</span> | bash</code>
@@ -963,7 +963,7 @@
 
     function copyInstall(e) {
       e.preventDefault();
-      const text = 'irm https://github.com/elevenpercent/cipher/raw/master/install.ps1 | iex';
+      const text = 'irm https://raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1 | iex';
       navigator.clipboard.writeText(text);
       const btn = e.currentTarget;
       btn.textContent = 'Copied!';
