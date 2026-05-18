@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cipher - Autonomous Coding Agent</title>
+  <title>Cipher — Autonomous Coding Agent</title>
+  <meta name="description" content="Cipher is a terminal-based autonomous coding agent that writes, edits, and runs code with any AI provider.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Unica+One&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=DM+Mono&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #050505;
@@ -15,7 +17,8 @@
       --border: #1a1a1a;
       --border-hover: #333;
       --accent: #f5c542;
-      --accent-hover: #ffd95e;
+      --accent-dim: rgba(245,197,66,0.08);
+      --accent-glow: rgba(245,197,66,0.15);
       --text: #ffffff;
       --text-foreground: #e5e5e5;
       --text-muted: #a3a3a3;
@@ -25,111 +28,171 @@
       --code-red: #ef4444;
       --code-yellow: #f59e0b;
       --code-blue: #3b82f6;
-      --code-line-bg: rgba(34,197,94,0.08);
+      --code-purple: #a855f7;
+      --code-bg: #0d0d0d;
       --glow-x: 0;
       --glow-y: 0;
-      --glow-strength: 0;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
     body {
-      font-family: 'Inter', -apple-system, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text-foreground);
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
+      line-height: 1.6;
     }
-    h1, h2, h3, .logo, .heading { font-family: 'Unica One', serif; }
-    .mono { font-family: 'JetBrains Mono', 'DM Mono', monospace; }
+    h1, h2, h3, h4, .logo, .heading {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 500;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
 
     /* Reveal animations */
     .reveal {
       opacity: 0;
       transform: translateY(30px);
-      transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1);
+      transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
     }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .reveal-delay-1 { transition-delay: 0.1s; }
-    .reveal-delay-2 { transition-delay: 0.2s; }
-    .reveal-delay-3 { transition-delay: 0.3s; }
-    .reveal-delay-4 { transition-delay: 0.4s; }
-    .reveal-delay-5 { transition-delay: 0.5s; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.08s; }
+    .reveal-delay-2 { transition-delay: 0.16s; }
+    .reveal-delay-3 { transition-delay: 0.24s; }
+    .reveal-delay-4 { transition-delay: 0.32s; }
+    .reveal-delay-5 { transition-delay: 0.4s; }
 
-    /* Dot pattern background */
+    /* Dot pattern */
     .dots {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       pointer-events: none;
-      opacity: 0.1;
+      opacity: 0.06;
       background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
       background-size: 24px 24px;
     }
+
+    /* Container */
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 
     /* NAV */
     nav {
       position: fixed;
       top: 0;
-      width: 100%;
+      left: 0;
+      right: 0;
       z-index: 100;
-      padding: 0 24px;
+      padding: 12px 24px;
+      transition: all 0.3s ease;
     }
+    nav.scrolled { padding: 8px 24px; }
     .nav-inner {
       max-width: 1200px;
       margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 16px;
-      margin-top: 12px;
-      background: rgba(10,10,10,0.6);
-      backdrop-filter: blur(12px);
+      padding: 10px 20px;
+      background: rgba(10,10,10,0.5);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border);
       border-radius: 14px;
       transition: all 0.3s ease;
     }
     nav.scrolled .nav-inner {
-      background: rgba(5,5,5,0.9);
+      background: rgba(5,5,5,0.85);
       border-color: var(--border-hover);
-      margin-top: 0;
-      border-radius: 0;
+      border-radius: 12px;
     }
     .logo {
-      font-size: 20px;
-      letter-spacing: 3px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 4px;
       color: var(--text);
       text-decoration: none;
+      transition: color 0.2s;
     }
+    .logo:hover { color: var(--accent); }
     .logo span { color: var(--accent); }
     .nav-links {
       display: flex;
-      gap: 24px;
+      gap: 28px;
       align-items: center;
       list-style: none;
     }
     .nav-links a {
       color: var(--text-muted);
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
       transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--text); }
     .nav-cta {
       background: var(--accent);
       color: #000;
-      padding: 6px 16px;
+      padding: 7px 18px;
       border-radius: 8px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       text-decoration: none;
-      transition: background 0.2s;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
     }
-    .nav-cta:hover { background: var(--accent-hover); }
+    .nav-cta:hover { background: var(--accent-hover, #ffd95e); transform: translateY(-1px); }
+
+    /* Mobile menu */
+    .nav-mobile-btn {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      color: var(--text);
+    }
+    .nav-mobile-btn svg { display: block; }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(5,5,5,0.95);
+      backdrop-filter: blur(20px);
+      z-index: 99;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      color: var(--text);
+      text-decoration: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      transition: color 0.2s;
+    }
+    .mobile-menu a:hover { color: var(--accent); }
+    .mobile-close {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px;
+    }
 
     /* HERO */
     .hero {
@@ -139,276 +202,305 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      padding: 120px 24px 80px;
+      padding: 140px 24px 100px;
       position: relative;
       overflow: hidden;
     }
-    .hero::before {
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+    }
+    .hero-bg::before {
       content: '';
       position: absolute;
-      top: -200px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(245,197,66,0.06) 0%, transparent 60%);
-      pointer-events: none;
+      top: -30%;
+      left: -10%;
+      width: 60%;
+      height: 80%;
+      background: radial-gradient(ellipse, rgba(245,197,66,0.07) 0%, transparent 60%);
+      animation: gradientDrift1 12s ease-in-out infinite alternate;
     }
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      bottom: -20%;
+      right: -10%;
+      width: 50%;
+      height: 70%;
+      background: radial-gradient(ellipse, rgba(245,197,66,0.04) 0%, transparent 60%);
+      animation: gradientDrift2 15s ease-in-out infinite alternate;
+    }
+    @keyframes gradientDrift1 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(8%, 5%) scale(1.1); }
+    }
+    @keyframes gradientDrift2 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-5%, -8%) scale(1.15); }
+    }
+    .hero > * { position: relative; z-index: 1; }
+
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 16px;
-      background: rgba(245,197,66,0.08);
-      border: 1px solid rgba(245,197,66,0.15);
+      padding: 6px 18px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-glow);
       border-radius: 100px;
       font-size: 13px;
+      font-weight: 500;
       color: var(--accent);
-      margin-bottom: 32px;
+      margin-bottom: 36px;
+      letter-spacing: 0.5px;
     }
-    .pill::before {
-      content: '';
+    .pill-dot {
       width: 6px;
       height: 6px;
       background: var(--accent);
       border-radius: 50%;
-      animation: pulse 2s infinite;
+      animation: pillPulse 2s ease-in-out infinite;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.5); }
+    @keyframes pillPulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245,197,66,0.4); }
+      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(245,197,66,0); }
     }
+
     .hero h1 {
-      font-size: clamp(48px, 8vw, 88px);
-      font-weight: 400;
-      letter-spacing: 4px;
-      line-height: 1.1;
-      margin-bottom: 24px;
+      font-size: clamp(52px, 9vw, 96px);
+      font-weight: 500;
+      letter-spacing: -1px;
+      line-height: 1.05;
+      margin-bottom: 28px;
     }
     .hero h1 em {
       font-style: normal;
       color: var(--accent);
+      position: relative;
     }
     .hero p {
       font-size: clamp(16px, 2vw, 20px);
       color: var(--text-muted);
-      max-width: 560px;
+      max-width: 580px;
       line-height: 1.7;
       margin-bottom: 48px;
     }
+
     .hero-actions {
       display: flex;
-      gap: 12px;
+      gap: 14px;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
     }
+
     .btn-primary {
       background: var(--accent);
       color: #000;
-      padding: 12px 28px;
+      padding: 13px 32px;
       border-radius: 10px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      letter-spacing: 0.3px;
+      border: none;
+      cursor: pointer;
     }
-    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-primary:hover { background: #ffd95e; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(245,197,66,0.2); }
+    .btn-primary svg { transition: transform 0.2s; }
+    .btn-primary:hover svg { transform: translateX(3px); }
+
     .btn-secondary {
-      background: rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.04);
       color: var(--text);
-      padding: 12px 28px;
+      padding: 13px 32px;
       border-radius: 10px;
       font-size: 14px;
+      font-weight: 500;
       border: 1px solid var(--border);
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+      letter-spacing: 0.3px;
     }
-    .btn-secondary:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.08); }
+    .btn-secondary:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+
+    /* Install tabs */
     .install-tabs {
-      margin-top: 28px;
-      max-width: 480px;
+      margin-top: 36px;
+      width: 100%;
+      max-width: 520px;
     }
     .tab-buttons {
       display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
+      gap: 2px;
+      margin-bottom: 0;
     }
     .tab-btn {
-      background: transparent;
+      background: rgba(255,255,255,0.03);
       border: 1px solid var(--border);
+      border-bottom: none;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      padding: 6px 14px;
-      border-radius: 6px 6px 0 0;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 8px 8px 0 0;
       cursor: pointer;
       transition: all 0.2s;
+      letter-spacing: 0.5px;
     }
     .tab-btn:hover { color: var(--text); border-color: var(--border-hover); }
     .tab-btn.active {
       color: var(--accent);
-      border-color: var(--accent);
-      background: rgba(245,197,66,0.08);
+      border-color: var(--border-hover);
+      background: var(--code-bg);
       border-bottom-color: transparent;
+      position: relative;
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--code-bg);
     }
     .tab-content {
       display: none;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 18px;
+      background: var(--code-bg);
+      border: 1px solid var(--border-hover);
+      border-radius: 0 10px 10px 10px;
+      padding: 16px 20px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 13px;
-      color: var(--text-subtle);
+      line-height: 1.6;
+      position: relative;
     }
     .tab-content.active { display: block; }
-    .tab-content code {
-      color: var(--code-green);
-    }
-    .copy-btn-large {
-      margin-top: 10px;
-      background: transparent;
+    .tab-content code { color: var(--code-green); }
+    .tab-content .prompt { color: var(--text-subtle); }
+    .tab-copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 6px 16px;
+      font-size: 11px;
+      padding: 5px 12px;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s;
-      float: right;
     }
-    .copy-btn-large:hover {
-      color: var(--accent);
-      border-color: var(--accent);
-    }
+    .tab-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .tab-copy-btn.copied { color: var(--code-green); border-color: var(--code-green); }
 
-    /* CODE SCREEN (Graphite-style) */
-    .code-section {
-      padding: 80px 24px;
-    }
-    .code-section .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .code-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
-    }
-    .code-text h2 {
-      font-size: clamp(28px, 4vw, 44px);
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 20px;
-      line-height: 1.2;
-    }
-    .code-text h2 em { font-style: normal; color: var(--accent); }
-    .code-text p {
-      color: var(--text-muted);
-      line-height: 1.7;
+    /* Section shared */
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 3px;
       margin-bottom: 16px;
     }
-    .code-screen {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
+    section h2 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+    section h2 em { font-style: normal; color: var(--accent); }
+    .section-subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+    .section-header { margin-bottom: 64px; }
+    .section-header.center { text-align: center; }
+    .section-header.center .section-subtitle { margin: 0 auto; }
+
+    /* HOW IT WORKS */
+    .how-it-works {
+      padding: 120px 24px;
       position: relative;
     }
-    .code-titlebar {
+    .flow-diagram {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin-top: 64px;
+    }
+    .flow-step {
+      flex: 1;
+      min-width: 180px;
+      max-width: 220px;
+      text-align: center;
+      position: relative;
+      padding: 24px 16px;
+    }
+    .flow-step-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      border-radius: 16px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-glow);
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: rgba(255,255,255,0.02);
-      border-bottom: 1px solid var(--border);
+      justify-content: center;
+      transition: all 0.3s;
     }
-    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .code-dot.r { background: #ff5f57; }
-    .code-dot.y { background: #febc2e; }
-    .code-dot.g { background: #28c840; }
-    .code-filename {
-      flex: 1;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-dim);
+    .flow-step:hover .flow-step-icon {
+      background: rgba(245,197,66,0.12);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(245,197,66,0.1);
+    }
+    .flow-step-icon svg { width: 32px; height: 32px; stroke: var(--accent); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .flow-step-num {
       font-family: 'JetBrains Mono', monospace;
-    }
-    .code-lang {
       font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 100px;
-      border: 1px solid var(--border);
-      color: var(--text-subtle);
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      opacity: 0.7;
     }
-    .code-body {
-      padding: 16px;
-      font-family: 'JetBrains Mono', monospace;
+    .flow-step h3 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .flow-step p {
       font-size: 13px;
-      line-height: 1.8;
-      min-height: 240px;
+      color: var(--text-muted);
+      line-height: 1.6;
     }
-    .code-line {
+    .flow-arrow {
       display: flex;
-      gap: 12px;
-      padding: 0 4px;
-    }
-    .code-line.added {
-      background: var(--code-line-bg);
-      margin: 0 -16px;
-      padding: 0 16px;
-    }
-    .code-line.removed {
-      background: rgba(239,68,68,0.08);
-      margin: 0 -16px;
-      padding: 0 16px;
-    }
-    .line-num {
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
       color: var(--text-dim);
-      min-width: 24px;
-      text-align: right;
-      user-select: none;
     }
-    .line-content { flex: 1; }
-    .line-content .green { color: var(--code-green); }
-    .line-content .red { color: var(--code-red); }
-    .line-content .muted { color: var(--text-subtle); }
-    .line-content .accent { color: var(--accent); }
-    .line-content .white { color: var(--text); }
-    .line-content .comment { color: #555; font-style: italic; }
-    .code-diff-stat {
-      font-size: 12px;
-      color: var(--code-green);
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-    }
+    .flow-arrow svg { width: 24px; height: 24px; stroke: var(--text-dim); fill: none; stroke-width: 1.5; }
 
     /* FEATURES */
     .features {
       padding: 120px 24px;
-    }
-    .features .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .section-label {
-      font-size: 13px;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 16px;
-    }
-    .features h2 {
-      font-size: clamp(28px, 4vw, 44px);
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 60px;
-      line-height: 1.2;
     }
     .feature-grid {
       display: grid;
@@ -418,9 +510,9 @@
     .feature-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 28px;
-      transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+      border-radius: 14px;
+      padding: 32px 28px;
+      transition: all 0.4s cubic-bezier(0.16,1,0.3,1);
       position: relative;
       overflow: hidden;
     }
@@ -429,196 +521,299 @@
       position: absolute;
       width: 200px;
       height: 200px;
-      background: radial-gradient(circle, rgba(245,197,66,0.1) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(245,197,66,0.08) 0%, transparent 70%);
       border-radius: 50%;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.4s;
-      transform: translate(var(--glow-x, 0), var(--glow-y, 0));
+      transform: translate(var(--glow-x, -100px), var(--glow-y, -100px));
     }
     .feature-card:hover::before { opacity: 1; }
     .feature-card:hover {
       border-color: var(--border-hover);
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
     .feature-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      background: rgba(245,197,66,0.08);
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(245,197,66,0.1);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 16px;
-      font-size: 16px;
+      margin-bottom: 20px;
+      transition: all 0.3s;
     }
+    .feature-card:hover .feature-icon {
+      background: rgba(245,197,66,0.12);
+      border-color: var(--accent-glow);
+    }
+    .feature-icon svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .feature-card h3 {
-      font-size: 16px;
-      font-weight: 400;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
       color: var(--text);
     }
     .feature-card p {
       font-size: 14px;
       color: var(--text-muted);
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* PROVIDERS */
     .providers {
       padding: 120px 24px;
     }
-    .providers .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .providers h2 {
-      font-size: clamp(28px, 4vw, 44px);
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .providers .subtitle {
-      text-align: center;
-      color: var(--text-muted);
-      margin-bottom: 60px;
-      font-size: 16px;
-    }
-    .provider-grid {
+    .provider-categories {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      max-width: 900px;
-      margin: 0 auto;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      margin-top: 64px;
     }
-    .provider-card {
+    .provider-category h3 {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .provider-category h3 .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 100px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .badge-free {
+      background: rgba(34,197,94,0.1);
+      color: var(--code-green);
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+    .badge-paid {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-subtle);
+      border: 1px solid var(--border);
+    }
+    .provider-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .provider-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 20px;
-      text-align: center;
+      padding: 16px 20px;
       transition: all 0.3s;
-      position: relative;
-      overflow: hidden;
     }
-    .provider-card:hover { border-color: var(--border-hover); }
-    .provider-card h4 {
-      font-family: 'Unica One', serif;
+    .provider-item:hover {
+      border-color: var(--border-hover);
+      background: var(--card-hover);
+    }
+    .provider-info { display: flex; align-items: center; gap: 14px; }
+    .provider-logo-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .provider-name {
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 15px;
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 6px;
+      font-weight: 500;
       color: var(--text);
     }
-    .provider-card .free-tag {
-      font-size: 11px;
-      color: var(--code-green);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .provider-card .paid-tag {
-      font-size: 11px;
+    .provider-desc {
+      font-size: 12px;
       color: var(--text-subtle);
-      text-transform: uppercase;
-      letter-spacing: 1px;
     }
+    .provider-type {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .type-free { color: var(--code-green); }
+    .type-key { color: var(--text-subtle); }
 
-    /* HOW IT WORKS */
-    .how-it-works {
+    /* DOCS / SETUP */
+    .docs {
       padding: 120px 24px;
     }
-    .how-it-works .container {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    .how-it-works h2 {
-      font-size: clamp(28px, 4vw, 44px);
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 60px;
-      text-align: center;
-    }
-    .steps {
+    .docs-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 32px;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      margin-top: 64px;
     }
-    .step {
+    .doc-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    .doc-block:hover { border-color: var(--border-hover); }
+    .doc-block-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .doc-dot.r { background: #ff5f57; }
+    .doc-dot.y { background: #febc2e; }
+    .doc-dot.g { background: #28c840; }
+    .doc-filename {
+      flex: 1;
       text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
     }
-    .step-num {
-      font-family: 'Unica One', serif;
-      font-size: 48px;
-      color: var(--accent);
-      opacity: 0.3;
-      margin-bottom: 16px;
+    .doc-body {
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.9;
+      overflow-x: auto;
     }
-    .step h3 {
-      font-size: 16px;
-      font-weight: 400;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
+    .doc-body .line {
+      display: flex;
+      gap: 12px;
     }
-    .step p {
+    .doc-body .line-num {
+      color: var(--text-dim);
+      min-width: 24px;
+      text-align: right;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .doc-body .line-cmd { color: var(--code-green); }
+    .doc-body .line-comment { color: #555; font-style: italic; }
+    .doc-body .line-flag { color: var(--code-blue); }
+    .doc-body .line-str { color: var(--code-yellow); }
+    .doc-body .line-key { color: var(--code-purple); }
+    .doc-body .line-val { color: var(--code-green); }
+    .doc-body .line-prompt { color: var(--text-subtle); }
+
+    .doc-text {
+      padding: 24px;
+    }
+    .doc-text h3 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .doc-text p {
       font-size: 14px;
       color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .doc-text ul {
+      list-style: none;
+      padding: 0;
+    }
+    .doc-text ul li {
+      font-size: 14px;
+      color: var(--text-muted);
+      padding: 6px 0;
+      padding-left: 20px;
+      position: relative;
       line-height: 1.6;
+    }
+    .doc-text ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.5;
     }
 
     /* CTA */
     .cta {
-      padding: 120px 24px;
+      padding: 140px 24px;
       text-align: center;
       position: relative;
+      overflow: hidden;
     }
-    .cta::before {
+    .cta-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .cta-bg::before {
       content: '';
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(245,197,66,0.04) 0%, transparent 60%);
-      pointer-events: none;
+      width: 800px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(245,197,66,0.05) 0%, transparent 60%);
+      animation: ctaGlow 8s ease-in-out infinite alternate;
     }
+    @keyframes ctaGlow {
+      0% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    }
+    .cta > * { position: relative; z-index: 1; }
     .cta h2 {
-      font-size: clamp(28px, 5vw, 52px);
-      font-weight: 400;
-      letter-spacing: 3px;
-      margin-bottom: 16px;
-      position: relative;
+      font-size: clamp(36px, 6vw, 60px);
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
     }
-    .cta h2 em { font-style: normal; color: var(--accent); }
-    .cta p {
-      color: var(--text-muted);
-      margin-bottom: 40px;
-      font-size: 16px;
-      position: relative;
-    }
-    .cta .btn-primary { position: relative; }
+    .cta .section-subtitle { margin: 0 auto 40px; }
+    .cta .btn-primary { font-size: 15px; padding: 15px 36px; }
 
     /* FOOTER */
     footer {
       padding: 60px 24px 40px;
       border-top: 1px solid var(--border);
     }
-    .footer-inner {
+    .footer-grid {
       max-width: 1200px;
       margin: 0 auto;
       display: grid;
       grid-template-columns: 2fr repeat(3, 1fr);
       gap: 48px;
     }
-    .footer-brand .logo { display: block; margin-bottom: 12px; }
-    .footer-brand p { color: var(--text-subtle); font-size: 14px; line-height: 1.6; }
+    .footer-brand .logo { display: block; margin-bottom: 14px; }
+    .footer-brand p { color: var(--text-subtle); font-size: 14px; line-height: 1.7; max-width: 280px; }
     .footer-col h4 {
-      font-family: 'Unica One', serif;
-      font-size: 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
       letter-spacing: 2px;
-      margin-bottom: 16px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
       color: var(--text);
     }
     .footer-col a {
@@ -626,7 +821,7 @@
       color: var(--text-subtle);
       text-decoration: none;
       font-size: 14px;
-      padding: 4px 0;
+      padding: 5px 0;
       transition: color 0.2s;
     }
     .footer-col a:hover { color: var(--text); }
@@ -638,16 +833,46 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     .footer-bottom p { color: var(--text-dim); font-size: 13px; }
+    .mit-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-subtle);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 6px;
+    }
+    .mit-badge span { color: var(--code-green); }
 
     /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .provider-categories { grid-template-columns: 1fr; gap: 32px; }
+      .docs-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+    }
     @media (max-width: 768px) {
-      .feature-grid { grid-template-columns: 1fr; }
-      .code-grid { grid-template-columns: 1fr; }
-      .steps { grid-template-columns: 1fr; gap: 48px; }
-      .footer-inner { grid-template-columns: 1fr 1fr; }
       .nav-links { display: none; }
+      .nav-mobile-btn { display: block; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: clamp(36px, 10vw, 56px); }
+      .flow-diagram { flex-direction: column; align-items: center; }
+      .flow-arrow { transform: rotate(90deg); min-width: auto; padding: 8px 0; }
+      .flow-step { max-width: 300px; }
+      .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+      .footer-bottom { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .tab-buttons { flex-wrap: wrap; }
+      .hero-actions { flex-direction: column; width: 100%; }
+      .btn-primary, .btn-secondary { width: 100%; justify-content: center; text-align: center; }
     }
   </style>
 </head>
@@ -655,28 +880,48 @@
   <!-- NAV -->
   <nav id="navbar">
     <div class="nav-inner">
-      <a href="/" class="logo">CIPHER<span>.</span></a>
+      <a href="#home" class="logo">CIPHER<span>.</span></a>
       <ul class="nav-links">
+        <li><a href="#how-it-works">How It Works</a></li>
         <li><a href="#features">Features</a></li>
         <li><a href="#providers">Providers</a></li>
-        <li><a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a></li>
-        <li><a href="#install" class="nav-cta">Get Started</a></li>
+        <li><a href="#docs">Docs</a></li>
+        <li><a href="https://github.com/elevenpercent/cipher" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="#cta" class="nav-cta">Get Started</a></li>
       </ul>
+      <button class="nav-mobile-btn" onclick="toggleMobile()" aria-label="Open menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
     </div>
   </nav>
 
+  <!-- Mobile Menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="mobile-close" onclick="toggleMobile()" aria-label="Close menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+    <a href="#home" onclick="toggleMobile()">Home</a>
+    <a href="#how-it-works" onclick="toggleMobile()">How It Works</a>
+    <a href="#features" onclick="toggleMobile()">Features</a>
+    <a href="#providers" onclick="toggleMobile()">Providers</a>
+    <a href="#docs" onclick="toggleMobile()">Docs</a>
+    <a href="https://github.com/elevenpercent/cipher" target="_blank" rel="noopener">GitHub</a>
+    <a href="#cta" onclick="toggleMobile()">Get Started</a>
+  </div>
+
   <!-- HERO -->
-  <section class="hero">
+  <section class="hero" id="home">
+    <div class="hero-bg"></div>
     <div class="dots"></div>
-    <div class="pill reveal">Autonomous Coding Agent</div>
-    <h1 class="reveal reveal-delay-1">Ship code<br><em>faster</em> with AI</h1>
-    <p class="reveal reveal-delay-2">Cipher is a terminal agent that writes, edits, and runs code. Works with any AI provider — free or paid.</p>
+    <div class="pill reveal"><span class="pill-dot"></span>Autonomous Coding Agent</div>
+    <h1 class="reveal reveal-delay-1">Build with<br><em>AI agents</em></h1>
+    <p class="reveal reveal-delay-2">Cipher is a terminal-based agent that plans, writes, edits, and runs code. Connect any AI provider — free local models or cloud APIs.</p>
     <div class="hero-actions reveal reveal-delay-3">
-      <a href="#install" class="btn-primary">
-        Install Cipher
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <a href="#cta" class="btn-primary">
+        Install Now
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
       </a>
-      <a href="https://github.com/elevenpercent/cipher" target="_blank" class="btn-secondary">View on GitHub</a>
+      <a href="https://github.com/elevenpercent/cipher" target="_blank" rel="noopener" class="btn-secondary">View on GitHub</a>
     </div>
     <div class="install-tabs reveal reveal-delay-4">
       <div class="tab-buttons">
@@ -685,151 +930,135 @@
         <button class="tab-btn" data-tab="linux" onclick="switchTab('linux', this)">Linux</button>
       </div>
       <div class="tab-content active" id="tab-windows">
-        <code>irm <span class="accent">raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1</span> | iex</code>
+        <code><span class="prompt">&gt; </span>irm <span>https://raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1</span> | iex</code>
+        <button class="tab-copy-btn" onclick="copyTab(this)">Copy</button>
       </div>
       <div class="tab-content" id="tab-macos">
-        <code>curl <span class="accent">-fsSL cipher.elevenpct.com/install.sh</span> | bash</code>
+        <code><span class="prompt">$ </span>curl <span>-fsSL https://cipher.elevenpct.com/install.sh</span> | bash</code>
+        <button class="tab-copy-btn" onclick="copyTab(this)">Copy</button>
       </div>
       <div class="tab-content" id="tab-linux">
-        <code>curl <span class="accent">-fsSL cipher.elevenpct.com/install.sh</span> | bash</code>
-      </div>
-      <button class="copy-btn-large" onclick="copyCurrentTab(this)">Copy</button>
-    </div>
-  </section>
-
-  <!-- CODE PREVIEW -->
-  <section class="code-section" id="features">
-    <div class="container">
-      <div class="code-grid">
-        <div class="code-text reveal">
-          <div class="section-label">How it works</div>
-          <h2>It writes code<br><em>while you watch</em></h2>
-          <p>Cipher streams token by token, showing its thinking, planning, and executing — all in real time. No waiting. No guessing.</p>
-          <p>Every file is complete. No placeholders. No "rest of code here."</p>
-        </div>
-        <div class="code-screen reveal reveal-delay-2">
-          <div class="code-titlebar">
-            <div class="code-dot r"></div>
-            <div class="code-dot y"></div>
-            <div class="code-dot g"></div>
-            <div class="code-filename">app/routes.py</div>
-            <div class="code-lang">python</div>
-          </div>
-          <div class="code-body">
-            <div class="code-line">
-              <span class="line-num">1</span>
-              <span class="line-content comment"># Cipher is writing this file...</span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">2</span>
-              <span class="line-content"><span class="green">+ from flask import Flask, jsonify</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">3</span>
-              <span class="line-content"><span class="green">+ from models import db, User</span></span>
-            </div>
-            <div class="code-line">
-              <span class="line-num">4</span>
-              <span class="line-content"></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">5</span>
-              <span class="line-content"><span class="green">+ app = Flask(__name__)</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">6</span>
-              <span class="line-content"><span class="green">+ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">7</span>
-              <span class="line-content"><span class="green">+ db.init_app(app)</span></span>
-            </div>
-            <div class="code-line">
-              <span class="line-num">8</span>
-              <span class="line-content"></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">9</span>
-              <span class="line-content"><span class="accent">@app</span><span class="white">.route('/api/users')</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">10</span>
-              <span class="line-content"><span class="white">def get_users():</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">11</span>
-              <span class="line-content">    <span class="white">users = User.query.all()</span></span>
-            </div>
-            <div class="code-line added">
-              <span class="line-num">12</span>
-              <span class="line-content">    <span class="white">return jsonify([u.to_dict() for u in users])</span></span>
-            </div>
-            <div class="code-diff-stat">+8 lines added · Flask API ready</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FEATURES GRID -->
-  <section class="features">
-    <div class="container">
-      <div class="section-label reveal">Features</div>
-      <h2 class="reveal reveal-delay-1">Everything you need<br>to <em style="color:var(--accent);font-style:normal">build faster</em></h2>
-      <div class="feature-grid">
-        <div class="feature-card reveal">
-          <div class="feature-icon">✏️</div>
-          <h3>Writes Code</h3>
-          <p>Creates complete, production-ready files. No placeholders, no shortcuts.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-1">
-          <div class="feature-icon">⚡</div>
-          <h3>Runs Commands</h3>
-          <p>Installs dependencies, runs tests, manages your project from the terminal.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-2">
-          <div class="feature-icon">🔄</div>
-          <h3>Edits Files</h3>
-          <p>Reads existing code, understands it, and writes the complete updated version.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-3">
-          <div class="feature-icon">💭</div>
-          <h3>Thinks First</h3>
-          <p>Plans before acting. Shows you the strategy before writing a single line.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-4">
-          <div class="feature-icon">🔒</div>
-          <h3>Sandboxed</h3>
-          <p>Only touches files in your project directory. Can't escape your workspace.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-5">
-          <div class="feature-icon">🌐</div>
-          <h3>Any AI Provider</h3>
-          <p>Ollama, OpenAI, Anthropic, Google, DeepSeek, Groq, Mistral, and more.</p>
-        </div>
+        <code><span class="prompt">$ </span>curl <span>-fsSL https://cipher.elevenpct.com/install.sh</span> | bash</code>
+        <button class="tab-copy-btn" onclick="copyTab(this)">Copy</button>
       </div>
     </div>
   </section>
 
   <!-- HOW IT WORKS -->
-  <section class="how-it-works">
+  <section class="how-it-works" id="how-it-works">
     <div class="container">
-      <h2 class="reveal">Get started in <em style="color:var(--accent);font-style:normal">30 seconds</em></h2>
-      <div class="steps">
-        <div class="step reveal">
-          <div class="step-num">01</div>
-          <h3>Install</h3>
-          <p>One command. Python + pip. That's it.</p>
+      <div class="section-header center reveal">
+        <div class="section-label">How It Works</div>
+        <h2>From idea to <em>code</em> in seconds</h2>
+        <p class="section-subtitle">Describe what you want. Cipher plans, writes, executes, and iterates — all from your terminal.</p>
+      </div>
+      <div class="flow-diagram">
+        <div class="flow-step reveal">
+          <div class="flow-step-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <div class="flow-step-num">STEP 01</div>
+          <h3>You Describe</h3>
+          <p>Type what you want in natural language. No special syntax needed.</p>
         </div>
-        <div class="step reveal reveal-delay-2">
-          <div class="step-num">02</div>
-          <h3>Choose AI</h3>
-          <p>Pick from 9 providers. Free or paid.</p>
+        <div class="flow-arrow reveal reveal-delay-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </div>
-        <div class="step reveal reveal-delay-4">
-          <div class="step-num">03</div>
-          <h3>Build</h3>
-          <p>Describe what you want. Cipher does the rest.</p>
+        <div class="flow-step reveal reveal-delay-1">
+          <div class="flow-step-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div class="flow-step-num">STEP 02</div>
+          <h3>Cipher Plans</h3>
+          <p>AI analyzes your request, reads existing code, and creates a strategy.</p>
+        </div>
+        <div class="flow-arrow reveal reveal-delay-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+        <div class="flow-step reveal reveal-delay-2">
+          <div class="flow-step-icon">
+            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <div class="flow-step-num">STEP 03</div>
+          <h3>Writes Code</h3>
+          <p>Complete files written to disk. No placeholders. No incomplete blocks.</p>
+        </div>
+        <div class="flow-arrow reveal reveal-delay-3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+        <div class="flow-step reveal reveal-delay-3">
+          <div class="flow-step-icon">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <div class="flow-step-num">STEP 04</div>
+          <h3>Runs Commands</h3>
+          <p>Installs deps, runs tests, starts servers. Full terminal control.</p>
+        </div>
+        <div class="flow-arrow reveal reveal-delay-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+        <div class="flow-step reveal reveal-delay-4">
+          <div class="flow-step-icon">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="flow-step-num">STEP 05</div>
+          <h3>Done</h3>
+          <p>Your code is ready. Review, iterate, or deploy. You're in control.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Features</div>
+        <h2>Everything you need<br>to <em>build faster</em></h2>
+        <p class="section-subtitle">A complete coding agent that understands your project and works alongside you.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <h3>Writes Complete Code</h3>
+          <p>Generates full, production-ready files. No placeholders, no "insert code here" shortcuts. Every file is complete.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <h3>Runs Terminal Commands</h3>
+          <p>Installs dependencies, runs tests, builds projects, starts servers. Full terminal automation with your approval.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          </div>
+          <h3>Reads & Edits Files</h3>
+          <p>Understands existing codebases, then writes the complete updated version. Every edit is intentional and complete.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <h3>Thinks Before Acting</h3>
+          <p>Plans strategy before writing a single line. See the reasoning, approve the approach, then watch it execute.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-4">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <h3>Sandboxed Execution</h3>
+          <p>Only touches files in your project directory. Cannot escape your workspace. Your system stays safe.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-5">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          </div>
+          <h3>Any AI Provider</h3>
+          <p>14 providers supported. Free local models via Ollama, or cloud APIs from OpenAI, Anthropic, Google, and more.</p>
         </div>
       </div>
     </div>
@@ -838,85 +1067,303 @@
   <!-- PROVIDERS -->
   <section class="providers" id="providers">
     <div class="container">
-      <div class="section-label reveal" style="text-align:center">AI Providers</div>
-      <h2 class="reveal reveal-delay-1">9 providers. <em style="color:var(--accent);font-style:normal">30+ models.</em></h2>
-      <p class="subtitle reveal reveal-delay-2">Free tiers available. No vendor lock-in.</p>
-      <div class="provider-grid">
-        <div class="provider-card reveal">
-          <h4>OLLAMA</h4>
-          <div class="free-tag">FREE — Local</div>
+      <div class="section-header center reveal">
+        <div class="section-label">AI Providers</div>
+        <h2>14 providers. <em>30+ models.</em></h2>
+        <p class="section-subtitle">Start with free local models or connect your favorite cloud API. Switch anytime.</p>
+      </div>
+      <div class="provider-categories">
+        <div class="provider-category reveal">
+          <h3>Free <span class="badge badge-free">No API Key</span></h3>
+          <div class="provider-list">
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">O</div>
+                <div>
+                  <div class="provider-name">Ollama</div>
+                  <div class="provider-desc">Run models locally on your machine</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Local · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">D</div>
+                <div>
+                  <div class="provider-name">DeepSeek</div>
+                  <div class="provider-desc">Free tier with generous limits</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Cloud · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">G</div>
+                <div>
+                  <div class="provider-name">Groq</div>
+                  <div class="provider-desc">Ultra-fast inference, free tier</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Cloud · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">G</div>
+                <div>
+                  <div class="provider-name">Google Gemini</div>
+                  <div class="provider-desc">Free tier with powerful models</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Cloud · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">H</div>
+                <div>
+                  <div class="provider-name">HuggingFace</div>
+                  <div class="provider-desc">Open-source models, free inference</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Cloud · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">A</div>
+                <div>
+                  <div class="provider-name">Azure AI</div>
+                  <div class="provider-desc">Free tier available for select models</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Cloud · Free</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">V</div>
+                <div>
+                  <div class="provider-name">vLLM</div>
+                  <div class="provider-desc">Self-hosted, open-source serving</div>
+                </div>
+              </div>
+              <div class="provider-type type-free">Local · Free</div>
+            </div>
+          </div>
         </div>
-        <div class="provider-card reveal reveal-delay-1">
-          <h4>DEEPSEEK</h4>
-          <div class="free-tag">FREE — Cloud</div>
+        <div class="provider-category reveal reveal-delay-2">
+          <h3>API Key <span class="badge badge-paid">Paid</span></h3>
+          <div class="provider-list">
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">O</div>
+                <div>
+                  <div class="provider-name">OpenAI</div>
+                  <div class="provider-desc">GPT-4o, o1, and more</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">A</div>
+                <div>
+                  <div class="provider-name">Anthropic</div>
+                  <div class="provider-desc">Claude 3.5 Sonnet, Opus</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">M</div>
+                <div>
+                  <div class="provider-name">Mistral</div>
+                  <div class="provider-desc">Mistral Large, Codestral</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">X</div>
+                <div>
+                  <div class="provider-name">xAI (Grok)</div>
+                  <div class="provider-desc">Grok models via xAI API</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">T</div>
+                <div>
+                  <div class="provider-name">Together AI</div>
+                  <div class="provider-desc">Multiple open-source models</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">C</div>
+                <div>
+                  <div class="provider-name">Cohere</div>
+                  <div class="provider-desc">Command R+, Aya models</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+            <div class="provider-item">
+              <div class="provider-info">
+                <div class="provider-logo-box">P</div>
+                <div>
+                  <div class="provider-name">Perplexity</div>
+                  <div class="provider-desc">Sonar models with web search</div>
+                </div>
+              </div>
+              <div class="provider-type type-key">API Key</div>
+            </div>
+          </div>
         </div>
-        <div class="provider-card reveal reveal-delay-2">
-          <h4>GROQ</h4>
-          <div class="free-tag">FREE — Cloud</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCS / SETUP -->
+  <section class="docs" id="docs">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Documentation</div>
+        <h2>Setup in <em>minutes</em></h2>
+        <p class="section-subtitle">Get Cipher running with your preferred AI provider. Step-by-step guides below.</p>
+      </div>
+      <div class="docs-grid">
+        <div class="reveal">
+          <div class="doc-block">
+            <div class="doc-block-header">
+              <div class="doc-dot r"></div>
+              <div class="doc-dot y"></div>
+              <div class="doc-dot g"></div>
+              <div class="doc-filename">Installation</div>
+            </div>
+            <div class="doc-body">
+              <div class="line"><span class="line-num">1</span><span class="line-comment"># Windows (PowerShell)</span></div>
+              <div class="line"><span class="line-num">2</span><span class="line-prompt">&gt; </span><span class="line-cmd">irm https://raw.githubusercontent.com</span></div>
+              <div class="line"><span class="line-num">3</span><span class="line-cmd">  /elevenpercent/cipher/master</span></div>
+              <div class="line"><span class="line-num">4</span><span class="line-cmd">  /install.ps1 | iex</span></div>
+              <div class="line"><span class="line-num">5</span><span class="line-cmd"></span></div>
+              <div class="line"><span class="line-num">6</span><span class="line-comment"># macOS / Linux</span></div>
+              <div class="line"><span class="line-num">7</span><span class="line-prompt">$ </span><span class="line-cmd">curl -fsSL https://cipher.elevenpct.com</span></div>
+              <div class="line"><span class="line-num">8</span><span class="line-cmd">  /install.sh | bash</span></div>
+            </div>
+          </div>
+          <div style="height:16px"></div>
+          <div class="doc-block">
+            <div class="doc-block-header">
+              <div class="doc-dot r"></div>
+              <div class="doc-dot y"></div>
+              <div class="doc-dot g"></div>
+              <div class="doc-filename">cipher.config.yaml</div>
+            </div>
+            <div class="doc-body">
+              <div class="line"><span class="line-num">1</span><span class="line-key">provider</span><span>: </span><span class="line-val">ollama</span></div>
+              <div class="line"><span class="line-num">2</span><span class="line-key">model</span><span>: </span><span class="line-val">codellama:7b</span></div>
+              <div class="line"><span class="line-num">3</span><span class="line-key">max_tokens</span><span>: </span><span class="line-val">4096</span></div>
+              <div class="line"><span class="line-num">4</span></div>
+              <div class="line"><span class="line-num">5</span><span class="line-comment"># Or for OpenAI:</span></div>
+              <div class="line"><span class="line-num">6</span><span class="line-comment"># provider: openai</span></div>
+              <div class="line"><span class="line-num">7</span><span class="line-comment"># model: gpt-4o</span></div>
+              <div class="line"><span class="line-num">8</span><span class="line-comment"># api_key: $OPENAI_API_KEY</span></div>
+            </div>
+          </div>
         </div>
-        <div class="provider-card reveal reveal-delay-3">
-          <h4>GEMINI</h4>
-          <div class="free-tag">FREE — Cloud</div>
-        </div>
-        <div class="provider-card reveal">
-          <h4>OPENAI</h4>
-          <div class="paid-tag">API Key</div>
-        </div>
-        <div class="provider-card reveal reveal-delay-1">
-          <h4>ANTHROPIC</h4>
-          <div class="paid-tag">API Key</div>
-        </div>
-        <div class="provider-card reveal reveal-delay-2">
-          <h4>MISTRAL</h4>
-          <div class="paid-tag">API Key</div>
-        </div>
-        <div class="provider-card reveal reveal-delay-3">
-          <h4>xAI</h4>
-          <div class="paid-tag">API Key</div>
-        </div>
-        <div class="provider-card reveal">
-          <h4>TOGETHER AI</h4>
-          <div class="paid-tag">API Key</div>
+        <div class="doc-text reveal reveal-delay-2">
+          <h3>Requirements</h3>
+          <ul>
+            <li>Python 3.10 or higher</li>
+            <li>pip package manager</li>
+            <li>Git (for project integration)</li>
+            <li>Internet connection (for cloud providers)</li>
+          </ul>
+          <h3 style="margin-top:24px">Usage</h3>
+          <p>Navigate to your project directory and run Cipher with your task:</p>
+          <div class="doc-block" style="margin-top:12px">
+            <div class="doc-block-header">
+              <div class="doc-dot r"></div>
+              <div class="doc-dot y"></div>
+              <div class="doc-dot g"></div>
+              <div class="doc-filename">Terminal</div>
+            </div>
+            <div class="doc-body">
+              <div class="line"><span class="line-num">1</span><span class="line-prompt">$ </span><span class="line-cmd">cd my-project</span></div>
+              <div class="line"><span class="line-num">2</span><span class="line-prompt">$ </span><span class="line-cmd">cipher "Create a REST API"</span></div>
+              <div class="line"><span class="line-num">3</span><span class="line-comment"># Cipher plans, writes, and runs</span></div>
+              <div class="line"><span class="line-num">4</span><span class="line-comment"># your API automatically</span></div>
+            </div>
+          </div>
+          <h3 style="margin-top:24px">Switching Providers</h3>
+          <p>Change your provider anytime by editing the config or passing a flag:</p>
+          <div class="doc-block" style="margin-top:12px">
+            <div class="doc-block-header">
+              <div class="doc-dot r"></div>
+              <div class="doc-dot y"></div>
+              <div class="doc-dot g"></div>
+              <div class="doc-filename">Terminal</div>
+            </div>
+            <div class="doc-body">
+              <div class="line"><span class="line-num">1</span><span class="line-prompt">$ </span><span class="line-cmd">cipher --provider openai</span></div>
+              <div class="line"><span class="line-num">2</span><span class="line-cmd">  --model gpt-4o</span></div>
+              <div class="line"><span class="line-num">3</span><span class="line-prompt">$ </span><span class="line-cmd">cipher --provider anthropic</span></div>
+              <div class="line"><span class="line-num">4</span><span class="line-cmd">  --model claude-3-5-sonnet</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- CTA -->
-  <section class="cta" id="install">
-    <h2 class="reveal">Start <em>building</em></h2>
-    <p class="reveal reveal-delay-1">One command. Any AI. Your terminal.</p>
-    <a href="#" class="btn-primary reveal reveal-delay-2" onclick="copyInstall(event)">
-      Copy Install Command
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.5"/><path d="M6 6V4h6v6h-2" stroke="currentColor" stroke-width="1.5"/></svg>
-    </a>
+  <section class="cta" id="cta">
+    <div class="cta-bg"></div>
+    <div class="container">
+      <div class="section-label center reveal" style="text-align:center">Get Started</div>
+      <h2 class="reveal reveal-delay-1">Start <em>building</em> today</h2>
+      <p class="section-subtitle reveal reveal-delay-2" style="text-align:center">One command. Any AI. Your terminal. Ship code faster than ever.</p>
+      <div class="reveal reveal-delay-3">
+        <button class="btn-primary" onclick="copyCTA(this)">
+          Copy Install Command
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 3V2h7v7h-1"/></svg>
+        </button>
+      </div>
+    </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <div class="footer-inner">
+    <div class="footer-grid">
       <div class="footer-brand">
-        <a href="/" class="logo">CIPHER<span>.</span></a>
-        <p>Autonomous coding agent for your terminal. Built by elevenpct.</p>
+        <a href="#home" class="logo">CIPHER<span>.</span></a>
+        <p>Autonomous coding agent for your terminal. Plan, write, and run code with any AI provider.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
         <a href="#features">Features</a>
         <a href="#providers">Providers</a>
-        <a href="#install">Install</a>
+        <a href="#docs">Documentation</a>
+        <a href="#cta">Install</a>
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
-        <a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a>
-        <a href="#">Docs</a>
+        <a href="https://github.com/elevenpercent/cipher" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/elevenpercent/cipher/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/elevenpercent/cipher/discussions" target="_blank" rel="noopener">Discussions</a>
       </div>
       <div class="footer-col">
         <h4>Company</h4>
-        <a href="https://elevenpct.com" target="_blank">elevenpct</a>
+        <a href="https://elevenpct.com" target="_blank" rel="noopener">elevenpct</a>
+        <a href="https://elevenpct.com" target="_blank" rel="noopener">Blog</a>
       </div>
     </div>
     <div class="footer-bottom">
-      <p>MIT License. Open source.</p>
+      <div class="mit-badge"><span>MIT</span> Licensed</div>
       <p>Built by elevenpct</p>
     </div>
   </footer>
@@ -927,7 +1374,7 @@
       entries.forEach(entry => {
         if (entry.isIntersecting) entry.target.classList.add('visible');
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
     // Nav scroll effect
@@ -935,7 +1382,7 @@
       document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
     });
 
-    // Mouse glow on cards
+    // Mouse glow on feature cards
     document.querySelectorAll('.feature-card').forEach(card => {
       card.addEventListener('mousemove', (e) => {
         const rect = card.getBoundingClientRect();
@@ -946,6 +1393,7 @@
       });
     });
 
+    // Tab switching
     function switchTab(tab, btn) {
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -953,22 +1401,52 @@
       btn.classList.add('active');
     }
 
-    function copyCurrentTab(btn) {
+    // Copy from tab
+    function copyTab(btn) {
       const activeTab = document.querySelector('.tab-content.active code');
-      const text = activeTab.textContent.trim();
+      const text = activeTab.textContent.trim().replace(/^[$>]\s*/, '');
       navigator.clipboard.writeText(text);
       btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
-    function copyInstall(e) {
-      e.preventDefault();
-      const text = 'irm https://raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1 | iex';
+    // Copy from CTA
+    function copyCTA(btn) {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const text = isMac
+        ? 'curl -fsSL https://cipher.elevenpct.com/install.sh | bash'
+        : 'irm https://raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1 | iex';
       navigator.clipboard.writeText(text);
-      const btn = e.currentTarget;
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.innerHTML = 'Copy Install Command <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.5"/><path d="M6 6V4h6v6h-2" stroke="currentColor" stroke-width="1.5"/></svg>'; }, 2000);
+      const original = btn.innerHTML;
+      btn.innerHTML = 'Copied to Clipboard!';
+      btn.style.background = '#22c55e';
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.style.background = '';
+      }, 2000);
     }
+
+    // Mobile menu
+    function toggleMobile() {
+      document.getElementById('mobileMenu').classList.toggle('open');
+      document.body.style.overflow = document.getElementById('mobileMenu').classList.contains('open') ? 'hidden' : '';
+    }
+
+    // Detect OS for default tab
+    (function() {
+      const platform = navigator.platform.toUpperCase();
+      let defaultTab = 'windows';
+      if (platform.indexOf('MAC') >= 0) defaultTab = 'macos';
+      else if (platform.indexOf('LINUX') >= 0) defaultTab = 'linux';
+
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === defaultTab);
+      });
+      document.querySelectorAll('.tab-content').forEach(c => {
+        c.classList.toggle('active', c.id === 'tab-' + defaultTab);
+      });
+    })();
   </script>
 </body>
 </html>
