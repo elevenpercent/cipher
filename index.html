@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cipher - Autonomous Coding Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unica+One&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=DM+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050505;
+      --surface: #0a0a0a;
+      --card: #111;
+      --card-hover: #1a1a1a;
+      --border: #1a1a1a;
+      --border-hover: #333;
+      --accent: #f5c542;
+      --accent-hover: #ffd95e;
+      --text: #ffffff;
+      --text-foreground: #e5e5e5;
+      --text-muted: #a3a3a3;
+      --text-subtle: #737373;
+      --text-dim: #444;
+      --code-green: #22c55e;
+      --code-red: #ef4444;
+      --code-yellow: #f59e0b;
+      --code-blue: #3b82f6;
+      --code-line-bg: rgba(34,197,94,0.08);
+      --glow-x: 0;
+      --glow-y: 0;
+      --glow-strength: 0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-foreground);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, .logo, .heading { font-family: 'Unica One', serif; }
+    .mono { font-family: 'JetBrains Mono', 'DM Mono', monospace; }
+
+    /* Reveal animations */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+    .reveal-delay-5 { transition-delay: 0.5s; }
+
+    /* Dot pattern background */
+    .dots {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.1;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      padding: 0 24px;
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      margin-top: 12px;
+      background: rgba(10,10,10,0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: all 0.3s ease;
+    }
+    nav.scrolled .nav-inner {
+      background: rgba(5,5,5,0.9);
+      border-color: var(--border-hover);
+      margin-top: 0;
+      border-radius: 0;
+    }
+    .logo {
+      font-size: 20px;
+      letter-spacing: 3px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .logo span { color: var(--accent); }
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--accent);
+      color: #000;
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--accent-hover); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(245,197,66,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(245,197,66,0.08);
+      border: 1px solid rgba(245,197,66,0.15);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 32px;
+    }
+    .pill::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.5); }
+    }
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 88px);
+      font-weight: 400;
+      letter-spacing: 4px;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+    .hero p {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.08); }
+    .install-tabs {
+      margin-top: 28px;
+      max-width: 480px;
+    }
+    .tab-buttons {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--text); border-color: var(--border-hover); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: rgba(245,197,66,0.08);
+      border-bottom-color: transparent;
+    }
+    .tab-content {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-subtle);
+    }
+    .tab-content.active { display: block; }
+    .tab-content code {
+      color: var(--code-green);
+    }
+    .copy-btn-large {
+      margin-top: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      float: right;
+    }
+    .copy-btn-large:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* CODE SCREEN (Graphite-style) */
+    .code-section {
+      padding: 80px 24px;
+    }
+    .code-section .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .code-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    .code-text h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 400;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    .code-text h2 em { font-style: normal; color: var(--accent); }
+    .code-text p {
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .code-screen {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .code-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dot.r { background: #ff5f57; }
+    .code-dot.y { background: #febc2e; }
+    .code-dot.g { background: #28c840; }
+    .code-filename {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .code-lang {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--text-subtle);
+    }
+    .code-body {
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      min-height: 240px;
+    }
+    .code-line {
+      display: flex;
+      gap: 12px;
+      padding: 0 4px;
+    }
+    .code-line.added {
+      background: var(--code-line-bg);
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+    .code-line.removed {
+      background: rgba(239,68,68,0.08);
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+    .line-num {
+      color: var(--text-dim);
+      min-width: 24px;
+      text-align: right;
+      user-select: none;
+    }
+    .line-content { flex: 1; }
+    .line-content .green { color: var(--code-green); }
+    .line-content .red { color: var(--code-red); }
+    .line-content .muted { color: var(--text-subtle); }
+    .line-content .accent { color: var(--accent); }
+    .line-content .white { color: var(--text); }
+    .line-content .comment { color: #555; font-style: italic; }
+    .code-diff-stat {
+      font-size: 12px;
+      color: var(--code-green);
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* FEATURES */
+    .features {
+      padding: 120px 24px;
+    }
+    .features .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .section-label {
+      font-size: 13px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+    .features h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 400;
+      letter-spacing: 2px;
+      margin-bottom: 60px;
+      line-height: 1.2;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(245,197,66,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s;
+      transform: translate(var(--glow-x, 0), var(--glow-y, 0));
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(245,197,66,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* PROVIDERS */
+    .providers {
+      padding: 120px 24px;
+    }
+    .providers .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .providers h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 400;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .providers .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 60px;
+      font-size: 16px;
+    }
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .provider-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .provider-card:hover { border-color: var(--border-hover); }
+    .provider-card h4 {
+      font-family: 'Unica One', serif;
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .provider-card .free-tag {
+      font-size: 11px;
+      color: var(--code-green);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .provider-card .paid-tag {
+      font-size: 11px;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* HOW IT WORKS */
+    .how-it-works {
+      padding: 120px 24px;
+    }
+    .how-it-works .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .how-it-works h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 400;
+      letter-spacing: 2px;
+      margin-bottom: 60px;
+      text-align: center;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+    .step {
+      text-align: center;
+    }
+    .step-num {
+      font-family: 'Unica One', serif;
+      font-size: 48px;
+      color: var(--accent);
+      opacity: 0.3;
+      margin-bottom: 16px;
+    }
+    .step h3 {
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .step p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* CTA */
+    .cta {
+      padding: 120px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .cta::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(245,197,66,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .cta h2 {
+      font-size: clamp(28px, 5vw, 52px);
+      font-weight: 400;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .cta h2 em { font-style: normal; color: var(--accent); }
+    .cta p {
+      color: var(--text-muted);
+      margin-bottom: 40px;
+      font-size: 16px;
+      position: relative;
+    }
+    .cta .btn-primary { position: relative; }
+
+    /* FOOTER */
+    footer {
+      padding: 60px 24px 40px;
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 2fr repeat(3, 1fr);
+      gap: 48px;
+    }
+    .footer-brand .logo { display: block; margin-bottom: 12px; }
+    .footer-brand p { color: var(--text-subtle); font-size: 14px; line-height: 1.6; }
+    .footer-col h4 {
+      font-family: 'Unica One', serif;
+      font-size: 14px;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+    .footer-col a {
+      display: block;
+      color: var(--text-subtle);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 4px 0;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--text); }
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-bottom p { color: var(--text-dim); font-size: 13px; }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .code-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; gap: 48px; }
+      .footer-inner { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="/" class="logo">CIPHER<span>.</span></a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#providers">Providers</a></li>
+        <li><a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a></li>
+        <li><a href="#install" class="nav-cta">Get Started</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="dots"></div>
+    <div class="pill reveal">Autonomous Coding Agent</div>
+    <h1 class="reveal reveal-delay-1">Ship code<br><em>faster</em> with AI</h1>
+    <p class="reveal reveal-delay-2">Cipher is a terminal agent that writes, edits, and runs code. Works with any AI provider — free or paid.</p>
+    <div class="hero-actions reveal reveal-delay-3">
+      <a href="#install" class="btn-primary">
+        Install Cipher
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="https://github.com/elevenpercent/cipher" target="_blank" class="btn-secondary">View on GitHub</a>
+    </div>
+    <div class="install-tabs reveal reveal-delay-4">
+      <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="windows" onclick="switchTab('windows', this)">Windows</button>
+        <button class="tab-btn" data-tab="macos" onclick="switchTab('macos', this)">macOS</button>
+        <button class="tab-btn" data-tab="linux" onclick="switchTab('linux', this)">Linux</button>
+      </div>
+      <div class="tab-content active" id="tab-windows">
+        <code>irm <span class="accent">github.com/elevenpercent/cipher/raw/master/install.ps1</span> | iex</code>
+      </div>
+      <div class="tab-content" id="tab-macos">
+        <code>curl <span class="accent">-fsSL cipher.elevenpct.com/install.sh</span> | bash</code>
+      </div>
+      <div class="tab-content" id="tab-linux">
+        <code>curl <span class="accent">-fsSL cipher.elevenpct.com/install.sh</span> | bash</code>
+      </div>
+      <button class="copy-btn-large" onclick="copyCurrentTab(this)">Copy</button>
+    </div>
+  </section>
+
+  <!-- CODE PREVIEW -->
+  <section class="code-section" id="features">
+    <div class="container">
+      <div class="code-grid">
+        <div class="code-text reveal">
+          <div class="section-label">How it works</div>
+          <h2>It writes code<br><em>while you watch</em></h2>
+          <p>Cipher streams token by token, showing its thinking, planning, and executing — all in real time. No waiting. No guessing.</p>
+          <p>Every file is complete. No placeholders. No "rest of code here."</p>
+        </div>
+        <div class="code-screen reveal reveal-delay-2">
+          <div class="code-titlebar">
+            <div class="code-dot r"></div>
+            <div class="code-dot y"></div>
+            <div class="code-dot g"></div>
+            <div class="code-filename">app/routes.py</div>
+            <div class="code-lang">python</div>
+          </div>
+          <div class="code-body">
+            <div class="code-line">
+              <span class="line-num">1</span>
+              <span class="line-content comment"># Cipher is writing this file...</span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">2</span>
+              <span class="line-content"><span class="green">+ from flask import Flask, jsonify</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">3</span>
+              <span class="line-content"><span class="green">+ from models import db, User</span></span>
+            </div>
+            <div class="code-line">
+              <span class="line-num">4</span>
+              <span class="line-content"></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">5</span>
+              <span class="line-content"><span class="green">+ app = Flask(__name__)</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">6</span>
+              <span class="line-content"><span class="green">+ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">7</span>
+              <span class="line-content"><span class="green">+ db.init_app(app)</span></span>
+            </div>
+            <div class="code-line">
+              <span class="line-num">8</span>
+              <span class="line-content"></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">9</span>
+              <span class="line-content"><span class="accent">@app</span><span class="white">.route('/api/users')</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">10</span>
+              <span class="line-content"><span class="white">def get_users():</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">11</span>
+              <span class="line-content">    <span class="white">users = User.query.all()</span></span>
+            </div>
+            <div class="code-line added">
+              <span class="line-num">12</span>
+              <span class="line-content">    <span class="white">return jsonify([u.to_dict() for u in users])</span></span>
+            </div>
+            <div class="code-diff-stat">+8 lines added · Flask API ready</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES GRID -->
+  <section class="features">
+    <div class="container">
+      <div class="section-label reveal">Features</div>
+      <h2 class="reveal reveal-delay-1">Everything you need<br>to <em style="color:var(--accent);font-style:normal">build faster</em></h2>
+      <div class="feature-grid">
+        <div class="feature-card reveal">
+          <div class="feature-icon">✏️</div>
+          <h3>Writes Code</h3>
+          <p>Creates complete, production-ready files. No placeholders, no shortcuts.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-icon">⚡</div>
+          <h3>Runs Commands</h3>
+          <p>Installs dependencies, runs tests, manages your project from the terminal.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-icon">🔄</div>
+          <h3>Edits Files</h3>
+          <p>Reads existing code, understands it, and writes the complete updated version.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-icon">💭</div>
+          <h3>Thinks First</h3>
+          <p>Plans before acting. Shows you the strategy before writing a single line.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-4">
+          <div class="feature-icon">🔒</div>
+          <h3>Sandboxed</h3>
+          <p>Only touches files in your project directory. Can't escape your workspace.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-5">
+          <div class="feature-icon">🌐</div>
+          <h3>Any AI Provider</h3>
+          <p>Ollama, OpenAI, Anthropic, Google, DeepSeek, Groq, Mistral, and more.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-it-works">
+    <div class="container">
+      <h2 class="reveal">Get started in <em style="color:var(--accent);font-style:normal">30 seconds</em></h2>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">01</div>
+          <h3>Install</h3>
+          <p>One command. Python + pip. That's it.</p>
+        </div>
+        <div class="step reveal reveal-delay-2">
+          <div class="step-num">02</div>
+          <h3>Choose AI</h3>
+          <p>Pick from 9 providers. Free or paid.</p>
+        </div>
+        <div class="step reveal reveal-delay-4">
+          <div class="step-num">03</div>
+          <h3>Build</h3>
+          <p>Describe what you want. Cipher does the rest.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROVIDERS -->
+  <section class="providers" id="providers">
+    <div class="container">
+      <div class="section-label reveal" style="text-align:center">AI Providers</div>
+      <h2 class="reveal reveal-delay-1">9 providers. <em style="color:var(--accent);font-style:normal">30+ models.</em></h2>
+      <p class="subtitle reveal reveal-delay-2">Free tiers available. No vendor lock-in.</p>
+      <div class="provider-grid">
+        <div class="provider-card reveal">
+          <h4>OLLAMA</h4>
+          <div class="free-tag">FREE — Local</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-1">
+          <h4>DEEPSEEK</h4>
+          <div class="free-tag">FREE — Cloud</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-2">
+          <h4>GROQ</h4>
+          <div class="free-tag">FREE — Cloud</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-3">
+          <h4>GEMINI</h4>
+          <div class="free-tag">FREE — Cloud</div>
+        </div>
+        <div class="provider-card reveal">
+          <h4>OPENAI</h4>
+          <div class="paid-tag">API Key</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-1">
+          <h4>ANTHROPIC</h4>
+          <div class="paid-tag">API Key</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-2">
+          <h4>MISTRAL</h4>
+          <div class="paid-tag">API Key</div>
+        </div>
+        <div class="provider-card reveal reveal-delay-3">
+          <h4>xAI</h4>
+          <div class="paid-tag">API Key</div>
+        </div>
+        <div class="provider-card reveal">
+          <h4>TOGETHER AI</h4>
+          <div class="paid-tag">API Key</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="install">
+    <h2 class="reveal">Start <em>building</em></h2>
+    <p class="reveal reveal-delay-1">One command. Any AI. Your terminal.</p>
+    <a href="#" class="btn-primary reveal reveal-delay-2" onclick="copyInstall(event)">
+      Copy Install Command
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.5"/><path d="M6 6V4h6v6h-2" stroke="currentColor" stroke-width="1.5"/></svg>
+    </a>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="/" class="logo">CIPHER<span>.</span></a>
+        <p>Autonomous coding agent for your terminal. Built by elevenpct.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#providers">Providers</a>
+        <a href="#install">Install</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a>
+        <a href="#">Docs</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="https://elevenpct.com" target="_blank">elevenpct</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>MIT License. Open source.</p>
+      <p>Built by elevenpct</p>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Nav scroll effect
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // Mouse glow on cards
+    document.querySelectorAll('.feature-card').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width - 0.5) * 200;
+        const y = ((e.clientY - rect.top) / rect.height - 0.5) * 200;
+        card.style.setProperty('--glow-x', x + 'px');
+        card.style.setProperty('--glow-y', y + 'px');
+      });
+    });
+
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function copyCurrentTab(btn) {
+      const activeTab = document.querySelector('.tab-content.active code');
+      const text = activeTab.textContent.trim();
+      navigator.clipboard.writeText(text);
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }
+
+    function copyInstall(e) {
+      e.preventDefault();
+      const text = 'irm https://github.com/elevenpercent/cipher/raw/master/install.ps1 | iex';
+      navigator.clipboard.writeText(text);
+      const btn = e.currentTarget;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.innerHTML = 'Copy Install Command <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4z" stroke="currentColor" stroke-width="1.5"/><path d="M6 6V4h6v6h-2" stroke="currentColor" stroke-width="1.5"/></svg>'; }, 2000);
+    }
+  </script>
+</body>
+</html>
