@@ -664,8 +664,9 @@ complete content - NO "..."
 ## RULES
 - NEVER wrap tags in markdown code blocks
 - ALWAYS write COMPLETE files
-- Use RELATIVE paths
+- Use RELATIVE paths only
 - mkdir first, then write files
+- Tags MUST start with < character: <write path="file.py">
 """
 
     def compose(self):
@@ -1075,16 +1076,16 @@ complete content - NO "..."
 
     def _parse_tools(self, text):
         text = re.sub(r'```[a-z]*\n(.*?)\n```', r'\1', text, flags=re.DOTALL)
-        m = re.search(r'<run>(.+?)</run>', text, re.DOTALL)
+        m = re.search(r'<?run>(.+?)</run>', text, re.DOTALL)
         if m:
             return "run", m.group(1), ""
-        m = re.search(r'<write\s+path=["\'](.+?)["\']>(.*?)</write>', text, re.DOTALL)
+        m = re.search(r'<?write\s+path=["\'](.+?)["\']>(.*?)</write>', text, re.DOTALL)
         if m:
             return "write", m.group(1), m.group(2)
-        m = re.search(r'<read\s+path=["\'](.+?)["\']\s*/?\s*>', text, re.DOTALL)
+        m = re.search(r'<?read\s+path=["\'](.+?)["\']\s*/?\s*>', text, re.DOTALL)
         if m:
             return "read", m.group(1), ""
-        m = re.search(r'<ls>(.*?)</ls>', text, re.DOTALL)
+        m = re.search(r'<?ls>(.*?)</ls>', text, re.DOTALL)
         if m:
             return "ls", m.group(1).strip(), ""
         return None, None, None
