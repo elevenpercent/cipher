@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cipher-agent"
+version = "0.3.0"
+description = "Autonomous coding agent for your terminal"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=0.50",
+    "litellm>=1.30",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+cipher = "cipher.__main__:main"
+cipher-agent = "cipher.__main__:main"
+cip = "cipher.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["cipher*"]

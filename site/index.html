@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cipher - Autonomous Coding Agent for Your Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Unica+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #f5c542;
+            --gold-dim: #b8932e;
+            --black: #050505;
+            --dark: #0a0a0a;
+            --dark2: #111111;
+            --dark3: #1a1a1a;
+            --white: #ffffff;
+            --gray: #888888;
+            --gray-dim: #555555;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--black);
+            color: var(--white);
+            overflow-x: hidden;
+        }
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--dark3);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo {
+            font-family: 'Unica One', cursive;
+            font-size: 1.5rem;
+            color: var(--gold);
+            text-decoration: none;
+        }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-link {
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: var(--white); }
+        .nav-version {
+            color: var(--gold-dim);
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8rem 2rem 4rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero-badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            border: 1px solid var(--gold-dim);
+            border-radius: 100px;
+            color: var(--gold);
+            font-size: 0.8rem;
+            margin-bottom: 2rem;
+            letter-spacing: 0.05em;
+        }
+        .hero-title {
+            font-family: 'Unica One', cursive;
+            font-size: clamp(3rem, 8vw, 6rem);
+            color: var(--gold);
+            line-height: 1;
+            margin-bottom: 1.5rem;
+        }
+        .hero-subtitle {
+            font-size: clamp(1.1rem, 2vw, 1.4rem);
+            color: var(--gray);
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 3rem;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 4rem;
+        }
+        .btn {
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--gold);
+            color: var(--black);
+        }
+        .btn-primary:hover {
+            background: #ffe066;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--white);
+            border: 1px solid var(--dark3);
+        }
+        .btn-secondary:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .terminal {
+            background: var(--dark);
+            border: 1px solid var(--dark3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 600px;
+            width: 100%;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+        .terminal-header {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--dark3);
+        }
+        .terminal-dot:first-child { background: #ff5f57; }
+        .terminal-dot:nth-child(2) { background: #febc2e; }
+        .terminal-dot:nth-child(3) { background: #28c840; }
+        .terminal-cmd { color: var(--gold); }
+        .terminal-text { color: var(--gray); }
+        .terminal-success { color: #28c840; }
+        .features {
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section-title {
+            font-family: 'Unica One', cursive;
+            font-size: 2.5rem;
+            color: var(--gold);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .section-subtitle {
+            color: var(--gray);
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto 4rem;
+            line-height: 1.6;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        .feature-card {
+            background: var(--dark);
+            border: 1px solid var(--dark3);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: border-color 0.2s;
+        }
+        .feature-card:hover {
+            border-color: var(--gold-dim);
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        .feature-title {
+            font-family: 'Unica One', cursive;
+            font-size: 1.3rem;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+        .feature-desc {
+            color: var(--gray);
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+        .providers {
+            padding: 6rem 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .provider-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .provider-table th,
+        .provider-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--dark3);
+        }
+        .provider-table th {
+            color: var(--gold);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .provider-table td {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        .provider-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-free { background: rgba(40, 200, 64, 0.1); color: #28c840; }
+        .badge-key { background: rgba(245, 197, 66, 0.1); color: var(--gold); }
+        .badge-local { background: rgba(100, 149, 237, 0.1); color: #6495ed; }
+        .install {
+            padding: 6rem 2rem;
+            text-align: center;
+            background: var(--dark);
+        }
+        .install-code {
+            display: inline-block;
+            background: var(--black);
+            border: 1px solid var(--dark3);
+            border-radius: 8px;
+            padding: 1rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: var(--gold);
+            margin: 2rem 0;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .install-code:hover {
+            border-color: var(--gold-dim);
+        }
+        .footer {
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 1px solid var(--dark3);
+        }
+        .footer-text {
+            color: var(--gray-dim);
+            font-size: 0.85rem;
+        }
+        .footer-link {
+            color: var(--gold-dim);
+            text-decoration: none;
+        }
+        .footer-link:hover {
+            color: var(--gold);
+        }
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero-title { font-size: 3rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="#" class="nav-logo">CIPHER</a>
+        <div class="nav-links">
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#providers" class="nav-link">Providers</a>
+            <a href="#install" class="nav-link">Install</a>
+            <a href="https://github.com/elevenpercent/cipher" class="nav-link">GitHub</a>
+            <span class="nav-version">v0.3.0</span>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-badge">AUTONOMOUS CODING AGENT</div>
+        <h1 class="hero-title">Cipher</h1>
+        <p class="hero-subtitle">An autonomous coding agent that runs in your terminal. Write, edit, and run code with AI. Local-first, bring your own key.</p>
+        <div class="hero-cta">
+            <a href="#install" class="btn btn-primary">Get Started</a>
+            <a href="#features" class="btn btn-secondary">Learn More</a>
+        </div>
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+            </div>
+            <div><span class="terminal-cmd">$</span> <span class="terminal-text">cip --setup</span></div>
+            <div><span class="terminal-text">Choose your AI provider:</span></div>
+            <div><span class="terminal-text">  Ollama - Local models, 100% free</span></div>
+            <div><span class="terminal-text">  Groq - Fastest inference, free tier</span></div>
+            <div><span class="terminal-text">  DeepSeek - Free cloud tier, excellent at coding</span></div>
+            <div class="terminal-success">✓ Ready to code</div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <h2 class="section-title">Features</h2>
+        <p class="section-subtitle">Everything you need to build autonomously, right from your terminal.</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🖥️</div>
+                <h3 class="feature-title">Terminal Native</h3>
+                <p class="feature-desc">Runs anywhere you have a terminal. No IDE plugin, no browser extension. Just `cip` and go.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔧</div>
+                <h3 class="feature-title">Autonomous Agent</h3>
+                <p class="feature-desc">Cipher plans, writes, and executes code autonomously. It reads your files, runs commands, and iterates.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3 class="feature-title">Local First</h3>
+                <p class="feature-desc">Run models locally with Ollama. Your code never leaves your machine. Complete privacy.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔑</div>
+                <h3 class="feature-title">Bring Your Own Key</h3>
+                <p class="feature-desc">Use any cloud provider — Groq, DeepSeek, Gemini, OpenAI, Anthropic, and more. Free tiers available.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Smart TUI</h3>
+                <p class="feature-desc">Animated thinking spinner, slash autocomplete, session history, provider panel, and settings — all keyboard shortcuts.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3 class="feature-title">Session History</h3>
+                <p class="feature-desc">Every conversation is saved automatically. Resume where you left off, review past sessions, switch contexts instantly.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="providers" id="providers">
+        <h2 class="section-title">Providers</h2>
+        <p class="section-subtitle">14+ providers supported. Pick what works for you.</p>
+        <table class="provider-table">
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Type</th>
+                    <th>Cost</th>
+                    <th>Setup</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Ollama</strong></td>
+                    <td><span class="provider-badge badge-local">Local</span></td>
+                    <td>Free</td>
+                    <td>Install ollama.com</td>
+                </tr>
+                <tr>
+                    <td><strong>Groq</strong></td>
+                    <td><span class="provider-badge badge-free">Free Tier</span></td>
+                    <td>Generous free</td>
+                    <td>console.groq.com</td>
+                </tr>
+                <tr>
+                    <td><strong>DeepSeek</strong></td>
+                    <td><span class="provider-badge badge-free">Free Tier</span></td>
+                    <td>5M free tokens</td>
+                    <td>platform.deepseek.com</td>
+                </tr>
+                <tr>
+                    <td><strong>Google Gemini</strong></td>
+                    <td><span class="provider-badge badge-free">Free Tier</span></td>
+                    <td>60 RPM free</td>
+                    <td>aistudio.google.com</td>
+                </tr>
+                <tr>
+                    <td><strong>OpenAI</strong></td>
+                    <td><span class="provider-badge badge-key">API Key</span></td>
+                    <td>Pay per use</td>
+                    <td>platform.openai.com</td>
+                </tr>
+                <tr>
+                    <td><strong>Anthropic</strong></td>
+                    <td><span class="provider-badge badge-key">API Key</span></td>
+                    <td>Pay per use</td>
+                    <td>console.anthropic.com</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="install" id="install">
+        <h2 class="section-title">Install</h2>
+        <p class="section-subtitle">One command. You're ready to build.</p>
+        <div class="install-code" onclick="navigator.clipboard.writeText(this.innerText); this.style.borderColor='#f5c542'; setTimeout(() => this.style.borderColor='var(--dark3)', 1000)">pip install git+https://github.com/elevenpercent/cipher.git@master</div>
+        <p style="color: var(--gray); font-size: 0.9rem;">Then run <code style="color: var(--gold);">cip --setup</code> to choose your provider</p>
+    </section>
+
+    <footer class="footer">
+        <p class="footer-text">
+            Cipher is open source. MIT License.<br>
+            Built by <a href="https://cipher.elevenpct.com" class="footer-link">elevenpct</a>
+        </p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+</body>
+</html>
