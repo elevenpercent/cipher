@@ -9,18 +9,26 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.widgets import Static, Input, Label, Button, Checkbox, Select, Rule
 from textual.binding import Binding
 from textual.screen import Screen, ModalScreen
 from rich.text import Text
 from cipher.provider import AIProvider, PROVIDERS
+import fnmatch
+import html
+import threading
+import urllib.request
+import glob as glob_module
+import concurrent.futures
 
 CONFIG_DIR = Path.home() / ".cipher"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 SESSIONS_DIR = CONFIG_DIR / "sessions"
+SKILLS_DIR = CONFIG_DIR / "skills"
 CONFIG_DIR.mkdir(exist_ok=True)
 SESSIONS_DIR.mkdir(exist_ok=True)
+SKILLS_DIR.mkdir(exist_ok=True)
 
 SLASH_COMMANDS = {
     "/clear": "Clear chat history",
@@ -39,7 +47,9 @@ SLASH_COMMANDS = {
     "/help": "Show all commands",
 }
 
-THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"]
+THINKING_FRAMES = ["-", "\\", "|", "/"]
+_PROVIDER_CACHE = None
+_PROVIDER_CACHE_TIME = 0
 
 
 def detect_available_providers():
@@ -57,7 +67,6 @@ def detect_available_providers():
                     available.append({"id": pid, "available": False, "reason": "Not installed - get at ollama.com"})
             elif pid == "lmstudio":
                 try:
-                    import urllib.request
                     urllib.request.urlopen("http://localhost:1234/v1/models", timeout=2)
                     available.append({"id": pid, "available": True, "reason": "Running"})
                 except Exception:
@@ -73,8 +82,8 @@ def detect_available_providers():
 
 def load_config():
     defaults = {
-        "provider": "ollama",
-        "model": "ollama/qwen3:14b",
+        "provider": "cipher-proxy",
+        "model": "llama-3.3-70b",
         "show_plan": True,
         "show_code": True,
         "show_summary": True,
@@ -83,6 +92,14 @@ def load_config():
         "expand_explanations": False,
         "auto_confirm": False,
         "compact_mode": False,
+        "lint_command": "",
+        "skills_dir": str(SKILLS_DIR),
+        "permissions": {
+            "auto_allow": {},
+            "auto_deny": {},
+        },
+        "custom_tools": [],
+        "proxy_url": "https://proxy-blue-kappa.vercel.app",
     }
     if CONFIG_FILE.exists():
         try:
@@ -230,6 +247,40 @@ class ToolResult(Static):
             out = self.result[:200].strip()
             if out:
                 result.append(f"  {out}\n", style="green" if self.success else "red")
+        elif self.tool == "grep":
+            result.append(f"  grep {self.args}\n", style="bold cyan")
+            out = self.result[:300].strip()
+            if out:
+                for line in out.split('\n')[:5]:
+                    result.append(f"  {line}\n", style="cyan")
+        elif self.tool == "glob":
+            result.append(f"  glob {self.args}\n", style="bold cyan")
+            out = self.result[:200].strip()
+            if out:
+                result.append(f"  {out}\n", style="cyan")
+        elif self.tool == "edit":
+            result.append(f"  {icon} ", style=style)
+            result.append(f"Editing {self.args}\n", style="bold")
+        elif self.tool == "web-fetch":
+            result.append(f"  fetch {self.args}\n", style="bold cyan")
+            out = self.result[:200].strip()
+            if out:
+                result.append(f"  {out[:200]}\n", style="cyan")
+        elif self.tool == "git":
+            result.append(f"  {icon} ", style=style)
+            result.append(f"git {self.args}\n", style="bold yellow")
+            out = self.result[:200].strip()
+            if out:
+                result.append(f"  {out}\n", style="yellow")
+        elif self.tool == "web-search":
+            result.append(f"  search {self.args}\n", style="bold cyan")
+            out = self.result[:200].strip()
+            if out:
+                result.append(f"  {out}\n", style="cyan")
+        elif self.tool == "todo":
+            result.append(f"  todo {self.args}\n", style="bold magenta")
+            if self.result:
+                result.append(f"  {self.result[:200]}\n", style="magenta")
         return result
 
 
@@ -238,7 +289,8 @@ class LoadingIndicator(Static):
         super().__init__(**kwargs)
         self.frame_idx = 0
         self.text = "Thinking"
-        self.dots = ""
+        self.dots = "..."
+        self.update(f"  {THINKING_FRAMES[0]} {self.text}...")
     def on_mount(self):
         self.set_interval(0.15, self._tick)
     def _tick(self):
@@ -255,21 +307,31 @@ class ProviderPanel(ModalScreen):
         self.available = detect_available_providers()
         self.selected_provider = self.config.get("provider", "ollama")
         self.selected_model = self.config.get("model", "")
+    @staticmethod
+    def _type_tag(info):
+        t = info.get("type", "")
+        if t == "local":
+            return "NOKEY"
+        elif t == "cloud-free":
+            return "FREE"
+        else:
+            return "KEY"
+
     def compose(self):
         with Container(id="provider-panel"):
-            yield Static("  Switch Provider  [esc] Close", id="panel-title")
-            yield Static("Only showing providers your system can use", id="panel-hint")
+            yield Static("  NOKEY = No key needed  FREE = Free tier (key)  KEY = API key required", id="panel-legend")
+            yield Static("  Switch Provider  [esc] Close  [Tab] Cycle", id="panel-title")
             for prov in self.available:
                 pid = prov["id"]
                 info = PROVIDERS.get(pid, {})
-                status = "AVAILABLE" if prov["available"] else "MISSING"
-                status_style = "green" if prov["available"] else "red"
+                tag = self._type_tag(info)
                 cur = " [current]" if pid == self.selected_provider else ""
                 models = [m["name"] for m in info.get("models", [])]
                 model_str = " | ".join(models[:3])
                 if len(models) > 3:
                     model_str += f" +{len(models)-3} more"
-                yield Static(f"  {status}  {info['name']:<14} {model_str}{cur}", id=f"prov-{pid}", classes=f"prov-row {'prov-active' if pid == self.selected_provider else ''} {'prov-unavailable' if not prov['available'] else ''}")
+                status = "\u2713" if prov["available"] else "\u2717"
+                yield Static(f"  {tag:5} {status}  {info['name']:<14} {model_str}{cur}", id=f"prov-{pid}", classes=f"prov-row {'prov-active' if pid == self.selected_provider else ''} {'prov-unavailable' if not prov['available'] else ''}")
             yield Rule()
             yield Static("Provider: " + self.selected_provider, id="panel-status")
             yield Static("Model: " + self.selected_model, id="panel-model")
@@ -329,16 +391,20 @@ class ProviderPanel(ModalScreen):
         self.query_one("#panel-model").update(f"Model: {self.selected_model}")
         for prov in self.available:
             pid = prov["id"]
-            status = "AVAILABLE" if prov["available"] else "MISSING"
+            tag = self._type_tag(PROVIDERS.get(pid, {}))
+            status = "\u2713" if prov["available"] else "\u2717"
             cur = " [selected]" if pid == self.selected_provider else " [current]" if pid == self.config.get("provider") else ""
             info2 = PROVIDERS.get(pid, {})
             row = self.query_one(f"#prov-{pid}")
-            row.update(f"  {status}  {info2['name']:<14} {model_str}{cur}")
+            row.update(f"  {tag:5} {status}  {info2['name']:<14} {model_str}{cur}")
             row.classes = f"prov-row {'prov-active' if pid == self.selected_provider else ''} {'prov-unavailable' if not prov['available'] else ''}"
 
     def _confirm(self):
         self.config["provider"] = self.selected_provider
         self.config["model"] = self.selected_model
+        env_key = PROVIDERS.get(self.selected_provider, {}).get("env_key", "")
+        if env_key:
+            self.config["api_key"] = os.getenv(env_key, "")
         save_config(self.config)
         self.dismiss({"provider": self.selected_provider, "model": self.selected_model})
 
@@ -358,8 +424,8 @@ class ProviderPanel(ModalScreen):
         padding: 1 2;
         overflow-y: auto;
     }
+    #panel-legend { text-align: center; color: #555; font-size: 10px; margin-bottom: 0; }
     #panel-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 0; }
-    #panel-hint { text-align: center; color: #666; margin-bottom: 1; }
     .prov-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
     .prov-active { color: #f5c542; }
     .prov-unavailable { color: #444; }
@@ -438,7 +504,7 @@ class SessionModal(ModalScreen):
     }
     #panel-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
     #session-empty { text-align: center; color: #666; margin: 2 0; }
-    .sess-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #888; }
+    .sess-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: monospace; font-size: 12px; color: #888; }
     .sess-active { color: #f5c542; }
     """
 
@@ -483,9 +549,11 @@ class SettingsModal(ModalScreen):
                 model_list = PROVIDERS[pid].get("models", [])
                 model_options = [(m["name"], m["id"]) for m in model_list]
                 ms = self.query_one("#model_select", Select)
-                ms.clear_options()
                 ms.set_options(model_options)
-                ms.value = None
+                ms.clear()
+                env_key = PROVIDERS[pid].get("env_key", "")
+                if env_key:
+                    self.config["_pending_key"] = os.getenv(env_key, "")
 
     def on_button_pressed(self, event):
         if event.button.id == "settings_save":
@@ -502,6 +570,9 @@ class SettingsModal(ModalScreen):
                 self.config["provider"] = str(ps.value)
             if ms.value:
                 self.config["model"] = str(ms.value)
+            if "_pending_key" in self.config:
+                self.config["api_key"] = self.config["_pending_key"]
+                del self.config["_pending_key"]
             save_config(self.config)
             self.dismiss(self.config)
         elif event.button.id == "settings_cancel":
@@ -515,6 +586,90 @@ class SettingsModal(ModalScreen):
     Checkbox { margin: 0 0 1 0; }
     Select { margin: 0 0 1 0; }
     #settings_save { margin-right: 1; }
+    """
+
+
+class YesNoModal(ModalScreen):
+    BINDINGS = [Binding("y", "yes", "Yes"), Binding("n", "no", "No")]
+    def __init__(self, tool, args, **kwargs):
+        super().__init__(**kwargs)
+        self.tool = tool
+        self.args = args
+        self.result = "no"
+    def compose(self):
+        with Container(id="yn-panel"):
+            yield Static("  Confirm Action", id="yn-title")
+            yield Static(f"  Tool: {self.tool}", id="yn-tool")
+            yield Static(f"  Args: {self.args}", id="yn-args")
+            yield Static("  Allow this action?", id="yn-prompt")
+            with Horizontal(id="yn-buttons"):
+                yield Button("  YES (y)  ", id="yn_yes", variant="primary")
+                yield Button("  NO (n)   ", id="yn_no", variant="default")
+    def action_yes(self):
+        self.result = "yes"
+        self.dismiss("yes")
+    def action_no(self):
+        self.result = "no"
+        self.dismiss("no")
+    def on_button_pressed(self, event):
+        if event.button.id == "yn_yes":
+            self.action_yes()
+        else:
+            self.action_no()
+    CSS = """
+    YesNoModal { align: center middle; }
+    #yn-panel {
+        width: 50;
+        height: auto;
+        background: #0a0a0a;
+        border: tall #f5c542;
+        padding: 1 2;
+    }
+    #yn-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
+    #yn-tool { color: #888; }
+    #yn-args { color: #888; margin-bottom: 1; }
+    #yn-prompt { color: #ccc; margin-bottom: 1; }
+    #yn-buttons { align: center middle; }
+    #yn_yes { margin-right: 1; }
+    """
+
+
+class QuestionScreen(ModalScreen):
+    BINDINGS = [Binding("escape", "dismiss", "Cancel")]
+    def __init__(self, question, **kwargs):
+        super().__init__(**kwargs)
+        self.question = question
+        self.answer = ""
+    def compose(self):
+        with Container(id="question-panel"):
+            yield Static("  Question from Cipher", id="question-title")
+            yield Static(f"  {self.question}", id="question-text")
+            yield Input(placeholder="Type your answer...", id="question-input")
+            with Horizontal():
+                yield Button("Submit", id="question_submit", variant="primary")
+                yield Button("Cancel", id="question_cancel", variant="default")
+    def on_button_pressed(self, event):
+        if event.button.id == "question_submit":
+            self.answer = self.query_one("#question-input", Input).value.strip()
+            self.dismiss(self.answer)
+        elif event.button.id == "question_cancel":
+            self.dismiss("")
+    def on_input_submitted(self, event):
+        self.answer = event.value.strip()
+        self.dismiss(self.answer)
+    CSS = """
+    QuestionScreen { align: center middle; }
+    #question-panel {
+        width: 60;
+        height: auto;
+        background: #0a0a0a;
+        border: tall #f5c542;
+        padding: 1 2;
+    }
+    #question-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
+    #question-text { color: #ccc; margin-bottom: 1; }
+    #question-input { margin: 0 0 1 0; }
+    #question_submit { margin-right: 1; }
     """
 
 
@@ -578,7 +733,7 @@ class SlashAutocomplete(Container):
     }
     SlashAutocomplete.hidden { display: none; }
     #ac-display {
-        font-family: 'JetBrains Mono', monospace;
+        font-family: monospace;
         font-size: 11px;
         color: #f5c542;
         margin: 0;
@@ -590,16 +745,16 @@ class CipherApp(App):
     CSS = """
     Screen { background: #050505; }
     #app-layout { layout: vertical; height: 100%; }
-    #header-bar { height: 3; dock: top; background: #0a0a0a; border-bottom: solid #1a1a1a; }
+    #header-bar { height: 4; background: #0a0a0a; border-bottom: solid #1a1a1a; }
     #header-left { dock: left; margin: 0 2; color: #f5c542; text-style: bold; }
-    #header-right { dock: right; margin: 0 2; color: #666; }
-    #session-title { dock: top; height: 2; background: #080808; border-bottom: solid #111; margin: 0 2; color: #aaa; }
-    #status-bar { height: 1; background: #080808; border-bottom: solid #111; }
-    #chat-container { height: 1fr; overflow-y: auto; padding: 1 2; }
-    #input-bar { height: auto; dock: bottom; background: #0a0a0a; border-top: solid #1a1a1a; }
-    #chat-input { margin: 0 2; border: none; }
+    #header-right { dock: right; margin: 0 2; color: #888; }
+    #session-title { height: 3; background: #080808; border-bottom: solid #111; padding: 0 2; color: #aaa; }
+    #status-bar { height: 2; background: #080808; border-bottom: solid #111; padding: 0 2; color: #666; }
+    #chat-container { height: 1fr; overflow-y: auto; padding: 0 2; border-bottom: solid #111; }
+    #input-bar { height: 4; background: #0a0a0a; border-top: solid #1a1a1a; }
+    #chat-input { margin: 0 2; border: solid #333; }
     .msg-user { margin: 1 0; padding: 0 1; color: #f5c542; }
-    .msg-assistant { margin: 1 0; padding: 0 1; }
+    .msg-assistant { margin: 1 0; padding: 0 1; color: #ddd; }
     .msg-plan { margin: 1 0 1 2; }
     .msg-code { margin: 1 0 1 4; }
     .msg-tool { margin: 0 0 1 4; }
@@ -617,7 +772,7 @@ class CipherApp(App):
         Binding("escape", "clear_input", "Clear input", show=False),
     ]
 
-    def __init__(self, project_root=None, provider=None, model=None, api_key=None, session_id=None):
+    def __init__(self, project_root=None, provider=None, model=None, api_key=None, session_id=None, proxy_url=None):
         super().__init__()
         self.project_root = os.path.abspath(project_root or os.getcwd())
         self.config = load_config()
@@ -625,11 +780,16 @@ class CipherApp(App):
             self.config["provider"] = provider
         if model:
             self.config["model"] = model
+        if proxy_url:
+            self.config["proxy_url"] = proxy_url
         self.api_key = api_key or None
         self.messages = []
         self.chat_messages = []
         self.total_tools = 0
+        self.total_tokens = 0
+        self.todo_list = []
         self.session_start = time.time()
+        self._ai_provider = None
         self.system_prompt = self._build_system_prompt()
         self.chat_messages = [{"role": "system", "content": self.system_prompt}]
         self.command_history = []
@@ -639,35 +799,47 @@ class CipherApp(App):
         self.is_processing = False
         self.loading_widget = None
         self.autocomplete = None
+        self._input_event = None
+        self._input_result = ""
+        self._stream_widget = None
 
     def _build_system_prompt(self):
-        return f"""You are Cipher, an expert autonomous coding agent.
+        skills_text = self._load_skills()
+        ctools = self.config.get("custom_tools", [])
+        custom_text = ""
+        if ctools:
+            lines = []
+            for ct in ctools:
+                lines.append(f"<{ct['name']}>args</{ct['name']}> - {ct.get('description', ct['name'])}")
+            custom_text = "\n" + "\n".join(lines)
+        return f"""You are Cipher, an autonomous coding agent. Your goal is the user's request. Authorized directory: {self.project_root}.{skills_text}
 
-WORKING DIRECTORY: {self.project_root}
+FLOW: <plan>...</plan> -> gather context (read/ls/grep) -> act (write/edit/run) -> verify. When done: <done>Summary</done>.
 
-SCOPE: ONLY create, read, write, or modify files INSIDE "{self.project_root}".
-NEVER use absolute paths or "../".
+TAGS:
+<run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
+<ls>path</ls>  <grep pattern="x" path="d">  <glob pattern="**/*.py">
+<edit path="p"><old>exact</old><new>replacement</new></edit>
+<web-fetch url="...">  <web-search query="...">
+<git status|diff|commit message="..."|log --oneline -5>
+<todo add="task"|done="N"|list>{custom_text}
 
-## PROCESS
-1. Output <plan>...</plan> FIRST
-2. Then ONE action tag per turn
-3. Summarize when done
-
-## ACTION TAGS (NO markdown code blocks):
-<run>command</run>
-<write path="relative/path">
-complete content - NO "..."
-</write>
-<read path="relative/path">
-<ls>path</ls>
-
-## RULES
-- NEVER wrap tags in markdown code blocks
-- ALWAYS write COMPLETE files
-- Use RELATIVE paths only
-- mkdir first, then write files
-- Tags MUST start with < character: <write path="file.py">
+RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Multiple tags allowed.
 """
+
+    def _load_skills(self):
+        skills_dir = Path(self.config.get("skills_dir", str(SKILLS_DIR)))
+        if not skills_dir.is_dir():
+            return ""
+        texts = []
+        for f in sorted(skills_dir.glob("*.md")):
+            try:
+                text = f.read_text(encoding="utf-8").strip()
+                if text:
+                    texts.append(f"\n## Skill: {f.stem}\n{text}")
+            except Exception:
+                pass
+        return "".join(texts)
 
     def compose(self):
         with Container(id="app-layout"):
@@ -675,24 +847,20 @@ complete content - NO "..."
                 yield Label("CIPHER //", id="header-left")
                 yield Label(f"{self.config['provider']} | {self.config['model']}", id="header-right")
             yield Label(f"  {self.session_title or 'New Session'}", id="session-title")
-            yield Static("", id="status-bar")
-            yield ScrollableContainer(id="chat-container")
+            yield Static(" ", id="status-bar")
+            yield VerticalScroll(id="chat-container")
             with Container(id="input-bar"):
                 yield Input(placeholder="Ask Cipher...  Ctrl+P providers  /help commands", id="chat-input")
                 yield SlashAutocomplete()
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
-        info = PROVIDERS.get(self.config.get("provider", "ollama"), {})
-        available = detect_available_providers()
-        available_str = ", ".join([p["id"] for p in available if p["available"]])
-        if not available_str:
-            available_str = "none"
-        self._add_system(f"Cipher ready | {info.get('name', 'AI')} | {self.config.get('provider')} | {self.config.get('model')}")
-        self._add_system(f"Available: {available_str}")
-        self._add_system(f"Working: {self.project_root}")
+        self._add_system(f"Cipher ready")
+        self._add_system(f"Provider: {self.config.get('provider')} | Model: {self.config.get('model')}")
+        self._add_system(f"Work dir: {self.project_root}")
         if self.session_title:
             self.query_one("#session-title").update(f"  {self.session_title}")
+        self.run_worker(self._detect_providers_async, exclusive=False, thread=True)
 
         saved = load_session(self.session_id)
         if saved and saved.get("messages"):
@@ -702,6 +870,12 @@ complete content - NO "..."
             self._add_system(f"Resumed session: {saved.get('title', 'untitled')}")
 
         self.autocomplete = self.query_one(SlashAutocomplete)
+
+    def _detect_providers_async(self):
+        available = detect_available_providers()
+        active = [p for p in available if p["available"]]
+        active_str = ", ".join([p["id"] for p in active]) if active else "none"
+        self.call_from_thread(self._add_system, f"Available: {active_str}")
 
     def _set_status(self, text):
         try:
@@ -757,6 +931,66 @@ complete content - NO "..."
         container.mount(msg)
         container.scroll_end()
 
+    def _add_system_safe(self, text):
+        try:
+            self._add_system(text)
+        except Exception:
+            try:
+                self.call_from_thread(self._add_system, text)
+            except Exception:
+                pass
+
+    def _refresh_api_key(self, provider_id):
+        pcfg = PROVIDERS.get(provider_id, {})
+        if pcfg.get("proxy"):
+            self.api_key = ""
+            return
+        env_key = pcfg.get("env_key", "")
+        if env_key:
+            env_val = os.getenv(env_key, "")
+            if env_val:
+                self.api_key = env_val
+            else:
+                self.api_key = self.config.get("api_key", "")
+        else:
+            self.api_key = ""
+
+    def action_settings(self):
+        def on_settings(result):
+            if result:
+                provider = result.get("provider", "")
+                model = result.get("model", "")
+                if provider and model:
+                    self._refresh_api_key(provider)
+                    self.query_one("#header-right").update(f"{provider} | {model}")
+        self.push_screen(SettingsModal(self.config), on_settings)
+
+    def action_providers(self):
+        def on_panel(result):
+            if result:
+                self.config["provider"] = result["provider"]
+                self.config["model"] = result["model"]
+                self._refresh_api_key(result["provider"])
+                info = PROVIDERS.get(result["provider"], {})
+                self.query_one("#header-right").update(f"{result['provider']} | {result['model']}")
+                self._add_system(f"Switched to {info.get('name', result['provider'])}")
+                self.system_prompt = self._build_system_prompt()
+                self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        self.push_screen(ProviderPanel(self.config), on_panel)
+
+    def action_clear_chat(self):
+        container = self.query_one("#chat-container")
+        self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        for child in list(container.children):
+            child.remove()
+        self._add_system("Chat cleared.")
+
+    def action_quit(self):
+        self.exit()
+
+    def action_clear_input(self):
+        self.query_one("#chat-input", Input).value = ""
+
     def on_input_changed(self, event):
         if self.autocomplete:
             self.autocomplete.update_suggestions(event.value)
@@ -783,63 +1017,93 @@ complete content - NO "..."
                 return
 
     def on_input_submitted(self, event):
-        user_input = event.value.strip()
-        if not user_input:
-            return
+        try:
+            user_input = event.value.strip()
+            if not user_input:
+                return
 
-        if self.autocomplete and not self.autocomplete.has_class("hidden"):
-            selected = self.autocomplete.get_selected()
-            if selected and user_input.lower().startswith(selected.lower().split()[0].lower()):
-                user_input = selected + " " + user_input.split(None, 1)[1] if len(user_input.split()) > 1 else selected
+            if self._input_event:
+                self._input_result = user_input
+                evt = self._input_event
+                self._input_event = None
+                evt.set()
+                self._add_system(f"Answer: {user_input}")
+                return
 
-        if self.command_history and self.command_history[-1] != user_input:
-            self.command_history.append(user_input)
-        elif not self.command_history:
-            self.command_history.append(user_input)
-        self.history_index = len(self.command_history)
-        self.query_one("#chat-input").value = ""
-        if self.autocomplete:
-            self.autocomplete.update_suggestions("")
+            if self.autocomplete and not self.autocomplete.has_class("hidden"):
+                selected = self.autocomplete.get_selected()
+                if selected and user_input.lower().startswith(selected.lower().split()[0].lower()):
+                    user_input = selected + " " + user_input.split(None, 1)[1] if len(user_input.split()) > 1 else selected
 
-        if user_input.startswith("/"):
-            self._handle_command(user_input)
-            return
+            if self.command_history and self.command_history[-1] != user_input:
+                self.command_history.append(user_input)
+            elif not self.command_history:
+                self.command_history.append(user_input)
+            self.history_index = len(self.command_history)
+            self.query_one("#chat-input").value = ""
+            if self.autocomplete:
+                self.autocomplete.update_suggestions("")
 
-        if not self.session_title:
-            self.session_title = generate_title(user_input)
-            self.query_one("#session-title").update(f"  {self.session_title}")
+            if user_input.startswith("/"):
+                self._handle_command(user_input)
+                return
 
-        self._add_user(user_input)
-        self.chat_messages.append({"role": "user", "content": user_input})
-        self.chat_messages = self.chat_messages[-30:]
-        save_session(self.session_id, self.chat_messages, self.session_title)
+            if not self.session_title:
+                self.session_title = generate_title(user_input)
+                self.query_one("#session-title").update(f"  {self.session_title}")
 
-        self.is_processing = True
-        self._set_status("")
+            self._add_user(user_input)
+            self.chat_messages.append({"role": "user", "content": user_input})
+            self.chat_messages = self.chat_messages[-30:]
+            save_session(self.session_id, self.chat_messages, self.session_title)
 
-        container = self.query_one("#chat-container")
-        self.loading_widget = LoadingIndicator(classes="loading-msg")
-        container.mount(self.loading_widget)
-        container.scroll_end()
+            self.is_processing = True
+            self._set_status("")
 
-        self.run_worker(self._run_agent_loop_thread, exclusive=True)
+            container = self.query_one("#chat-container")
+            self.loading_widget = LoadingIndicator(classes="loading-msg")
+            container.mount(self.loading_widget)
+            container.scroll_end()
+
+            self._stream_widget = None
+
+            self.run_worker(self._run_agent_loop_thread, exclusive=True, thread=True)
+        except Exception as e:
+            self._add_system(f"Error: {e}")
+            self.is_processing = False
 
     def _run_agent_loop_thread(self):
-        max_turns = 20
+        max_turns = 30
         for turn in range(max_turns):
             buffer = ""
+            stream_interval = 0
             try:
+                self.call_from_thread(self._remove_loading)
+                self._stream_widget = None
                 self.call_from_thread(self._set_status, "Thinking")
-                ai = AIProvider(
-                    provider_id=self.config.get("provider", "ollama"),
-                    model_id=self.config.get("model", "ollama/qwen3:14b"),
-                    api_key=self.api_key,
-                )
-                for chunk in ai.chat(self.chat_messages, stream=True):
+                pid = self.config.get("provider", "ollama")
+                mid = self.config.get("model", "ollama/qwen3:14b")
+                self.call_from_thread(self._refresh_api_key, pid)
+                if (self._ai_provider is None or
+                    self._ai_provider.provider_id != pid or
+                    self._ai_provider.model_id != mid):
+                    self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key, proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
+                for chunk in self._ai_provider.chat(self.chat_messages, stream=True):
                     token = chunk.get("content", "")
                     if not token:
                         continue
                     buffer += token
+                    stream_interval += 1
+                    if stream_interval % 20 == 0:
+                        self._update_stream(token)
+                self._update_stream("")
+
+                try:
+                    import tiktoken
+                    enc = tiktoken.get_encoding("cl100k_base")
+                    self.total_tokens += len(enc.encode(buffer))
+                except Exception:
+                    self.total_tokens += len(buffer) // 4
 
                 self.call_from_thread(self._set_status, "Processing")
 
@@ -847,22 +1111,56 @@ complete content - NO "..."
                 if plan_match:
                     self.call_from_thread(self._add_plan, plan_match.group(1))
 
-                tool, args, body = self._parse_tools(buffer)
-                if tool:
-                    result = self._execute_tool(tool, args, body)
-                    self.total_tools += 1
+                done_match = re.search(r'<done>(.*?)</done>', buffer, re.DOTALL)
+                if done_match:
+                    summary = done_match.group(1).strip()
+                    self.call_from_thread(self._stream_finalize, f"  Done: {summary}")
+                    self.chat_messages.append({"role": "assistant", "content": f"Task complete: {summary}"})
+                    save_session(self.session_id, self.chat_messages, self.session_title)
+                    self.call_from_thread(self._set_status, "Ready")
+                    self.call_from_thread(self._remove_loading)
+                    self.call_from_thread(self._set_ready)
+                    return
+
+                tools = self._parse_tools_all(buffer)
+                if tools:
+                    results = []
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                        futures = []
+                        for t in tools:
+                            if not self._confirm_action(t["type"], t.get("path") or t.get("args", "")):
+                                results.append(f"Skipped: {t['type']} (not confirmed)")
+                                self.call_from_thread(self._add_system, f"Skipped: {t['type']}")
+                                continue
+                            self.call_from_thread(self._set_status, f"Running {t['type']}...")
+                            args = (t["type"], t.get("path") or t.get("args", ""), t.get("body", ""))
+                            futures.append((t, pool.submit(self._execute_tool, *args)))
+                        for t, fut in futures:
+                            try:
+                                result = fut.result(timeout=120)
+                                self.total_tools += 1
+                                results.append(f"<{t['type']}>{result}</{t['type']}>")
+                                if t["type"] in ("write", "edit"):
+                                    lint_result = self._run_lint()
+                                    if lint_result:
+                                        self.call_from_thread(self._add_system, lint_result)
+                            except concurrent.futures.TimeoutError:
+                                results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
+                            except Exception as e:
+                                results.append(f"<{t['type']}>Error: {e}</{t['type']}>")
+                    combined = "\n".join(results)
                     self.chat_messages.append({"role": "assistant", "content": buffer})
-                    self.chat_messages.append({"role": "user", "content": f"Result: {result}\nContinue."})
+                    self.chat_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
                     continue
 
-                clean = re.sub(r'<plan>.*?</plan>', '', buffer, flags=re.DOTALL)
-                clean = re.sub(r'<write\s+path=["\'].*?["\']>.*?</write>', '', clean, flags=re.DOTALL)
-                clean = re.sub(r'<run>.*?</run>', '', clean, flags=re.DOTALL)
-                clean = re.sub(r'<read\s+path=["\'].*?["\']\s*/?\s*>', '', clean, flags=re.DOTALL)
-                clean = re.sub(r'<ls>.*?</ls>', '', clean, flags=re.DOTALL)
+                clean = buffer
+                for cp in self._CLEAN_PATTERNS:
+                    clean = cp.sub('', clean)
                 clean = clean.strip()
                 if clean:
-                    self.call_from_thread(self._add_explanation, clean)
+                    self.call_from_thread(self._stream_finalize, clean)
+                    self.chat_messages.append({"role": "assistant", "content": buffer.strip()})
+                else:
                     self.chat_messages.append({"role": "assistant", "content": buffer.strip()})
 
                 save_session(self.session_id, self.chat_messages, self.session_title)
@@ -893,6 +1191,64 @@ complete content - NO "..."
         self.call_from_thread(self._remove_loading)
         self.call_from_thread(self._set_ready)
 
+    def _wait_for_input(self, prompt):
+        event = threading.Event()
+        self._input_event = event
+        self._input_result = ""
+        self.call_from_thread(self._add_system, prompt)
+        self.call_from_thread(self._set_status, "Waiting for your input...")
+        event.wait()
+        self.call_from_thread(self._set_status, "Continuing...")
+        return self._input_result
+
+    _CONFIRM_TOOLS = {"run", "write", "edit", "git"}
+
+    def _confirm_action(self, tool, args):
+        if self.config.get("auto_confirm", False):
+            return True
+        if tool not in self._CONFIRM_TOOLS:
+            return True
+        perms = self.config.get("permissions", {})
+        for rule_type, rules in perms.items():
+            if rule_type == "auto_allow":
+                for t, patterns in rules.items():
+                    if t == tool and any(fnmatch.fnmatch(args, p) for p in patterns):
+                        return True
+            elif rule_type == "auto_deny":
+                for t, patterns in rules.items():
+                    if t == tool and any(fnmatch.fnmatch(args, p) for p in patterns):
+                        return False
+        event = threading.Event()
+        result = [False]
+        def on_answer(answer):
+            result[0] = answer == "yes"
+            event.set()
+        self.call_from_thread(self.push_screen, YesNoModal(tool, args), on_answer)
+        event.wait()
+        return result[0]
+
+    def _update_stream(self, text):
+        try:
+            self.call_from_thread(self._stream_append, text)
+        except Exception:
+            pass
+
+    def _stream_append(self, text):
+        if self._stream_widget is None:
+            self._stream_widget = Static("", classes="msg-assistant")
+            container = self.query_one("#chat-container")
+            container.mount(self._stream_widget)
+            container.scroll_end()
+        self._stream_widget.update(str(self._stream_widget.renderable) + text)
+        try:
+            self.query_one("#chat-container").scroll_end()
+        except Exception:
+            pass
+
+    def _stream_finalize(self, text):
+        if self._stream_widget is not None:
+            self._stream_widget.update(text)
+
     def _remove_loading(self):
         if self.loading_widget:
             self.loading_widget.remove()
@@ -900,6 +1256,7 @@ complete content - NO "..."
 
     def _set_ready(self):
         self.is_processing = False
+        self._stream_widget = None
         self.query_one("#chat-input").focus()
 
     def _handle_command(self, cmd):
@@ -916,7 +1273,8 @@ complete content - NO "..."
 
         elif action == "/stats":
             elapsed = time.time() - self.session_start
-            self._add_system(f"Tools: {self.total_tools} | Turns: {len(self.chat_messages)-1} | Time: {int(elapsed//60)}m {int(elapsed%60)}s")
+            todo_count = sum(1 for t in self.todo_list if not t["done"])
+            self._add_system(f"Tools: {self.total_tools} | Tokens: {self.total_tokens} | Todos: {todo_count} pending | Turns: {len(self.chat_messages)-1} | Time: {int(elapsed//60)}m {int(elapsed%60)}s")
 
         elif action == "/cd" and args:
             new_dir = os.path.abspath(args)
@@ -959,6 +1317,7 @@ complete content - NO "..."
                     self.config["model"] = models[0]["id"]
                 save_config(self.config)
                 info = PROVIDERS[pid]
+                self._refresh_api_key(pid)
                 self._add_system(f"Switched to {info['name']} ({pid})")
                 self._add_system(f"Model: {self.config['model']}")
                 self.query_one("#header-right").update(f"{pid} | {self.config['model']}")
@@ -997,12 +1356,14 @@ complete content - NO "..."
 
         elif action == "/providers":
             available = detect_available_providers()
-            lines = ["Available providers:"]
+            lines = ["Available providers:  NOKEY=no key  FREE=free tier(key)  KEY=paid(key)"]
             for prov in available:
                 pid = prov["id"]
                 info = PROVIDERS.get(pid, {})
+                t = info.get("type", "")
+                tag = {"local": "NOKEY", "cloud-free": "FREE", "cloud": "KEY"}.get(t, "?")
                 status = "OK" if prov["available"] else "--"
-                lines.append(f"  {status} {pid:<14} {info['name']} - {prov['reason']}")
+                lines.append(f"  {tag:5} {status}  {pid:<14} {info['name']} - {prov['reason']}")
             msg = Static("\n".join(lines), classes="cmd-block")
             container.mount(msg)
             container.scroll_end()
@@ -1074,37 +1435,81 @@ complete content - NO "..."
         else:
             self._add_system(f"Unknown command: {action}. Type /help for commands.")
 
-    def _parse_tools(self, text):
+    _CLEAN_PATTERNS = [re.compile(p, re.DOTALL) for p in [
+        r'<plan>.*?</plan>', r'<run>.*?</run>', r'<write\s+path=["\'].*?["\']>.*?</write>',
+        r'<read\s+path=["\'].*?["\']\s*/?\s*>', r'<ls>.*?</ls>', r'<edit\s+path=["\'].*?["\']>.*?</edit>',
+        r'<grep\s+[^>]*>', r'<glob[^>]*>', r'<web-fetch\s+[^>]*>', r'<web-search\s+[^>]*>',
+        r'<git\s+[^>]*>',         r'<git\s+[^>]*/>', r'<todo[^>]*>',
+    ]]
+
+    _TOOL_PATTERNS = [
+        (re.compile(r'<?run>(.+?)</run>', re.DOTALL), lambda m: {"type": "run", "path": "", "args": m.group(1), "body": ""}),
+        (re.compile(r'<?write\s+path=["\'](.+?)["\']>(.*?)</write>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(2)}),
+        (re.compile(r'<?read\s+path=["\'](.+?)["\'](?:\s+start=["\']?(\d+)["\']?)?(?:\s+end=["\']?(\d+)["\']?)?\s*/?\s*>', re.DOTALL), lambda m: {"type": "read", "path": m.group(1), "args": m.group(1), "body": json.dumps({"start": int(m.group(2)) if m.group(2) else None, "end": int(m.group(3)) if m.group(3) else None})}),
+        (re.compile(r'<?ls>(.*?)</ls>', re.DOTALL), lambda m: {"type": "ls", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
+        (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), lambda m: self._parse_edit_body(m)),
+        (re.compile(r'<grep(?:\s+pattern=["\'](.+?)["\'])?(?:\s+path=["\'](.*?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "grep", "path": m.group(2) or ".", "args": m.group(1) or "", "body": m.group(1) or ""}),
+        (re.compile(r'<glob(?:\s+pattern=["\'](.+?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "glob", "path": "", "args": m.group(1) or "", "body": ""}),
+        (re.compile(r'<web-fetch\s+url=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-fetch", "path": m.group(1), "args": m.group(1), "body": ""}),
+        (re.compile(r'<web-search\s+query=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-search", "path": "", "args": m.group(1), "body": ""}),
+        (re.compile(r'<git(?:\s+([^>]*?))?\s*/?\s*>', re.DOTALL), lambda m: self._parse_git_body(m)),
+        (re.compile(r'<todo\s+(.+?)\s*/?\s*>', re.DOTALL), lambda m: {"type": "todo", "path": "", "args": m.group(1).strip(), "body": ""}),
+    ]
+
+    def _parse_tools_all(self, text):
         text = re.sub(r'```[a-z]*\n(.*?)\n```', r'\1', text, flags=re.DOTALL)
-        m = re.search(r'<?run>(.+?)</run>', text, re.DOTALL)
-        if m:
-            return "run", m.group(1), ""
-        m = re.search(r'<?write\s+path=["\'](.+?)["\']>(.*?)</write>', text, re.DOTALL)
-        if m:
-            return "write", m.group(1), m.group(2)
-        m = re.search(r'<?read\s+path=["\'](.+?)["\']\s*/?\s*>', text, re.DOTALL)
-        if m:
-            return "read", m.group(1), ""
-        m = re.search(r'<?ls>(.*?)</ls>', text, re.DOTALL)
-        if m:
-            return "ls", m.group(1).strip(), ""
-        return None, None, None
+        raw = []
+
+        patterns = list(self._TOOL_PATTERNS)
+        for ct in self.config.get("custom_tools", []):
+            name = ct.get("name", "")
+            if name:
+                pat = re.compile(rf'<{re.escape(name)}>(.*?)</{re.escape(name)}>', re.DOTALL)
+                patterns.append((pat, lambda m, n=name: {"type": n, "path": "", "args": m.group(1).strip(), "body": m.group(1)}))
+
+        for pattern, builder in patterns:
+            for m in pattern.finditer(text):
+                tool = builder(m)
+                if tool:
+                    tool["_pos"] = m.start()
+                    raw.append(tool)
+
+        raw.sort(key=lambda t: t.pop("_pos", 0))
+        return raw
+
+    def _parse_edit_body(self, m):
+        inner = m.group(2)
+        old_m = re.search(r'<old>(.*?)</old>', inner, re.DOTALL)
+        new_m = re.search(r'<new>(.*?)</new>', inner, re.DOTALL)
+        if old_m and new_m:
+            return {"type": "edit", "path": m.group(1), "args": m.group(1), "body": json.dumps({"old": old_m.group(1), "new": new_m.group(1)})}
+        return None
+
+    def _parse_git_body(self, m):
+        cmd = (m.group(1) or "status").strip()
+        msg_m = re.search(r'message=["\'](.+?)["\']', cmd)
+        if msg_m:
+            cmd = re.sub(r'message=["\'].+?["\']', '', cmd).strip()
+            return {"type": "git", "path": "", "args": cmd, "body": msg_m.group(1)}
+        return {"type": "git", "path": "", "args": cmd, "body": ""}
 
     def _execute_tool(self, tool, args, body=""):
         if tool == "run":
             cmd = args.strip()
-            self._add_tool("run", cmd, "")
+            self._add_tool_safe("run", cmd, "")
             try:
-                r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, cwd=self.project_root)
+                r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=self.project_root)
                 out = r.stdout.rstrip()
+                err = r.stderr.rstrip()[:500]
                 success = r.returncode == 0
-                self._add_tool("run", cmd, out or "(ok)", success)
-                return out or "(ok)"
+                result = out or err or "(ok)"
+                self._add_tool_safe("run", cmd, result[:500], success)
+                return result[:2000]
             except subprocess.TimeoutExpired:
-                self._add_tool("run", cmd, "Timeout (30s)", False)
+                self._add_tool_safe("run", cmd, "Timeout (60s)", False)
                 return "Error: timeout"
             except Exception as e:
-                self._add_tool("run", cmd, str(e), False)
+                self._add_tool_safe("run", cmd, str(e), False)
                 return f"Error: {e}"
 
         elif tool == "write":
@@ -1113,7 +1518,7 @@ complete content - NO "..."
             full = os.path.normpath(full)
             root = os.path.normpath(self.project_root)
             if not full.startswith(root + os.sep) and full != root:
-                self._add_tool("write", path, "Escapes project root", False)
+                self._add_tool_safe("write", path, "Escapes project root", False)
                 return "Path escapes project root"
             old_content = ""
             if os.path.exists(full):
@@ -1122,16 +1527,16 @@ complete content - NO "..."
                         old_content = f.read()
                 except Exception:
                     pass
-            self._add_code(path, body.strip(), old_content)
+            self._add_code_safe(path, body.strip(), old_content)
             try:
                 os.makedirs(os.path.dirname(full) or ".", exist_ok=True)
                 with open(full, "w", encoding="utf-8") as f:
                     f.write(body.strip())
                 lines = body.count("\n") + 1
-                self._add_tool("write", path, f"{lines} lines written", True)
+                self._add_tool_safe("write", path, f"{lines} lines written", True)
                 return f"Written: {path} ({lines} lines)"
             except Exception as e:
-                self._add_tool("write", path, str(e), False)
+                self._add_tool_safe("write", path, str(e), False)
                 return f"Error: {e}"
 
         elif tool == "read":
@@ -1140,14 +1545,29 @@ complete content - NO "..."
             full = os.path.normpath(full)
             root = os.path.normpath(self.project_root)
             if not full.startswith(root + os.sep) and full != root:
-                self._add_tool("read", path, "Escapes project root", False)
+                self._add_tool_safe("read", path, "Escapes project root", False)
                 return "Path escapes project root"
             if not os.path.exists(full):
-                self._add_tool("read", path, "File not found", False)
+                self._add_tool_safe("read", path, "File not found", False)
                 return f"File not found: {path}"
+            try:
+                line_range = json.loads(body) if body else {}
+                start = line_range.get("start")
+                end = line_range.get("end")
+            except Exception:
+                start = end = None
             with open(full, encoding="utf-8", errors="replace") as f:
-                content = f.read()
-            self._add_code(path, content)
+                lines = f.readlines()
+            if start is not None or end is not None:
+                s = max(0, (start or 1) - 1)
+                e = min(len(lines), end or len(lines))
+                content = "".join(lines[s:e])
+                meta = f" (lines {s+1}-{e} of {len(lines)})"
+            else:
+                content = "".join(lines)
+                meta = f" ({len(lines)} lines)"
+            label = f"{path}{meta}"
+            self._add_code_safe(label, content)
             return content
 
         elif tool == "ls":
@@ -1156,29 +1576,267 @@ complete content - NO "..."
             full = os.path.normpath(full)
             root = os.path.normpath(self.project_root)
             if not full.startswith(root + os.sep) and full != root:
-                self._add_tool("ls", path, "Escapes project root", False)
+                self._add_tool_safe("ls", path, "Escapes project root", False)
                 return "Path escapes project root"
             if not os.path.isdir(full):
-                self._add_tool("ls", path, "Not a directory", False)
+                self._add_tool_safe("ls", path, "Not a directory", False)
                 return f"Not a directory: {path}"
             entries = []
             for e in sorted(os.listdir(full)):
                 is_dir = os.path.isdir(os.path.join(full, e))
                 icon = "DIR" if is_dir else "   "
                 entries.append(f"{icon} {e}")
-            self._add_tool("ls", path, f"{len(entries)} entries", True)
+            self._add_tool_safe("ls", path, f"{len(entries)} entries", True)
             return "\n".join(entries)
 
+        elif tool == "grep":
+            pattern = args
+            search_path = body or "."
+            full = os.path.normpath(os.path.join(self.project_root, search_path))
+            root = os.path.normpath(self.project_root)
+            if not full.startswith(root + os.sep) and full != root:
+                return "Path escapes project root"
+            if not os.path.isdir(full):
+                return f"Not a directory: {search_path}"
+            if not pattern:
+                return "No pattern provided"
+            try:
+                regex = re.compile(pattern, re.DOTALL)
+            except re.error as e:
+                return f"Invalid regex: {e}"
+            matches = []
+            for dirpath, dirnames, filenames in os.walk(full):
+                for fn in sorted(filenames):
+                    fpath = os.path.join(dirpath, fn)
+                    rel = os.path.relpath(fpath, self.project_root)
+                    try:
+                        with open(fpath, encoding="utf-8", errors="replace") as f:
+                            for i, line in enumerate(f, 1):
+                                if regex.search(line.rstrip()):
+                                    matches.append(f"{rel}:{i}: {line.rstrip()[:200]}")
+                    except Exception:
+                        pass
+                    if len(matches) >= 100:
+                        break
+                if len(matches) >= 100:
+                    break
+            result = "\n".join(matches) if matches else "No matches found"
+            self._add_tool_safe("grep", f"{pattern} in {search_path}", f"{len(matches)} matches", True)
+            return result[:3000]
+
+        elif tool == "glob":
+            pattern = args
+            if not pattern:
+                return "No pattern provided"
+            full_root = os.path.normpath(self.project_root)
+            matches = []
+            for p in glob_module.iglob(pattern, root_dir=full_root, recursive=True):
+                matches.append(p)
+            matches.sort()
+            result = "\n".join(matches[:200]) if matches else "No files matched"
+            extra = f" ({len(matches)-200} more)" if len(matches) > 200 else ""
+            self._add_tool_safe("glob", pattern, f"{len(matches)} files{extra}", True)
+            return result[:3000]
+
+        elif tool == "edit":
+            path = args.strip().strip('"').strip("'")
+            full = os.path.abspath(os.path.join(self.project_root, path))
+            full = os.path.normpath(full)
+            root = os.path.normpath(self.project_root)
+            if not full.startswith(root + os.sep) and full != root:
+                return "Path escapes project root"
+            if not os.path.exists(full):
+                return f"File not found: {path}"
+            try:
+                parsed = json.loads(body)
+                old_text = parsed.get("old", "")
+                new_text = parsed.get("new", "")
+            except Exception:
+                return "Invalid edit body"
+            try:
+                with open(full, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            except Exception as e:
+                return f"Error reading: {e}"
+            if old_text not in content:
+                self._add_tool_safe("edit", path, "old text not found", False)
+                return f"Error: old text not found in {path}"
+            if content.count(old_text) > 1:
+                self._add_tool_safe("edit", path, "old text matched multiple times", False)
+                return f"Error: old text matched {content.count(old_text)} times in {path}"
+            new_content = content.replace(old_text, new_text, 1)
+            try:
+                with open(full, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+                self._add_code_safe(path, new_text, old_text)
+                self._add_tool_safe("edit", path, "Applied", True)
+                return f"Edited: {path}"
+            except Exception as e:
+                return f"Error writing: {e}"
+
+        elif tool == "web-fetch":
+            url = args.strip()
+            if not url.startswith(("http://", "https://")):
+                return "Invalid URL"
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Cipher/1.0"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    raw = resp.read().decode("utf-8", errors="replace")
+                text = re.sub(r'<[^>]+>', ' ', raw)
+                text = re.sub(r'\s+', ' ', text).strip()[:5000]
+                self._add_tool_safe("web-fetch", url, f"{len(raw)} bytes fetched", True)
+                return text[:3000]
+            except Exception as e:
+                self._add_tool_safe("web-fetch", url, str(e), False)
+                return f"Error fetching: {e}"
+
+        elif tool == "git":
+            cmd = args.strip()
+            safe_cmds = ["status", "diff", "log", "show", "branch", "add", "commit", "push", "pull", "stash", "checkout"]
+            base = cmd.split()[0] if cmd else "status"
+            if base not in safe_cmds:
+                return f"Git command '{base}' not allowed"
+            if base == "commit" and body:
+                full_cmd = f'git commit -m "{body}"'
+            else:
+                full_cmd = f"git {cmd}"
+            try:
+                r = subprocess.run(full_cmd, shell=True, capture_output=True, text=True, timeout=30, cwd=self.project_root)
+                out = r.stdout.rstrip()
+                err = r.stderr.rstrip()[:500]
+                result = out or err or "(ok)"
+                self._add_tool_safe("git", cmd, result[:500], r.returncode == 0)
+                return result[:2000]
+            except subprocess.TimeoutExpired:
+                return "Error: git timeout"
+            except Exception as e:
+                return f"Error: {e}"
+
+        elif tool == "question":
+            return "Questions not supported"
+
+        elif tool == "web-search":
+            query = args.strip()
+            if not query:
+                return "No search query"
+            try:
+                url = f"https://lite.duckduckgo.com/lite/?q={urllib.parse.quote(query)}"
+                req = urllib.request.Request(url, headers={"User-Agent": "Cipher/1.0"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    raw = resp.read().decode("utf-8", errors="replace")
+                links = re.findall(r"<a rel=\"nofollow\"[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>", raw, re.DOTALL)
+                results = []
+                seen_urls = set()
+                for href, text in links:
+                    clean_href = href.strip()
+                    clean_text = re.sub(r"<[^>]+>", "", text).strip()
+                    if not clean_text or "More at" in clean_text:
+                        continue
+                    if clean_href.startswith("//"):
+                        clean_href = "https:" + clean_href
+                    if clean_href in seen_urls or not clean_href.startswith("http"):
+                        continue
+                    seen_urls.add(clean_href)
+                    results.append(f"{len(results)+1}. {clean_text} - {clean_href}")
+                result = "\n".join(results[:8]) if results else "No results found"
+                self._add_tool_safe("web-search", query, f"{len(results)} results", True)
+                return result[:3000]
+            except Exception as e:
+                self._add_tool_safe("web-search", query, str(e), False)
+                return f"Search error: {e}"
+
+        elif tool == "todo":
+            action = "list"
+            rest = args
+            eq = args.find("=")
+            if eq > 0:
+                action = args[:eq].strip()
+                rest = args[eq + 1:].strip().strip('"').strip("'")
+            elif " " in args.strip():
+                parts = args.split(None, 1)
+                action = parts[0].lower()
+                rest = parts[1].strip('"').strip("'")
+            if action == "add" and rest:
+                self.todo_list.append({"task": rest, "done": False})
+                status = f"Todo added: {rest}"
+                self._add_system_safe(f"[TODO] Added: {rest}")
+            elif action == "done":
+                try:
+                    idx = int(rest) - 1
+                    if 0 <= idx < len(self.todo_list):
+                        self.todo_list[idx]["done"] = True
+                        status = f"Todo done: {self.todo_list[idx]['task']}"
+                        self._add_system_safe(f"[TODO] Done: {self.todo_list[idx]['task']}")
+                    else:
+                        status = f"Invalid todo index: {rest}"
+                except ValueError:
+                    status = f"Invalid todo index: {rest}"
+            else:
+                if not self.todo_list:
+                    status = "No todos"
+                else:
+                    lines = []
+                    for i, t in enumerate(self.todo_list, 1):
+                        mark = "\u2713" if t["done"] else " "
+                        lines.append(f"  {i}. [{mark}] {t['task']}")
+                    status = "Todos:\n" + "\n".join(lines)
+                self._add_tool_safe("todo", "list", status, True)
+                return status
+            self._add_tool_safe("todo", action, status, True)
+            return status
+
+        ctools = self.config.get("custom_tools", [])
+        for ct in ctools:
+            if tool == ct.get("name", ""):
+                cmd = ct.get("command", "").replace("{path}", args).replace("{args}", args)
+                self._add_tool_safe(tool, cmd, "")
+                try:
+                    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=self.project_root)
+                    out = r.stdout.rstrip()
+                    err = r.stderr.rstrip()[:500]
+                    result = out or err or "(ok)"
+                    self._add_tool_safe(tool, cmd, result[:500], r.returncode == 0)
+                    return result[:2000]
+                except Exception as e:
+                    self._add_tool_safe(tool, cmd, str(e), False)
+                    return f"Error: {e}"
         return f"Unknown tool: {tool}"
 
+    def _run_lint(self):
+        cmd = self.config.get("lint_command", "").strip()
+        if not cmd:
+            return ""
+        try:
+            r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, cwd=self.project_root)
+            if r.returncode != 0:
+                out = (r.stdout + r.stderr)[:500].strip()
+                if out:
+                    return f"Lint ({cmd}):\n{out}"
+        except Exception:
+            pass
+        return ""
 
-def run_tui(project_root=None, provider=None, model=None, api_key=None, session_id=None):
+    def _add_tool_safe(self, tool, args, result, success=True):
+        try:
+            self._add_tool(tool, args, result, success)
+        except Exception:
+            self.call_from_thread(self._add_tool, tool, args, result, success)
+
+    def _add_code_safe(self, path, content, old=""):
+        try:
+            self._add_code(path, content, old)
+        except Exception:
+            self.call_from_thread(self._add_code, path, content, old)
+
+
+def run_tui(project_root=None, provider=None, model=None, api_key=None, session_id=None, proxy_url=None):
     app = CipherApp(
         project_root=project_root,
         provider=provider,
         model=model,
         api_key=api_key,
         session_id=session_id,
+        proxy_url=proxy_url,
     )
     try:
         app.run()

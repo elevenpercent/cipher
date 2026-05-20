@@ -30,8 +30,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 Write-Host ""
-Write-Host "Done!" -ForegroundColor Green
-Write-Host "" -ForegroundColor DarkGray
+Write-Host "Done! Run:" -ForegroundColor Green
 Write-Host "  cd your-project" -ForegroundColor DarkGray
-Write-Host "  cip" -ForegroundColor DarkGray
+Write-Host "  cip --setup" -ForegroundColor DarkGray
 Write-Host ""

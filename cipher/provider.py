@@ -1,7 +1,48 @@
 """Cipher - AI provider manager using LiteLLM"""
 import os
+import json
 import time
+import uuid
+import subprocess
+import urllib.request
 from typing import Generator
+import litellm
+litellm.set_verbose = False
+
+
+def detect_gpu():
+    """Returns estimated VRAM in GB or 0 if no GPU detected."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+            if lines:
+                return max(int(lines[0]) // 1024, 0)
+    except Exception:
+        pass
+    return 0
+
+
+def get_local_ollama_models(gpu_vram_gb=0):
+    """Returns Ollama models appropriate for the available GPU VRAM."""
+    all_models = [
+        {"id": "ollama/qwen3:4b", "name": "Qwen3 4B (fastest)", "free": True, "min_vram": 2},
+        {"id": "ollama/qwen3:8b", "name": "Qwen3 8B", "free": True, "min_vram": 4},
+        {"id": "ollama/mistral:7b", "name": "Mistral 7B", "free": True, "min_vram": 4},
+        {"id": "ollama/llama3.1:8b", "name": "Llama 3.1 8B", "free": True, "min_vram": 4},
+        {"id": "ollama/qwen3:14b", "name": "Qwen3 14B (recommended)", "free": True, "min_vram": 8},
+        {"id": "ollama/qwen2.5-coder:14b", "name": "Qwen2.5 Coder 14B", "free": True, "min_vram": 8},
+        {"id": "ollama/deepseek-r1:14b", "name": "DeepSeek R1 14B", "free": True, "min_vram": 8},
+        {"id": "ollama/gemma3:12b", "name": "Gemma 3 12B", "free": True, "min_vram": 8},
+        {"id": "ollama/phi4:14b", "name": "Phi-4 14B (Microsoft)", "free": True, "min_vram": 8},
+        {"id": "ollama/llama3.3:70b", "name": "Llama 3.3 70B", "free": True, "min_vram": 32},
+    ]
+    if gpu_vram_gb <= 0:
+        return []
+    return [m for m in all_models if m["min_vram"] <= gpu_vram_gb]
 
 PROVIDERS = {
     "ollama": {
@@ -13,31 +54,13 @@ PROVIDERS = {
             {"id": "ollama/qwen3:14b", "name": "Qwen3 14B (recommended)", "free": True},
             {"id": "ollama/qwen3:8b", "name": "Qwen3 8B", "free": True},
             {"id": "ollama/qwen3:4b", "name": "Qwen3 4B (fastest)", "free": True},
-            {"id": "ollama/qwen3:32b", "name": "Qwen3 32B (best)", "free": True},
             {"id": "ollama/qwen2.5-coder:14b", "name": "Qwen2.5 Coder 14B", "free": True},
-            {"id": "ollama/qwen2.5-coder:32b", "name": "Qwen2.5 Coder 32B", "free": True},
             {"id": "ollama/llama3.3:70b", "name": "Llama 3.3 70B", "free": True},
             {"id": "ollama/llama3.1:8b", "name": "Llama 3.1 8B", "free": True},
-            {"id": "ollama/deepseek-coder-v2:16b", "name": "DeepSeek Coder V2", "free": True},
             {"id": "ollama/deepseek-r1:14b", "name": "DeepSeek R1 14B", "free": True},
-            {"id": "ollama/deepseek-r1:32b", "name": "DeepSeek R1 32B", "free": True},
             {"id": "ollama/mistral:7b", "name": "Mistral 7B", "free": True},
             {"id": "ollama/gemma3:12b", "name": "Gemma 3 12B", "free": True},
             {"id": "ollama/phi4:14b", "name": "Phi-4 14B (Microsoft)", "free": True},
-            {"id": "ollama/codestral:22b", "name": "Codestral 22B", "free": True},
-        ],
-    },
-    "deepseek": {
-        "name": "DeepSeek",
-        "desc": "Free cloud tier, excellent at coding",
-        "type": "cloud-free",
-        "env_key": "DEEPSEEK_API_KEY",
-        "signup_url": "platform.deepseek.com",
-        "free_tokens": "5M tokens on signup",
-        "models": [
-            {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat V3", "free": True},
-            {"id": "deepseek/deepseek-reasoner", "name": "DeepSeek R1", "free": True},
-            {"id": "deepseek/deepseek-coder", "name": "DeepSeek Coder", "free": True},
         ],
     },
     "groq": {
@@ -189,6 +212,17 @@ PROVIDERS = {
             {"id": "together_ai/meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", "name": "Llama 3.1 405B", "free": False},
         ],
     },
+    "cipher-proxy": {
+        "name": "Cipher Proxy",
+        "desc": "Free models via proxy — no API key needed. Powered by Groq + Gemini.",
+        "type": "cloud-free",
+        "proxy": True,
+        "models": [
+            {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Groq, fast)", "free": True},
+            {"id": "llama-3.1-8b", "name": "Llama 3.1 8B (Groq)", "free": True},
+            {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash (Google)", "free": True},
+        ],
+    },
     "fireworks": {
         "name": "Fireworks AI",
         "desc": "Fast inference, free tier",
@@ -206,34 +240,40 @@ PROVIDERS = {
 
 
 class AIProvider:
-    def __init__(self, provider_id: str = None, model_id: str = None, api_key: str = None):
+    def __init__(self, provider_id: str = None, model_id: str = None, api_key: str = None, proxy_url: str = None):
         self.provider_id = provider_id or os.getenv("CIPHER_PROVIDER", "ollama")
         self.model_id = model_id or os.getenv("CIPHER_MODEL", "ollama/qwen3:14b")
         self.api_key = api_key
-        self._client = None
+        self.proxy_url = proxy_url or os.getenv("CIPHER_PROXY_URL", "http://localhost:8080")
         self._init_client()
 
     def _init_client(self):
-        import litellm
-        litellm.set_verbose = False
+        provider_config = PROVIDERS.get(self.provider_id, {})
+        if provider_config.get("proxy"):
+            self.api_key = ""
+            return
+        env_key = provider_config.get("env_key")
+        if env_key:
+            env_val = os.getenv(env_key, "")
+            if env_val:
+                self.api_key = env_val
+        else:
+            self.api_key = ""
 
         if self.api_key:
             litellm.api_key = self.api_key
 
-        provider_config = PROVIDERS.get(self.provider_id, {})
-        env_key = provider_config.get("env_key")
-        if env_key and not self.api_key:
-            self.api_key = os.getenv(env_key, "")
-
-        self._litellm = litellm
-
     def chat(self, messages: list, stream: bool = True, system_prompt: str = None):
+        provider_config = PROVIDERS.get(self.provider_id, {})
+        if provider_config.get("proxy"):
+            return self._proxy_chat(messages, stream)
+
         formatted = []
         if system_prompt:
             formatted.append({"role": "system", "content": system_prompt})
         formatted.extend(messages)
 
-        response = self._litellm.completion(
+        response = litellm.completion(
             model=self.model_id,
             messages=formatted,
             stream=stream,
@@ -252,6 +292,50 @@ class AIProvider:
                 delta = chunk.choices[0].delta.content
                 full_text += delta
                 yield {"content": delta, "full": full_text}
+
+    def _proxy_chat(self, messages, stream=True):
+        url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
+        payload = json.dumps({
+            "model": self.model_id,
+            "messages": messages,
+            "stream": stream,
+            "temperature": 0.15,
+        }).encode()
+        req = urllib.request.Request(url, data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST")
+        if not stream:
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.loads(resp.read().decode())
+                    return data["choices"][0]["message"]["content"]
+            except Exception as e:
+                return f"Proxy error: {e}"
+
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                buffer = ""
+                while True:
+                    chunk = resp.read(1)
+                    if not chunk:
+                        break
+                    buffer += chunk.decode()
+                    if buffer.endswith("\n"):
+                        for line in buffer.strip().split("\n"):
+                            if line.startswith("data: "):
+                                data = line[6:].strip()
+                                if data == "[DONE]":
+                                    return
+                                try:
+                                    d = json.loads(data)
+                                    delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                    if delta:
+                                        yield {"content": delta, "full": ""}
+                                except json.JSONDecodeError:
+                                    pass
+                        buffer = ""
+        except Exception as e:
+            yield {"content": f" Proxy error: {e}"}
 
     @staticmethod
     def get_provider_info(provider_id: str) -> dict:

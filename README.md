@@ -23,10 +23,10 @@ pip install git+https://github.com/elevenpercent/cipher.git@master
 
 ```bash
 cd your-project
-cip --setup
+cip
 ```
 
-Choose your AI provider and model interactively, then start building.
+First run shows the setup screen. Pick your provider and model, then start coding.
 
 ## Slash Commands
 
@@ -51,34 +51,20 @@ Choose your AI provider and model interactively, then start building.
 
 ## Providers
 
-### Local (No API Key)
+### Cipher Proxy (No API Key)
+Just works. Free models via proxy — Llama 3.3 70B (Groq), Gemini 2.0 Flash.
 
-| Provider | Models | Setup |
-|----------|--------|-------|
-| Ollama | Qwen3, Llama, DeepSeek R1, Mistral, Phi-4 | Install at ollama.com |
-| LM Studio | Any model via LM Studio | Install at lmstudio.ai |
+### Local Models (No API Key, GPU recommended)
+- **Ollama** — Qwen3, Llama, Mistral, DeepSeek R1. Install at ollama.com
+- **LM Studio** — Any model. Install at lmstudio.ai
 
-### Cloud Free Tiers (Needs API Key, Free Tier Available)
-
-| Provider | Models | Free Tokens |
-|----------|--------|-------------|
-| Groq | Llama 3.3 70B, Mixtral, Gemma 2 | Generous free tier |
-| DeepSeek | DeepSeek Chat V3, Coder, Reasoner | 5M tokens on signup |
-| Google Gemini | Gemini 2.0 Flash, 2.5 Pro | 60 RPM free tier |
-| OpenRouter | 100+ models | Some free models |
-| Fireworks AI | Llama 3.3, Qwen2.5 Coder | Free tier |
-| Cohere | Command R+, Command R | Free tier |
-| Perplexity | Sonar, Sonar Pro | Free tier |
-
-### API Key Required (Paid)
-
-| Provider | Models |
-|----------|--------|
-| OpenAI | GPT-4o, GPT-4.1, o1, o3, o4 |
-| Anthropic | Claude Sonnet 4, Opus 4, 3.7 Sonnet |
-| Mistral | Mistral Large, Codestral, Ministral |
-| xAI | Grok 3, Grok 3 Mini |
-| Together AI | Llama 3.3 70B, Qwen2.5 72B, 405B |
+### Cloud (API Key Required)
+- **Groq** — Free tier, fast inference
+- **Google Gemini** — 60 RPM free tier
+- **OpenRouter** — 100+ models
+- **OpenAI** — GPT-4o, o-series
+- **Anthropic** — Claude Sonnet 4, Opus 4
+- **Mistral**, **xAI (Grok)**, **Together AI**, **Fireworks**, **Cohere**, **Perplexity**
 
 ## Keyboard Shortcuts
 

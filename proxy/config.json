@@ -1,0 +1,17 @@
+{
+  "providers": {
+    "groq": {
+      "base_url": "https://api.groq.com/openai/v1",
+      "api_key": ""
+    },
+    "gemini": {
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_key": ""
+    }
+  },
+  "models": {
+    "llama-3.3-70b": { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    "llama-3.1-8b": { "provider": "groq", "model": "llama-3.1-8b-instant" },
+    "gemini-2.0-flash": { "provider": "gemini", "model": "gemini-2.0-flash" }
+  }
+}
