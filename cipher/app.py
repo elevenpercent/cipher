@@ -436,7 +436,7 @@ class SettingsModal(ModalScreen):
     .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; }
     Checkbox { margin: 0 0 1 0; }
     Select { margin: 0 0 1 0; }
-    Button { margin: 0 0.5 0 0; }
+    Button { margin: 0 1 0 0; }
     #settings_save { margin-right: 1; }
     """
 

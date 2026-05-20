@@ -1,0 +1,25 @@
+{
+  "name": "cipher",
+  "version": "0.4.0",
+  "description": "Autonomous coding agent for your terminal",
+  "keywords": ["ai", "coding", "agent", "cli", "tui"],
+  "license": "MIT",
+  "homepage": "https://cipher.elevenpct.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elevenpercent/cipher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elevenpercent/cipher/issues"
+  },
+  "bin": {
+    "cipher": "bin/cipher",
+    "cip": "bin/cipher"
+  },
+  "scripts": {
+    "postinstall": "node bin/install.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

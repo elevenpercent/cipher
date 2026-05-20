@@ -56,6 +56,11 @@ def interactive_setup():
     local_available = len(ollama_models) > 0
 
     class ProviderSelectScreen(Screen):
+        def __init__(self):
+            super().__init__()
+            self.model_map = {}
+            self.provider_map = {}
+
         def compose(self) -> ComposeResult:
             with Container(id="setup-container"):
                 yield Static("  CIPHER  //  SETUP", id="setup-title")
@@ -68,7 +73,9 @@ def interactive_setup():
                 yield Static("LOCAL MODELS", classes="setup-section")
                 if local_available:
                     for m in ollama_models:
-                        yield Button(f"  {m['name']}", id=f"model-{m['id']}", variant="default")
+                        safe = m['id'].replace('/', '_').replace(':', '_').replace('.', '_')
+                        self.model_map[f"model-{safe}"] = m['id']
+                        yield Button(f"  {m['name']}", id=f"model-{safe}", variant="default")
                 else:
                     yield Static("  No GPU -- local models not available", classes="setup-unavail")
                 yield Static("", classes="setup-spacer")
@@ -78,15 +85,18 @@ def interactive_setup():
                 yield Static("BRING YOUR OWN KEY", classes="setup-section")
                 for pid, info in PROVIDERS.items():
                     if info.get("env_key") and not info.get("proxy"):
-                        yield Button(f"  {info['name']}  —  {info['desc']}", id=f"provider-{pid}", variant="default")
+                        safe_pid = pid.replace('/', '_').replace(':', '_').replace('.', '_')
+                        self.provider_map[f"provider-{safe_pid}"] = pid
+                        yield Button(f"  {info['name']}  —  {info['desc']}", id=f"provider-{safe_pid}", variant="default")
 
         def on_button_pressed(self, event: Button.Pressed):
             btn_id = event.button.id
             if btn_id and btn_id.startswith("model-"):
-                model_id = btn_id.replace("model-", "")
-                self.app.on_selection("ollama", model_id, None)
+                model_id = self.model_map.get(btn_id, "")
+                if model_id:
+                    self.app.on_selection("ollama", model_id, None)
             elif btn_id and btn_id.startswith("provider-"):
-                pid = btn_id.replace("provider-", "")
+                pid = self.provider_map.get(btn_id, btn_id.replace("provider-", ""))
                 info = PROVIDERS.get(pid, {})
                 models = info.get("models", [])
                 if len(models) == 1:

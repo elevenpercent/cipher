@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+# pip install if missing
+if ! pip show cipher-agent >/dev/null 2>&1; then
+  echo "Installing cipher-agent (Python package)..."
+  pip install "git+https://github.com/elevenpercent/cipher.git@master"
+fi
+
+exec cip "$@"
