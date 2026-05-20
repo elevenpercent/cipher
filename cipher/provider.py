@@ -5,9 +5,9 @@ import uuid
 import subprocess
 import urllib.request
 from typing import Generator
+import os
+os.environ["LITELLM_LOG"] = "ERROR"
 import litellm
-litellm.set_verbose = False
-litellm.suppress_debug_info = True
 import logging
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 logging.getLogger("litellm").setLevel(logging.ERROR)

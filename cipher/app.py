@@ -15,7 +15,6 @@ from textual.screen import Screen, ModalScreen
 from rich.text import Text
 from cipher.provider import AIProvider, PROVIDERS
 import fnmatch
-import html
 import threading
 import urllib.request
 import glob as glob_module
@@ -28,17 +27,6 @@ SKILLS_DIR = CONFIG_DIR / "skills"
 CONFIG_DIR.mkdir(exist_ok=True)
 SESSIONS_DIR.mkdir(exist_ok=True)
 SKILLS_DIR.mkdir(exist_ok=True)
-
-SLASH_COMMANDS = {
-    "/help": "Show all commands",
-    "/clear": "Clear chat",
-    "/new": "New session",
-    "/sessions": "Browse saved sessions",
-    "/provider": "Show / switch provider",
-    "/model": "Show / switch model",
-    "/cd": "Show / change directory",
-    "/quit": "Exit Cipher",
-}
 
 THINKING_FRAMES = ["-", "\\", "|", "/"]
 _PROVIDER_CACHE = None
@@ -292,134 +280,7 @@ class LoadingIndicator(Static):
         self.update(f"  {THINKING_FRAMES[self.frame_idx]} {self.text}{self.dots}")
 
 
-class ProviderPanel(ModalScreen):
-    BINDINGS = [Binding("escape", "dismiss(False)", "Close")]
-    def __init__(self, config, **kwargs):
-        super().__init__(**kwargs)
-        self.config = config
-        self.available = detect_available_providers()
-        self.selected_provider = self.config.get("provider", "ollama")
-        self.selected_model = self.config.get("model", "")
-    @staticmethod
-    def _type_tag(info):
-        t = info.get("type", "")
-        if t == "local":
-            return "NOKEY"
-        elif t == "cloud-free":
-            return "FREE"
-        else:
-            return "KEY"
 
-    def compose(self):
-        with Container(id="provider-panel"):
-            yield Static("  NOKEY = No key needed  FREE = Free tier (key)  KEY = API key required", id="panel-legend")
-            yield Static("  Switch Provider  [esc] Close  [Tab] Cycle", id="panel-title")
-            for prov in self.available:
-                pid = prov["id"]
-                info = PROVIDERS.get(pid, {})
-                tag = self._type_tag(info)
-                cur = " [current]" if pid == self.selected_provider else ""
-                models = [m["name"] for m in info.get("models", [])]
-                model_str = " | ".join(models[:3])
-                if len(models) > 3:
-                    model_str += f" +{len(models)-3} more"
-                status = "\u2713" if prov["available"] else "\u2717"
-                yield Static(f"  {tag:5} {status}  {info['name']:<14} {model_str}{cur}", id=f"prov-{pid}", classes=f"prov-row {'prov-active' if pid == self.selected_provider else ''} {'prov-unavailable' if not prov['available'] else ''}")
-            yield Rule()
-            yield Static("Provider: " + self.selected_provider, id="panel-status")
-            yield Static("Model: " + self.selected_model, id="panel-model")
-            with Horizontal():
-                yield Button("Select", id="panel_select", variant="primary")
-                yield Button("Cancel", id="panel_cancel", variant="default")
-
-    def on_key(self, event):
-        if event.key == "tab":
-            event.prevent_default()
-            available_ids = [p["id"] for p in self.available if p["available"]]
-            if self.selected_provider in available_ids:
-                idx = available_ids.index(self.selected_provider)
-                idx = (idx + 1) % len(available_ids)
-            else:
-                idx = 0
-            self.selected_provider = available_ids[idx]
-            models = PROVIDERS.get(self.selected_provider, {}).get("models", [])
-            if models:
-                self.selected_model = models[0]["id"]
-            self._update_display()
-        elif event.key == "up":
-            event.prevent_default()
-            available_ids = [p["id"] for p in self.available if p["available"]]
-            if self.selected_provider in available_ids:
-                idx = available_ids.index(self.selected_provider)
-                idx = (idx - 1) % len(available_ids)
-            else:
-                idx = 0
-            self.selected_provider = available_ids[idx]
-            models = PROVIDERS.get(self.selected_provider, {}).get("models", [])
-            if models:
-                self.selected_model = models[0]["id"]
-            self._update_display()
-        elif event.key == "down":
-            event.prevent_default()
-            available_ids = [p["id"] for p in self.available if p["available"]]
-            if self.selected_provider in available_ids:
-                idx = available_ids.index(self.selected_provider)
-                idx = (idx + 1) % len(available_ids)
-            else:
-                idx = 0
-            self.selected_provider = available_ids[idx]
-            models = PROVIDERS.get(self.selected_provider, {}).get("models", [])
-            if models:
-                self.selected_model = models[0]["id"]
-            self._update_display()
-        elif event.key == "enter":
-            event.prevent_default()
-            self._confirm()
-
-    def _update_display(self):
-        info = PROVIDERS.get(self.selected_provider, {})
-        models = [m["name"] for m in info.get("models", [])]
-        model_str = " | ".join(models[:3])
-        self.query_one("#panel-status").update(f"Provider: {self.selected_provider}")
-        self.query_one("#panel-model").update(f"Model: {self.selected_model}")
-        for prov in self.available:
-            pid = prov["id"]
-            tag = self._type_tag(PROVIDERS.get(pid, {}))
-            status = "\u2713" if prov["available"] else "\u2717"
-            cur = " [selected]" if pid == self.selected_provider else " [current]" if pid == self.config.get("provider") else ""
-            info2 = PROVIDERS.get(pid, {})
-            row = self.query_one(f"#prov-{pid}")
-            row.update(f"  {tag:5} {status}  {info2['name']:<14} {model_str}{cur}")
-            row.classes = f"prov-row {'prov-active' if pid == self.selected_provider else ''} {'prov-unavailable' if not prov['available'] else ''}"
-
-    def _confirm(self):
-        self.config["provider"] = self.selected_provider
-        self.config["model"] = self.selected_model
-        env_key = PROVIDERS.get(self.selected_provider, {}).get("env_key", "")
-        if env_key:
-            self.config["api_key"] = os.getenv(env_key, "")
-        save_config(self.config)
-        self.dismiss({"provider": self.selected_provider, "model": self.selected_model})
-
-    def on_button_pressed(self, event):
-        if event.button.id == "panel_select":
-            self._confirm()
-        elif event.button.id == "panel_cancel":
-            self.dismiss(None)
-
-    CSS = """
-    ProviderPanel { align: center middle; }
-        width: 80;
-        max-height: 85%;
-        background: #0a0a0a;
-        border: tall #f5c542;
-        padding: 1 2;
-        overflow-y: auto;
-    }
-    .prov-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-    .prov-active { color: #f5c542; }
-    .prov-unavailable { color: #444; }
-    """
 
 
 class SessionModal(ModalScreen):
@@ -494,13 +355,22 @@ class SessionModal(ModalScreen):
 
 
 class SettingsModal(ModalScreen):
-    BINDINGS = [Binding("escape", "dismiss(False)", "Close")]
+    BINDINGS = [Binding("escape", "dismiss(None)", "Close")]
     def __init__(self, config, **kwargs):
         super().__init__(**kwargs)
         self.config = config
     def compose(self):
         with Container(id="settings-container"):
             yield Static("  Settings", id="settings-title")
+            yield Rule()
+            yield Static("AI Provider", classes="settings-section")
+            provider_options = [(info["name"], pid) for pid, info in PROVIDERS.items()]
+            current = self.config.get("provider", "cipher-proxy")
+            yield Select(provider_options, value=current, id="provider_select", prompt="Select provider...")
+            model_list = PROVIDERS.get(current, {}).get("models", [])
+            model_options = [(m["name"], m["id"]) for m in model_list]
+            current_model = self.config.get("model", "")
+            yield Select(model_options, value=current_model if any(m[1] == current_model for m in model_options) else None, id="model_select", prompt="Select model...")
             yield Rule()
             yield Static("Display", classes="settings-section")
             yield Checkbox("Show plan", id="show_plan", value=self.config.get("show_plan", True))
@@ -509,18 +379,13 @@ class SettingsModal(ModalScreen):
             yield Checkbox("Show tool results", id="show_tool_exec", value=self.config.get("show_tool_exec", True))
             yield Checkbox("Compact mode", id="compact_mode", value=self.config.get("compact_mode", False))
             yield Rule()
-            yield Static("Behavior", classes="settings-section")
-            yield Checkbox("Auto-confirm actions", id="auto_confirm", value=self.config.get("auto_confirm", False))
-            yield Checkbox("Expand explanations", id="expand_explanations", value=self.config.get("expand_explanations", False))
-            yield Rule()
-            yield Static("AI Provider", classes="settings-section")
-            provider_options = [(info["name"], pid) for pid, info in PROVIDERS.items()]
-            current = self.config.get("provider", "ollama")
-            yield Select(provider_options, value=current, id="provider_select", prompt="Select provider...")
-            model_list = PROVIDERS.get(current, {}).get("models", [])
-            model_options = [(m["name"], m["id"]) for m in model_list]
-            current_model = self.config.get("model", "")
-            yield Select(model_options, value=current_model if any(m[1] == current_model for m in model_options) else None, id="model_select", prompt="Select model...")
+            yield Static("Actions", classes="settings-section")
+            with Horizontal():
+                yield Button("Clear Chat", id="action_clear", variant="default")
+                yield Button("New Session", id="action_new", variant="default")
+            with Horizontal():
+                yield Button("Sessions", id="action_sessions", variant="default")
+                yield Button("Quit", id="action_quit", variant="default")
             yield Rule()
             with Horizontal():
                 yield Button("Save", id="settings_save", variant="primary")
@@ -535,38 +400,44 @@ class SettingsModal(ModalScreen):
                 ms = self.query_one("#model_select", Select)
                 ms.set_options(model_options)
                 ms.clear()
-                env_key = PROVIDERS[pid].get("env_key", "")
-                if env_key:
-                    self.config["_pending_key"] = os.getenv(env_key, "")
 
     def on_button_pressed(self, event):
-        if event.button.id == "settings_save":
+        bid = event.button.id
+        if bid == "settings_save":
             self.config["show_plan"] = self.query_one("#show_plan", Checkbox).value
             self.config["show_code"] = self.query_one("#show_code", Checkbox).value
             self.config["show_diff"] = self.query_one("#show_diff", Checkbox).value
             self.config["show_tool_exec"] = self.query_one("#show_tool_exec", Checkbox).value
             self.config["compact_mode"] = self.query_one("#compact_mode", Checkbox).value
             self.config["auto_confirm"] = self.query_one("#auto_confirm", Checkbox).value
-            self.config["expand_explanations"] = self.query_one("#expand_explanations", Checkbox).value
             ps = self.query_one("#provider_select", Select)
             ms = self.query_one("#model_select", Select)
             if ps.value:
                 self.config["provider"] = str(ps.value)
             if ms.value:
                 self.config["model"] = str(ms.value)
-            if "_pending_key" in self.config:
-                self.config["api_key"] = self.config["_pending_key"]
-                del self.config["_pending_key"]
             save_config(self.config)
-            self.dismiss(self.config)
-        elif event.button.id == "settings_cancel":
+            self.dismiss({"type": "save", "config": self.config})
+        elif bid == "action_clear":
+            self.dismiss({"type": "action", "action": "clear"})
+        elif bid == "action_new":
+            self.dismiss({"type": "action", "action": "new"})
+        elif bid == "action_sessions":
+            self.dismiss({"type": "action", "action": "sessions"})
+        elif bid == "action_quit":
+            self.dismiss({"type": "action", "action": "quit"})
+        else:
             self.dismiss(None)
 
     CSS = """
     SettingsModal { align: center middle; }
+    #settings-container { width: 55; max-height: 80%; background: $surface; border: tall #f5c542; padding: 1 2; overflow-y: auto; }
+    #settings-title { text-align: center; text-style: bold; margin-bottom: 1; }
     .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; }
     Checkbox { margin: 0 0 1 0; }
     Select { margin: 0 0 1 0; }
+    Button { margin: 0 0.5 0 0; }
+    #settings_save { margin-right: 1; }
     """
 
 
@@ -642,71 +513,7 @@ class QuestionScreen(ModalScreen):
     """
 
 
-class SlashAutocomplete(Container):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.suggestions = []
-        self.selected_idx = 0
-    def compose(self):
-        yield Static("", id="ac-display")
 
-    def update_suggestions(self, query):
-        if not query or not query.startswith("/"):
-            self.suggestions = []
-            self.selected_idx = 0
-            self.query_one("#ac-display").update("")
-            self.add_class("hidden")
-            return
-        parts = query.split(None, 1)
-        cmd = parts[0].lower()
-        args = parts[1] if len(parts) > 1 else ""
-        self.suggestions = []
-        for sc, desc in SLASH_COMMANDS.items():
-            if sc.startswith(cmd):
-                self.suggestions.append((sc, desc))
-        if not self.suggestions:
-            self.add_class("hidden")
-            self.query_one("#ac-display").update("")
-            return
-        self.selected_idx = min(self.selected_idx, len(self.suggestions) - 1)
-        lines = []
-        for i, (sc, desc) in enumerate(self.suggestions):
-            if i == self.selected_idx:
-                lines.append(f"  {sc:<14} {desc}")
-            else:
-                lines.append(f"  {sc:<14} {desc}")
-        display = "\n".join(lines[:5])
-        self.query_one("#ac-display").update(display)
-        self.remove_class("hidden")
-        if self.parent:
-            self.parent.refresh()
-
-    def navigate(self, direction):
-        if not self.suggestions:
-            return
-        self.selected_idx = max(0, min(len(self.suggestions) - 1, self.selected_idx + direction))
-        self.update_suggestions("/" + (self.suggestions[0][0][1:] if self.suggestions else ""))
-
-    def get_selected(self):
-        if self.suggestions and 0 <= self.selected_idx < len(self.suggestions):
-            return self.suggestions[self.selected_idx][0]
-        return None
-
-    CSS = """
-    SlashAutocomplete {
-        height: auto;
-        margin: 0 2;
-        padding: 0 1;
-        background: #0a0a0a;
-        border-top: solid #f5c542;
-    }
-    SlashAutocomplete.hidden { display: none; }
-        font-family: monospace;
-        font-size: 11px;
-        color: #f5c542;
-        margin: 0;
-    }
-    """
 
 
 class CipherApp(App):
@@ -725,9 +532,6 @@ class CipherApp(App):
 
     BINDINGS = [
         Binding("ctrl+s", "settings", "Settings", show=True),
-        Binding("ctrl+p", "providers", "Providers", show=True),
-        Binding("ctrl+l", "clear_chat", "Clear", show=True),
-        Binding("ctrl+q", "quit", "Quit", show=True),
         Binding("escape", "clear_input", "Clear input", show=False),
     ]
 
@@ -809,8 +613,7 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
             yield Static(" ", id="status-bar")
             yield VerticalScroll(id="chat-container")
             with Container(id="input-bar"):
-                yield Input(placeholder="Ask Cipher...  Ctrl+P provider  /help", id="chat-input")
-                yield SlashAutocomplete()
+                yield Input(placeholder="Ask Cipher...  Ctrl+S settings", id="chat-input")
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
@@ -827,8 +630,6 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
             self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
             self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
             self._add_system(f"Resumed session: {saved.get('title', 'untitled')}")
-
-        self.autocomplete = self.query_one(SlashAutocomplete)
 
     def _detect_providers_async(self):
         available = detect_available_providers()
@@ -916,33 +717,69 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
 
     def action_settings(self):
         def on_settings(result):
-            if result:
-                provider = result.get("provider", "")
-                model = result.get("model", "")
+            if not result:
+                return
+            rt = result.get("type", "")
+            if rt == "save":
+                cfg = result.get("config", {})
+                provider = cfg.get("provider", "")
+                model = cfg.get("model", "")
                 if provider and model:
+                    self.config["provider"] = provider
+                    self.config["model"] = model
                     self._refresh_api_key(provider)
                     self.query_one("#header-right").update(f"{provider} | {model}")
+                    self._add_system(f"Provider: {provider} | Model: {model}")
+            elif rt == "action":
+                action = result.get("action", "")
+                if action == "clear":
+                    self._do_clear()
+                elif action == "new":
+                    self._do_new()
+                elif action == "sessions":
+                    self._show_sessions()
+                elif action == "quit":
+                    self.exit()
         self.push_screen(SettingsModal(self.config), on_settings)
 
-    def action_providers(self):
-        def on_panel(result):
-            if result:
-                self.config["provider"] = result["provider"]
-                self.config["model"] = result["model"]
-                self._refresh_api_key(result["provider"])
-                info = PROVIDERS.get(result["provider"], {})
-                self.query_one("#header-right").update(f"{result['provider']} | {result['model']}")
-                self._add_system(f"Switched to {info.get('name', result['provider'])}")
-                self.system_prompt = self._build_system_prompt()
-                self.chat_messages = [{"role": "system", "content": self.system_prompt}]
-        self.push_screen(ProviderPanel(self.config), on_panel)
-
-    def action_clear_chat(self):
+    def _do_clear(self):
         container = self.query_one("#chat-container")
         self.chat_messages = [{"role": "system", "content": self.system_prompt}]
         for child in list(container.children):
             child.remove()
         self._add_system("Chat cleared.")
+
+    def _do_new(self):
+        container = self.query_one("#chat-container")
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.session_title = ""
+        self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        self.total_tools = 0
+        self.session_start = time.time()
+        for child in list(container.children):
+            child.remove()
+        self.query_one("#session-title").update("  New Session")
+        self._add_system("New session started.")
+
+    def _show_sessions(self):
+        def on_session(sid):
+            if sid:
+                session = load_session(sid)
+                if session:
+                    self.session_id = sid
+                    self.session_title = session.get("title", "Untitled")
+                    self.chat_messages = session.get("messages", [])
+                    self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
+                    self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
+                    container = self.query_one("#chat-container")
+                    for child in list(container.children):
+                        child.remove()
+                    self.query_one("#session-title").update(f"  {self.session_title}")
+                    self._add_system(f"Loaded: {self.session_title}")
+        self.push_screen(SessionModal(), on_session)
+
+    def action_clear_chat(self):
+        self._do_clear()
 
     def action_quit(self):
         self.exit()
@@ -953,27 +790,6 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
     def on_input_changed(self, event):
         if self.autocomplete:
             self.autocomplete.update_suggestions(event.value)
-
-    def on_key(self, event):
-        if self.is_processing:
-            return
-        if self.autocomplete and not self.autocomplete.has_class("hidden"):
-            if event.key == "up":
-                event.prevent_default()
-                self.autocomplete.navigate(-1)
-                return
-            elif event.key == "down":
-                event.prevent_default()
-                self.autocomplete.navigate(1)
-                return
-            elif event.key == "tab":
-                event.prevent_default()
-                selected = self.autocomplete.get_selected()
-                if selected:
-                    inp = self.query_one("#chat-input", Input)
-                    inp.value = selected + " "
-                    self.autocomplete.update_suggestions(selected + " ")
-                return
 
     def on_input_submitted(self, event):
         try:
@@ -1000,12 +816,6 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
                 self.command_history.append(user_input)
             self.history_index = len(self.command_history)
             self.query_one("#chat-input").value = ""
-            if self.autocomplete:
-                self.autocomplete.update_suggestions("")
-
-            if user_input.startswith("/"):
-                self._handle_command(user_input)
-                return
 
             if not self.session_title:
                 self.session_title = generate_title(user_input)
@@ -1217,124 +1027,6 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
         self.is_processing = False
         self._stream_widget = None
         self.query_one("#chat-input").focus()
-
-    def _handle_command(self, cmd):
-        parts = cmd.split(None, 1)
-        action = parts[0].lower()
-        args = parts[1] if len(parts) > 1 else ""
-        container = self.query_one("#chat-container")
-
-        if action == "/clear":
-            self.chat_messages = [{"role": "system", "content": self.system_prompt}]
-            for child in list(container.children):
-                child.remove()
-            self._add_system("Chat cleared.")
-
-        elif action == "/cd":
-            if args:
-                new_dir = os.path.abspath(args)
-                if os.path.isdir(new_dir):
-                    self.project_root = new_dir
-                    self._add_system(f"Directory: {new_dir}")
-                else:
-                    self._add_system(f"Not a directory: {args}")
-            else:
-                self._add_system(f"Directory: {self.project_root}")
-
-        elif action == "/help":
-            lines = [
-                "Commands:",
-                "  /help               Show this help",
-                "  /clear              Clear chat",
-                "  /new                New session",
-                "  /sessions           Browse saved sessions",
-                "  /provider [name]    Show or switch provider",
-                "  /model [name]       Show or switch model",
-                "  /cd [path]          Show or change directory",
-                "  /quit               Exit Cipher",
-            ]
-            msg = Static("\n".join(lines), classes="cmd-block")
-            container.mount(msg)
-            container.scroll_end()
-
-        elif action == "/provider" and args:
-            pid = args.lower()
-            if pid in PROVIDERS:
-                self.config["provider"] = pid
-                models = PROVIDERS[pid].get("models", [])
-                if models:
-                    self.config["model"] = models[0]["id"]
-                save_config(self.config)
-                info = PROVIDERS[pid]
-                self._refresh_api_key(pid)
-                self._add_system(f"Switched to {info['name']} ({pid})")
-                self._add_system(f"Model: {self.config['model']}")
-                self.query_one("#header-right").update(f"{pid} | {self.config['model']}")
-                self.system_prompt = self._build_system_prompt()
-                self.chat_messages = [{"role": "system", "content": self.system_prompt}]
-            else:
-                self._add_system(f"Unknown provider: {pid}")
-                self._add_system(f"Available: {', '.join(PROVIDERS.keys())}")
-
-        elif action == "/provider":
-            self._add_system(f"Current provider: {self.config['provider']} ({PROVIDERS.get(self.config['provider'], {}).get('name', 'unknown')})")
-
-        elif action == "/model" and args:
-            pid = self.config.get("provider", "ollama")
-            models = PROVIDERS.get(pid, {}).get("models", [])
-            model_ids = [m["id"] for m in models]
-            model_names = [m["name"] for m in models]
-            if args in model_ids:
-                self.config["model"] = args
-                save_config(self.config)
-                self._add_system(f"Switched to model: {args}")
-                self.query_one("#header-right").update(f"{self.config['provider']} | {args}")
-            else:
-                for mid, mname in zip(model_ids, model_names):
-                    if args.lower() in mid.lower() or args.lower() in mname.lower():
-                        self.config["model"] = mid
-                        save_config(self.config)
-                        self._add_system(f"Switched to model: {mid}")
-                        self.query_one("#header-right").update(f"{self.config['provider']} | {mid}")
-                        return
-                self._add_system(f"Model not found: {args}")
-                self._add_system(f"Available: {', '.join(model_ids)}")
-
-        elif action == "/model":
-            self._add_system(f"Current model: {self.config['model']}")
-
-        elif action == "/new":
-            self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.session_title = ""
-            self.chat_messages = [{"role": "system", "content": self.system_prompt}]
-            self.total_tools = 0
-            self.session_start = time.time()
-            for child in list(container.children):
-                child.remove()
-            self.query_one("#session-title").update("  New Session")
-            self._add_system("New session started.")
-
-        elif action == "/sessions":
-            def on_session(sid):
-                if sid:
-                    session = load_session(sid)
-                    if session:
-                        self.session_id = sid
-                        self.session_title = session.get("title", "Untitled")
-                        self.chat_messages = session.get("messages", [])
-                        self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
-                        self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
-                        for child in list(container.children):
-                            child.remove()
-                        self.query_one("#session-title").update(f"  {self.session_title}")
-                        self._add_system(f"Loaded session: {self.session_title}")
-            self.push_screen(SessionModal(), on_session)
-
-        elif action == "/quit":
-            self.exit()
-
-        else:
-            self._add_system(f"Unknown command: {action}. Type /help for commands.")
 
     _CLEAN_PATTERNS = [re.compile(p, re.DOTALL) for p in [
         r'<plan>.*?</plan>', r'<run>.*?</run>', r'<write\s+path=["\'].*?["\']>.*?</write>',
