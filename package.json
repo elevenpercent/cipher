@@ -16,6 +16,10 @@
     "cipher": "bin/cipher",
     "cip": "bin/cipher"
   },
+  "files": [
+    "bin/cipher",
+    "bin/install.js"
+  ],
   "scripts": {
     "postinstall": "node bin/install.js"
   },

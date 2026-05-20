@@ -381,6 +381,7 @@ class SettingsModal(ModalScreen):
                 yield Checkbox("Show diff", id="show_diff", value=self.config.get("show_diff", True))
                 yield Checkbox("Show tool results", id="show_tool_exec", value=self.config.get("show_tool_exec", True))
                 yield Checkbox("Compact mode", id="compact_mode", value=self.config.get("compact_mode", False))
+                yield Checkbox("Auto-confirm tool execution", id="auto_confirm", value=self.config.get("auto_confirm", False))
                 yield Rule()
                 yield Static("Actions", classes="settings-section")
                 with Horizontal():
