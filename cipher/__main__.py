@@ -143,7 +143,7 @@ def interactive_setup():
         """
         def __init__(self):
             super().__init__()
-            self.result = {"provider": "cipher-proxy", "model": "llama-3.1-8b", "api_key": ""}
+            self.result = {"provider": "cipher-proxy", "model": "llama-3.3-70b", "api_key": ""}
 
         def on_mount(self):
             self.push_screen(ProviderSelectScreen())
@@ -214,7 +214,7 @@ def main():
         first_run = True
 
     provider = os.getenv("CIPHER_PROVIDER", saved_provider) or "cipher-proxy"
-    model = os.getenv("CIPHER_MODEL", saved_model) or "llama-3.1-8b"
+    model = os.getenv("CIPHER_MODEL", saved_model) or "llama-3.3-70b"
     provider_config = PROVIDERS.get(provider, {})
     if provider_config.get("proxy"):
         api_key = ""
