@@ -64,7 +64,7 @@ def detect_available_providers():
 def load_config():
     defaults = {
         "provider": "cipher-proxy",
-        "model": "llama-3.3-70b",
+        "model": "llama-3.1-8b",
         "show_plan": True,
         "show_code": True,
         "show_summary": True,

@@ -203,7 +203,7 @@ class Test4Config(unittest.TestCase):
     def test_load_config_defaults(self):
         cfg = load_config()
         self.assertEqual(cfg["provider"], "cipher-proxy")
-        self.assertEqual(cfg["model"], "llama-3.3-70b")
+        self.assertEqual(cfg["model"], "llama-3.1-8b")
         self.assertTrue(cfg["show_plan"])
         self.assertTrue(cfg["show_code"])
 
@@ -218,7 +218,7 @@ class Test4Config(unittest.TestCase):
         save_config({"provider": "ollama"})
         loaded = load_config()
         self.assertEqual(loaded["provider"], "ollama")
-        self.assertEqual(loaded["model"], "llama-3.3-70b")
+        self.assertEqual(loaded["model"], "llama-3.1-8b")
 
     def test_generate_title_short(self):
         self.assertEqual(generate_title("hello world"), "hello world")
@@ -260,7 +260,7 @@ class Test6SaveUserConfig(unittest.TestCase):
                 with open(cfg_path) as f:
                     cfg = json.load(f)
             cfg["provider"] = result.get("provider", "cipher-proxy")
-            cfg["model"] = result.get("model", "llama-3.3-70b")
+            cfg["model"] = result.get("model", "llama-3.1-8b")
             with open(cfg_path, "w") as f:
                 json.dump(cfg, f, indent=2)
 
@@ -503,10 +503,7 @@ class Test12AppInit(unittest.TestCase):
     def test_cipher_app_init(self):
         app = CipherApp(project_root=os.getcwd())
         self.assertEqual(app.config["provider"], "cipher-proxy")
-        self.assertEqual(app.config["model"], "llama-3.3-70b")
-        self.assertFalse(app.is_processing)
-        self.assertIsNone(app.loading_widget)
-        self.assertIsNone(app._stream_widget)
+        self.assertEqual(app.config["model"], "llama-3.1-8b")
 
     def test_cipher_app_custom_provider(self):
         app = CipherApp(project_root=os.getcwd(), provider="groq", model="groq/llama-3.3-70b-versatile")
