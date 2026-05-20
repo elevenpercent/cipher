@@ -361,35 +361,36 @@ class SettingsModal(ModalScreen):
         self.config = config
     def compose(self):
         with Container(id="settings-container"):
-            yield Static("  Settings", id="settings-title")
+            with VerticalScroll(id="settings-scroll"):
+                yield Static("  Settings", id="settings-title")
+                yield Rule()
+                yield Static("AI Provider", classes="settings-section")
+                provider_options = [(info["name"], pid) for pid, info in PROVIDERS.items()]
+                current = self.config.get("provider", "cipher-proxy")
+                yield Select(provider_options, value=current, id="provider_select", prompt="Select provider...")
+                model_list = PROVIDERS.get(current, {}).get("models", [])
+                model_options = [(m["name"], m["id"]) for m in model_list]
+                current_model = self.config.get("model", "")
+                if not any(m[1] == current_model for m in model_options) and model_options:
+                    current_model = model_options[0][1]
+                yield Select(model_options, value=current_model or model_options[0][1] if model_options else None, id="model_select", prompt="Select model...")
+                yield Rule()
+                yield Static("Display", classes="settings-section")
+                yield Checkbox("Show plan", id="show_plan", value=self.config.get("show_plan", True))
+                yield Checkbox("Show code blocks", id="show_code", value=self.config.get("show_code", True))
+                yield Checkbox("Show diff", id="show_diff", value=self.config.get("show_diff", True))
+                yield Checkbox("Show tool results", id="show_tool_exec", value=self.config.get("show_tool_exec", True))
+                yield Checkbox("Compact mode", id="compact_mode", value=self.config.get("compact_mode", False))
+                yield Rule()
+                yield Static("Actions", classes="settings-section")
+                with Horizontal():
+                    yield Button("Clear Chat", id="action_clear", variant="default")
+                    yield Button("New Session", id="action_new", variant="default")
+                with Horizontal():
+                    yield Button("Sessions", id="action_sessions", variant="default")
+                    yield Button("Quit", id="action_quit", variant="default")
             yield Rule()
-            yield Static("AI Provider", classes="settings-section")
-            provider_options = [(info["name"], pid) for pid, info in PROVIDERS.items()]
-            current = self.config.get("provider", "cipher-proxy")
-            yield Select(provider_options, value=current, id="provider_select", prompt="Select provider...")
-            model_list = PROVIDERS.get(current, {}).get("models", [])
-            model_options = [(m["name"], m["id"]) for m in model_list]
-            current_model = self.config.get("model", "")
-            if not any(m[1] == current_model for m in model_options) and model_options:
-                current_model = model_options[0][1]
-            yield Select(model_options, value=current_model or model_options[0][1] if model_options else None, id="model_select", prompt="Select model...")
-            yield Rule()
-            yield Static("Display", classes="settings-section")
-            yield Checkbox("Show plan", id="show_plan", value=self.config.get("show_plan", True))
-            yield Checkbox("Show code blocks", id="show_code", value=self.config.get("show_code", True))
-            yield Checkbox("Show diff", id="show_diff", value=self.config.get("show_diff", True))
-            yield Checkbox("Show tool results", id="show_tool_exec", value=self.config.get("show_tool_exec", True))
-            yield Checkbox("Compact mode", id="compact_mode", value=self.config.get("compact_mode", False))
-            yield Rule()
-            yield Static("Actions", classes="settings-section")
-            with Horizontal():
-                yield Button("Clear Chat", id="action_clear", variant="default")
-                yield Button("New Session", id="action_new", variant="default")
-            with Horizontal():
-                yield Button("Sessions", id="action_sessions", variant="default")
-                yield Button("Quit", id="action_quit", variant="default")
-            yield Rule()
-            with Horizontal():
+            with Horizontal(id="settings-footer"):
                 yield Button("Save", id="settings_save", variant="primary")
                 yield Button("Cancel", id="settings_cancel", variant="default")
 
@@ -434,7 +435,9 @@ class SettingsModal(ModalScreen):
 
     CSS = """
     SettingsModal { align: center middle; }
-    #settings-container { width: 55; max-height: 80%; background: $surface; border: tall #f5c542; padding: 1 2; overflow-y: auto; }
+    #settings-container { width: 55; max-height: 90%; background: $surface; border: tall #f5c542; padding: 1 2; }
+    #settings-scroll { height: 1fr; overflow-y: auto; }
+    #settings-footer { height: 3; }
     #settings-title { text-align: center; text-style: bold; margin-bottom: 1; }
     .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; }
     Checkbox { margin: 0 0 1 0; }

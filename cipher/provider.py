@@ -139,6 +139,17 @@ PROVIDERS = {
             {"id": "openai/o4-mini", "name": "o4 Mini", "free": False},
         ],
     },
+    "deepseek": {
+        "name": "DeepSeek",
+        "desc": "Strong reasoning, cheap API",
+        "type": "cloud",
+        "env_key": "DEEPSEEK_API_KEY",
+        "signup_url": "platform.deepseek.com",
+        "models": [
+            {"id": "deepseek/deepseek-chat", "name": "DeepSeek V3 (chat)", "free": False},
+            {"id": "deepseek/deepseek-reasoner", "name": "DeepSeek R1 (reasoning)", "free": False},
+        ],
+    },
     "anthropic": {
         "name": "Anthropic",
         "desc": "Claude models, needs API key",
