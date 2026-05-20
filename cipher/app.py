@@ -30,20 +30,14 @@ SESSIONS_DIR.mkdir(exist_ok=True)
 SKILLS_DIR.mkdir(exist_ok=True)
 
 SLASH_COMMANDS = {
-    "/clear": "Clear chat history",
-    "/stats": "Show session statistics",
-    "/cd": "Change working directory",
-    "/provider": "Show/switch provider",
-    "/model": "Show/switch model",
-    "/providers": "List all providers",
-    "/models": "List all models",
-    "/config": "Show configuration",
-    "/dir": "Show working directory",
-    "/history": "Show command history",
-    "/new": "Start new session",
-    "/sessions": "View saved sessions",
-    "/quit": "Exit Cipher",
     "/help": "Show all commands",
+    "/clear": "Clear chat",
+    "/new": "New session",
+    "/sessions": "Browse saved sessions",
+    "/provider": "Show / switch provider",
+    "/model": "Show / switch model",
+    "/cd": "Show / change directory",
+    "/quit": "Exit Cipher",
 }
 
 THINKING_FRAMES = ["-", "\\", "|", "/"]
@@ -815,7 +809,7 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
             yield Static(" ", id="status-bar")
             yield VerticalScroll(id="chat-container")
             with Container(id="input-bar"):
-                yield Input(placeholder="Ask Cipher...  Ctrl+P providers  /help commands", id="chat-input")
+                yield Input(placeholder="Ask Cipher...  Ctrl+P provider  /help", id="chat-input")
                 yield SlashAutocomplete()
 
     def on_mount(self):
@@ -1236,38 +1230,28 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
                 child.remove()
             self._add_system("Chat cleared.")
 
-        elif action == "/stats":
-            elapsed = time.time() - self.session_start
-            todo_count = sum(1 for t in self.todo_list if not t["done"])
-            self._add_system(f"Tools: {self.total_tools} | Tokens: {self.total_tokens} | Todos: {todo_count} pending | Turns: {len(self.chat_messages)-1} | Time: {int(elapsed//60)}m {int(elapsed%60)}s")
-
-        elif action == "/cd" and args:
-            new_dir = os.path.abspath(args)
-            if os.path.isdir(new_dir):
-                self.project_root = new_dir
-                self._add_system(f"Working directory: {new_dir}")
+        elif action == "/cd":
+            if args:
+                new_dir = os.path.abspath(args)
+                if os.path.isdir(new_dir):
+                    self.project_root = new_dir
+                    self._add_system(f"Directory: {new_dir}")
+                else:
+                    self._add_system(f"Not a directory: {args}")
             else:
-                self._add_system(f"Not a directory: {args}")
+                self._add_system(f"Directory: {self.project_root}")
 
         elif action == "/help":
             lines = [
-                "Slash commands:",
-                "  /clear              Clear chat history",
-                "  /stats              Show session statistics",
-                "  /cd <path>          Change working directory",
-                "  /provider           Show current AI provider",
-                "  /provider <id>      Switch provider",
-                "  /model              Show current model",
-                "  /model <name>       Switch model",
-                "  /providers          List all available providers",
-                "  /models             List all models for current provider",
-                "  /config             Show current configuration",
-                "  /dir                Show working directory",
-                "  /history            Show command history",
-                "  /new                Start new session (reset)",
-                "  /sessions           View saved sessions",
-                "  /quit               Exit Cipher",
+                "Commands:",
                 "  /help               Show this help",
+                "  /clear              Clear chat",
+                "  /new                New session",
+                "  /sessions           Browse saved sessions",
+                "  /provider [name]    Show or switch provider",
+                "  /model [name]       Show or switch model",
+                "  /cd [path]          Show or change directory",
+                "  /quit               Exit Cipher",
             ]
             msg = Static("\n".join(lines), classes="cmd-block")
             container.mount(msg)
@@ -1318,54 +1302,6 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
 
         elif action == "/model":
             self._add_system(f"Current model: {self.config['model']}")
-
-        elif action == "/providers":
-            available = detect_available_providers()
-            lines = ["Available providers:  NOKEY=no key  FREE=free tier(key)  KEY=paid(key)"]
-            for prov in available:
-                pid = prov["id"]
-                info = PROVIDERS.get(pid, {})
-                t = info.get("type", "")
-                tag = {"local": "NOKEY", "cloud-free": "FREE", "cloud": "KEY"}.get(t, "?")
-                status = "OK" if prov["available"] else "--"
-                lines.append(f"  {tag:5} {status}  {pid:<14} {info['name']} - {prov['reason']}")
-            msg = Static("\n".join(lines), classes="cmd-block")
-            container.mount(msg)
-            container.scroll_end()
-
-        elif action == "/models":
-            pid = self.config.get("provider", "ollama")
-            models = PROVIDERS.get(pid, {}).get("models", [])
-            lines = [f"Models for {pid}:"]
-            for m in models:
-                cur = " <-- current" if m["id"] == self.config.get("model") else ""
-                free = " [FREE]" if m.get("free") else ""
-                lines.append(f"  {m['id']}{free}{cur}")
-            msg = Static("\n".join(lines), classes="cmd-block")
-            container.mount(msg)
-            container.scroll_end()
-
-        elif action == "/config":
-            lines = ["Current configuration:"]
-            for k, v in self.config.items():
-                lines.append(f"  {k}: {v}")
-            msg = Static("\n".join(lines), classes="cmd-block")
-            container.mount(msg)
-            container.scroll_end()
-
-        elif action == "/dir":
-            self._add_system(f"Working directory: {self.project_root}")
-
-        elif action == "/history":
-            if self.command_history:
-                lines = ["Command history:"]
-                for i, h in enumerate(self.command_history[-20:], 1):
-                    lines.append(f"  {i}. {h}")
-                msg = Static("\n".join(lines), classes="cmd-block")
-                container.mount(msg)
-                container.scroll_end()
-            else:
-                self._add_system("No history yet.")
 
         elif action == "/new":
             self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
