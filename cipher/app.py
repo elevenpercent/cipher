@@ -370,7 +370,9 @@ class SettingsModal(ModalScreen):
             model_list = PROVIDERS.get(current, {}).get("models", [])
             model_options = [(m["name"], m["id"]) for m in model_list]
             current_model = self.config.get("model", "")
-            yield Select(model_options, value=current_model if any(m[1] == current_model for m in model_options) else None, id="model_select", prompt="Select model...")
+            if not any(m[1] == current_model for m in model_options) and model_options:
+                current_model = model_options[0][1]
+            yield Select(model_options, value=current_model or model_options[0][1] if model_options else None, id="model_select", prompt="Select model...")
             yield Rule()
             yield Static("Display", classes="settings-section")
             yield Checkbox("Show plan", id="show_plan", value=self.config.get("show_plan", True))
@@ -399,7 +401,8 @@ class SettingsModal(ModalScreen):
                 model_options = [(m["name"], m["id"]) for m in model_list]
                 ms = self.query_one("#model_select", Select)
                 ms.set_options(model_options)
-                ms.clear()
+                if model_options:
+                    ms.value = model_options[0][1]
 
     def on_button_pressed(self, event):
         bid = event.button.id
