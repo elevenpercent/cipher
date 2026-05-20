@@ -643,51 +643,71 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
         except Exception:
             pass
 
+    def _get_chat(self):
+        try:
+            return self.query_one("#chat-container")
+        except Exception:
+            return None
+
     def _add_user(self, text):
+        container = self._get_chat()
+        if container is None:
+            return
         msg = Static(f"\u2192 {text}", classes="msg-user")
-        container = self.query_one("#chat-container")
         container.mount(msg)
         container.scroll_end()
 
     def _add_assistant(self, text):
+        container = self._get_chat()
+        if container is None:
+            return
         msg = Static(text, classes="msg-assistant")
-        container = self.query_one("#chat-container")
         container.mount(msg)
         container.scroll_end()
 
     def _add_plan(self, text):
         if not self.config.get("show_plan", True):
             return
+        container = self._get_chat()
+        if container is None:
+            return
         block = PlanBlock(text, classes="msg-plan")
-        container = self.query_one("#chat-container")
         container.mount(block)
         container.scroll_end()
 
     def _add_code(self, path, content, old=""):
         if not self.config.get("show_code", True):
             return
+        container = self._get_chat()
+        if container is None:
+            return
         block = CodeBlock(path, content, old, classes="msg-code")
-        container = self.query_one("#chat-container")
         container.mount(block)
         container.scroll_end()
 
     def _add_tool(self, tool, args, result, success=True):
         if not self.config.get("show_tool_exec", True):
             return
+        container = self._get_chat()
+        if container is None:
+            return
         widget = ToolResult(tool, args, result, success, classes="msg-tool")
-        container = self.query_one("#chat-container")
         container.mount(widget)
         container.scroll_end()
 
     def _add_explanation(self, summary, details=""):
+        container = self._get_chat()
+        if container is None:
+            return
         block = ExplanationBlock(summary, details, self.config.get("expand_explanations", False), classes="msg-explanation")
-        container = self.query_one("#chat-container")
         container.mount(block)
         container.scroll_end()
 
     def _add_system(self, text):
+        container = self._get_chat()
+        if container is None:
+            return
         msg = Static(f"  {text}", classes="msg-system")
-        container = self.query_one("#chat-container")
         container.mount(msg)
         container.scroll_end()
 
@@ -743,22 +763,24 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
         self.push_screen(SettingsModal(self.config), on_settings)
 
     def _do_clear(self):
-        container = self.query_one("#chat-container")
         self.chat_messages = [{"role": "system", "content": self.system_prompt}]
-        for child in list(container.children):
-            child.remove()
+        container = self._get_chat()
+        if container is not None:
+            for child in list(container.children):
+                child.remove()
         self._add_system("Chat cleared.")
 
     def _do_new(self):
-        container = self.query_one("#chat-container")
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_title = ""
         self.chat_messages = [{"role": "system", "content": self.system_prompt}]
         self.total_tools = 0
         self.session_start = time.time()
-        for child in list(container.children):
-            child.remove()
-        self.query_one("#session-title").update("  New Session")
+        container = self._get_chat()
+        if container is not None:
+            for child in list(container.children):
+                child.remove()
+            self.query_one("#session-title").update("  New Session")
         self._add_system("New session started.")
 
     def _show_sessions(self):
@@ -1413,13 +1435,19 @@ RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Mu
         try:
             self._add_tool(tool, args, result, success)
         except Exception:
-            self.call_from_thread(self._add_tool, tool, args, result, success)
+            try:
+                self.call_from_thread(self._add_tool, tool, args, result, success)
+            except (RuntimeError, Exception):
+                pass
 
     def _add_code_safe(self, path, content, old=""):
         try:
             self._add_code(path, content, old)
         except Exception:
-            self.call_from_thread(self._add_code, path, content, old)
+            try:
+                self.call_from_thread(self._add_code, path, content, old)
+            except (RuntimeError, Exception):
+                pass
 
 
 def run_tui(project_root=None, provider=None, model=None, api_key=None, session_id=None, proxy_url=None):

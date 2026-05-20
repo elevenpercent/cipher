@@ -297,24 +297,39 @@ class AIProvider:
                 yield {"content": delta, "full": full_text}
 
     def _proxy_chat(self, messages, stream=True):
+        if not stream:
+            return self._proxy_chat_sync(messages)
+        return self._proxy_chat_stream(messages)
+
+    def _proxy_chat_sync(self, messages):
         url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
         payload = json.dumps({
             "model": self.model_id,
             "messages": messages,
-            "stream": stream,
+            "stream": False,
             "temperature": 0.15,
         }).encode()
         req = urllib.request.Request(url, data=payload,
             headers={"Content-Type": "application/json"},
             method="POST")
-        if not stream:
-            try:
-                with urllib.request.urlopen(req, timeout=120) as resp:
-                    data = json.loads(resp.read().decode())
-                    return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                return f"Proxy error: {e}"
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read().decode())
+                return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            return f"Proxy error: {e}"
 
+    def _proxy_chat_stream(self, messages):
+        url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
+        payload = json.dumps({
+            "model": self.model_id,
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.15,
+        }).encode()
+        req = urllib.request.Request(url, data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST")
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 buffer = ""
