@@ -203,7 +203,7 @@ class Test4Config(unittest.TestCase):
     def test_load_config_defaults(self):
         cfg = load_config()
         self.assertEqual(cfg["provider"], "cipher-proxy")
-        self.assertEqual(cfg["model"], "llama-3.1-8b")
+        self.assertEqual(cfg["model"], "llama-3.3-70b")
         self.assertTrue(cfg["show_plan"])
         self.assertTrue(cfg["show_code"])
 
@@ -218,7 +218,7 @@ class Test4Config(unittest.TestCase):
         save_config({"provider": "ollama"})
         loaded = load_config()
         self.assertEqual(loaded["provider"], "ollama")
-        self.assertEqual(loaded["model"], "llama-3.1-8b")
+        self.assertEqual(loaded["model"], "llama-3.3-70b")
 
     def test_generate_title_short(self):
         self.assertEqual(generate_title("hello world"), "hello world")
@@ -260,7 +260,7 @@ class Test6SaveUserConfig(unittest.TestCase):
                 with open(cfg_path) as f:
                     cfg = json.load(f)
             cfg["provider"] = result.get("provider", "cipher-proxy")
-            cfg["model"] = result.get("model", "llama-3.1-8b")
+            cfg["model"] = result.get("model", "llama-3.3-70b")
             with open(cfg_path, "w") as f:
                 json.dump(cfg, f, indent=2)
 
@@ -500,10 +500,23 @@ class Test11CodingTest(unittest.TestCase):
 
 
 class Test12AppInit(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        import cipher.app as app_mod
+        self.orig_config_dir = app_mod.CONFIG_DIR
+        self.orig_config_file = app_mod.CONFIG_FILE
+        app_mod.CONFIG_DIR = Path(self.tmpdir)
+        app_mod.CONFIG_FILE = app_mod.CONFIG_DIR / "config.json"
+
+    def tearDown(self):
+        import cipher.app as app_mod
+        app_mod.CONFIG_DIR = self.orig_config_dir
+        app_mod.CONFIG_FILE = self.orig_config_file
+
     def test_cipher_app_init(self):
         app = CipherApp(project_root=os.getcwd())
         self.assertEqual(app.config["provider"], "cipher-proxy")
-        self.assertEqual(app.config["model"], "llama-3.1-8b")
+        self.assertEqual(app.config["model"], "llama-3.3-70b")
 
     def test_cipher_app_custom_provider(self):
         app = CipherApp(project_root=os.getcwd(), provider="groq", model="groq/llama-3.3-70b-versatile")
