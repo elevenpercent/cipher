@@ -1,4 +1,3 @@
-"""Cipher - Textual TUI Chat Application"""
 import os
 import sys
 import re
@@ -416,7 +415,6 @@ class ProviderPanel(ModalScreen):
 
     CSS = """
     ProviderPanel { align: center middle; }
-    #provider-panel {
         width: 80;
         max-height: 85%;
         background: #0a0a0a;
@@ -424,14 +422,9 @@ class ProviderPanel(ModalScreen):
         padding: 1 2;
         overflow-y: auto;
     }
-    #panel-legend { text-align: center; color: #555; font-size: 10px; margin-bottom: 0; }
-    #panel-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 0; }
     .prov-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
     .prov-active { color: #f5c542; }
     .prov-unavailable { color: #444; }
-    #panel-status { color: #aaa; margin-top: 1; }
-    #panel-model { color: #aaa; }
-    #panel_select { margin-right: 1; }
     """
 
 
@@ -494,7 +487,6 @@ class SessionModal(ModalScreen):
 
     CSS = """
     SessionModal { align: center middle; }
-    #session-panel {
         width: 70;
         max-height: 80%;
         background: #0a0a0a;
@@ -502,8 +494,6 @@ class SessionModal(ModalScreen):
         padding: 1 2;
         overflow-y: auto;
     }
-    #panel-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
-    #session-empty { text-align: center; color: #666; margin: 2 0; }
     .sess-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: monospace; font-size: 12px; color: #888; }
     .sess-active { color: #f5c542; }
     """
@@ -580,12 +570,9 @@ class SettingsModal(ModalScreen):
 
     CSS = """
     SettingsModal { align: center middle; }
-    #settings-container { width: 55; max-height: 80%; background: $surface; border: tall #f5c542; padding: 1 2; overflow-y: auto; }
-    #settings-title { text-align: center; text-style: bold; margin-bottom: 1; }
     .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; }
     Checkbox { margin: 0 0 1 0; }
     Select { margin: 0 0 1 0; }
-    #settings_save { margin-right: 1; }
     """
 
 
@@ -618,19 +605,12 @@ class YesNoModal(ModalScreen):
             self.action_no()
     CSS = """
     YesNoModal { align: center middle; }
-    #yn-panel {
         width: 50;
         height: auto;
         background: #0a0a0a;
         border: tall #f5c542;
         padding: 1 2;
     }
-    #yn-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
-    #yn-tool { color: #888; }
-    #yn-args { color: #888; margin-bottom: 1; }
-    #yn-prompt { color: #ccc; margin-bottom: 1; }
-    #yn-buttons { align: center middle; }
-    #yn_yes { margin-right: 1; }
     """
 
 
@@ -659,17 +639,12 @@ class QuestionScreen(ModalScreen):
         self.dismiss(self.answer)
     CSS = """
     QuestionScreen { align: center middle; }
-    #question-panel {
         width: 60;
         height: auto;
         background: #0a0a0a;
         border: tall #f5c542;
         padding: 1 2;
     }
-    #question-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
-    #question-text { color: #ccc; margin-bottom: 1; }
-    #question-input { margin: 0 0 1 0; }
-    #question_submit { margin-right: 1; }
     """
 
 
@@ -732,7 +707,6 @@ class SlashAutocomplete(Container):
         border-top: solid #f5c542;
     }
     SlashAutocomplete.hidden { display: none; }
-    #ac-display {
         font-family: monospace;
         font-size: 11px;
         color: #f5c542;
@@ -744,15 +718,6 @@ class SlashAutocomplete(Container):
 class CipherApp(App):
     CSS = """
     Screen { background: #050505; }
-    #app-layout { layout: vertical; height: 100%; }
-    #header-bar { height: 4; background: #0a0a0a; border-bottom: solid #1a1a1a; }
-    #header-left { dock: left; margin: 0 2; color: #f5c542; text-style: bold; }
-    #header-right { dock: right; margin: 0 2; color: #888; }
-    #session-title { height: 3; background: #080808; border-bottom: solid #111; padding: 0 2; color: #aaa; }
-    #status-bar { height: 2; background: #080808; border-bottom: solid #111; padding: 0 2; color: #666; }
-    #chat-container { height: 1fr; overflow-y: auto; padding: 0 2; border-bottom: solid #111; }
-    #input-bar { height: 4; background: #0a0a0a; border-top: solid #1a1a1a; }
-    #chat-input { margin: 0 2; border: solid #333; }
     .msg-user { margin: 1 0; padding: 0 1; color: #f5c542; }
     .msg-assistant { margin: 1 0; padding: 0 1; color: #ddd; }
     .msg-plan { margin: 1 0 1 2; }

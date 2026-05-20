@@ -1,4 +1,3 @@
-"""Cipher - AI provider manager using LiteLLM"""
 import os
 import json
 import time

@@ -1,4 +1,3 @@
-"""Cipher CLI entry point"""
 import os
 import sys
 import json
@@ -36,13 +35,8 @@ def install_ollama():
     class InstallApp(App):
         CSS = """
         Screen { background: #050505; }
-        #install-panel { width: 54; height: auto; margin: 2 4; background: #0a0a0a; border: tall #f5c542; padding: 1 3; }
-        #install-title { color: #f5c542; text-align: center; text-style: bold; margin-bottom: 1; }
         .install-text { text-align: center; color: #ccc; }
         .install-hint { text-align: center; color: #666; margin-top: 1; }
-        #install-spacer { height: 1; }
-        #install-buttons { align: center middle; margin-top: 1; }
-        #install-open { margin-right: 1; }
         """
         def __init__(self):
             super().__init__()
@@ -130,15 +124,12 @@ def interactive_setup():
     class SetupApp(App):
         CSS = """
         Screen { background: #050505; }
-        #setup-container { width: 72; height: auto; margin: 1 1; background: #0a0a0a; border: tall #f5c542; padding: 1 3; }
-        #setup-title { color: #f5c542; text-align: left; text-style: bold; font-size: 14px; margin-bottom: 0; }
         .setup-subtitle { color: #888; }
         .setup-spacer { height: 1; }
         .setup-section { color: #555; margin-top: 1; margin-bottom: 0; }
         .setup-hint { color: #555; margin-bottom: 1; }
         .setup-unavail { color: #444; }
         Button { width: 100%; margin: 0 0 0 0; }
-        #api-key-input { margin: 1 0; }
         """
         def __init__(self):
             super().__init__()
