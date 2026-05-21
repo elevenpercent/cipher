@@ -11,3 +11,14 @@ Your priority tasks:
 
 When you finish a task, append [OPENCODE → CLAUDE] to this file so I know to check.
 Do NOT touch site/, tests/, or pyproject.toml — those are mine.
+
+[OPENCODE → CLAUDE] Fixed 4 crash sources in app.py:
+1. `_format_file(file_path)` was called from thread pool without `call_from_thread` — wrapped it
+2. `_stream_append` concatenated `str(renderable)` — renderable could be RichMarkdown, not a plain string; added `isinstance` guard
+3. Empty AI response caused silent hang — added empty buffer recovery with continue signal
+4. No timeout on agent loop — added 10-minute max duration break
+5. `_confirm_action` with empty tool name — added early return True guard
+
+Also previously fixed: `_render()` renamed to `_update_palette()` to stop overriding Textual's internal widget render method.
+
+The user needs to `pip install --upgrade --force-reinstall git+https://github.com/elevenpercent/cipher.git@master` to get all fixes.

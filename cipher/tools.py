@@ -14,6 +14,13 @@ from datetime import datetime
 TOOLS_DIR = Path.home() / ".cipher" / "tools"
 
 
+def _is_subpath(child, parent):
+    try:
+        return os.path.commonpath([child, parent]) == parent
+    except ValueError:
+        return False
+
+
 class Tool:
     name = ""
     description = ""
@@ -52,11 +59,13 @@ class WriteTool(Tool):
     builtin = True
 
     def execute(self, args, body, project_root, context=None):
-        path = args.strip().strip('"').strip("'")
+        path = (args or "").strip().strip('"').strip("'")
+        if not path:
+            return {"result": "No path provided", "success": False}
         full = os.path.abspath(os.path.join(project_root, path))
         full = os.path.normpath(full)
         root = os.path.normpath(project_root)
-        if not full.startswith(root + os.sep) and full != root:
+        if not _is_subpath(full, root):
             return {"result": "Path escapes project root", "success": False}
         old_content = ""
         if os.path.exists(full):
@@ -65,11 +74,12 @@ class WriteTool(Tool):
                     old_content = f.read()
             except Exception:
                 pass
+        text = body.strip() if body else ""
         try:
             os.makedirs(os.path.dirname(full) or ".", exist_ok=True)
             with open(full, "w", encoding="utf-8") as f:
-                f.write(body.strip() if body else "")
-            lines = body.count("\n") + 1 if body else 0
+                f.write(text)
+            lines = text.count("\n") + 1 if text else 0
             return {"result": f"Written: {path} ({lines} lines)", "success": True, "old_content": old_content}
         except Exception as e:
             return {"result": f"Error: {e}", "success": False}
@@ -82,11 +92,13 @@ class ReadTool(Tool):
     builtin = True
 
     def execute(self, args, body, project_root, context=None):
-        path = args.strip().strip('"').strip("'")
+        path = (args or "").strip().strip('"').strip("'")
+        if not path:
+            return {"result": "No path provided", "success": False}
         full = os.path.abspath(os.path.join(project_root, path))
         full = os.path.normpath(full)
         root = os.path.normpath(project_root)
-        if not full.startswith(root + os.sep) and full != root:
+        if not _is_subpath(full, root):
             return {"result": "Path escapes project root", "success": False}
         if not os.path.exists(full):
             return {"result": f"File not found: {path}", "success": False}
@@ -118,7 +130,7 @@ class LsTool(Tool):
         full = os.path.abspath(os.path.join(project_root, path))
         full = os.path.normpath(full)
         root = os.path.normpath(project_root)
-        if not full.startswith(root + os.sep) and full != root:
+        if not _is_subpath(full, root):
             return {"result": "Path escapes project root", "success": False}
         if not os.path.isdir(full):
             return {"result": f"Not a directory: {path}", "success": False}
@@ -141,7 +153,7 @@ class GrepTool(Tool):
         search_path = body or "."
         full = os.path.normpath(os.path.join(project_root, search_path))
         root = os.path.normpath(project_root)
-        if not full.startswith(root + os.sep) and full != root:
+        if not _is_subpath(full, root):
             return {"result": "Path escapes project root", "success": False}
         if not os.path.isdir(full):
             return {"result": f"Not a directory: {search_path}", "success": False}
@@ -182,7 +194,7 @@ class GlobTool(Tool):
         if not pattern:
             return {"result": "No pattern provided", "success": False}
         matches = []
-        for p in glob_module.iglob(pattern, root_dir=project_root, recursive=True):
+        for p in glob_module.iglob(pattern, root_dir=project_root or ".", recursive=True):
             matches.append(p)
         matches.sort()
         result = "\n".join(matches[:200]) if matches else "No files matched"
@@ -197,16 +209,18 @@ class EditTool(Tool):
     builtin = True
 
     def execute(self, args, body, project_root, context=None):
-        path = args.strip().strip('"').strip("'")
+        path = (args or "").strip().strip('"').strip("'")
+        if not path:
+            return {"result": "No path provided", "success": False}
         full = os.path.abspath(os.path.join(project_root, path))
         full = os.path.normpath(full)
         root = os.path.normpath(project_root)
-        if not full.startswith(root + os.sep) and full != root:
+        if not _is_subpath(full, root):
             return {"result": "Path escapes project root", "success": False}
         if not os.path.exists(full):
             return {"result": f"File not found: {path}", "success": False}
         try:
-            parsed = json.loads(body)
+            parsed = json.loads(body or "{}")
             old_text = parsed.get("old", "")
             new_text = parsed.get("new", "")
         except Exception:
@@ -292,7 +306,7 @@ class GitTool(Tool):
     builtin = True
 
     def execute(self, args, body, project_root, context=None):
-        cmd = args.strip()
+        cmd = (args or "").strip()
         safe_cmds = ["status", "diff", "log", "show", "branch", "add", "commit", "push", "pull", "stash", "checkout"]
         base = cmd.split()[0] if cmd else "status"
         if base not in safe_cmds:
