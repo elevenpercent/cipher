@@ -38,7 +38,7 @@ CONFIG_DIR.mkdir(exist_ok=True)
 SESSIONS_DIR.mkdir(exist_ok=True)
 SKILLS_DIR.mkdir(exist_ok=True)
 
-THINKING_FRAMES = ["-", "\\", "|", "/"]
+THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 _PROVIDER_CACHE = None
 _PROVIDER_CACHE_TIME = 0
 
@@ -236,54 +236,83 @@ class ToolResult(Static):
         self.success = success
     def render(self):
         result = Text()
-        icon = "OK" if self.success else "FAIL"
-        style = "bold #4ade80" if self.success else "bold #f87171"
+        ok = "✓" if self.success else "✗"
+        ok_style = "#4ade80" if self.success else "#f87171"
         if self.tool == "write":
-            result.append(f"  {icon} ", style=style)
-            result.append(f"Writing {self.args}\n", style="bold")
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"wrote ", style="#888")
+            result.append(f"{self.args}\n", style="#f5c542")
             for line in self.result.split('\n')[:3]:
                 if line.strip():
-                    result.append(f"  + {line}\n", style="#4ade80")
+                    result.append(f"    {line}\n", style="#4ade80")
+        elif self.tool == "read":
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"read ", style="#888")
+            result.append(f"{self.args}\n", style="#f5c542")
+            out = self.result[:300].strip()
+            if out:
+                for line in out.split('\n')[:4]:
+                    result.append(f"    {line}\n", style="#666")
         elif self.tool == "run":
-            result.append(f"  {icon} ", style=style)
-            result.append(f"$ {self.args}\n", style="#fbbf24")
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"$ ", style="#888")
+            result.append(f"{self.args}\n", style="#fbbf24")
+            out = self.result[:300].strip()
+            if out:
+                for line in out.split('\n')[:6]:
+                    result.append(f"    {line}\n", style="#4ade80" if self.success else "#f87171")
+        elif self.tool == "edit":
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"edited ", style="#888")
+            result.append(f"{self.args}\n", style="#f5c542")
+        elif self.tool == "ls":
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"ls ", style="#888")
+            result.append(f"{self.args}\n", style="#f5c542")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="#4ade80" if self.success else "#f87171")
+                result.append(f"    {out}\n", style="#666")
         elif self.tool == "grep":
-            result.append(f"  grep {self.args}\n", style="bold #60a5fa")
+            result.append(f"  ◎ grep ", style="#60a5fa")
+            result.append(f"{self.args}\n", style="#888")
+            out = self.result[:400].strip()
+            if out:
+                for line in out.split('\n')[:6]:
+                    result.append(f"    {line}\n", style="#93c5fd")
+        elif self.tool == "glob":
+            result.append(f"  ◎ glob ", style="#60a5fa")
+            result.append(f"{self.args}\n", style="#888")
+            out = self.result[:200].strip()
+            if out:
+                result.append(f"    {out}\n", style="#93c5fd")
+        elif self.tool == "git":
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"git ", style="#888")
+            result.append(f"{self.args}\n", style="#fbbf24")
             out = self.result[:300].strip()
             if out:
                 for line in out.split('\n')[:5]:
-                    result.append(f"  {line}\n", style="#93c5fd")
-        elif self.tool == "glob":
-            result.append(f"  glob {self.args}\n", style="bold #60a5fa")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"  {out}\n", style="#93c5fd")
-        elif self.tool == "edit":
-            result.append(f"  {icon} ", style=style)
-            result.append(f"Editing {self.args}\n", style="bold")
+                    result.append(f"    {line}\n", style="#fbbf24")
         elif self.tool == "web-fetch":
-            result.append(f"  fetch {self.args}\n", style="bold #60a5fa")
+            result.append(f"  ◎ fetch ", style="#60a5fa")
+            result.append(f"{self.args}\n", style="#888")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out[:200]}\n", style="#93c5fd")
-        elif self.tool == "git":
-            result.append(f"  {icon} ", style=style)
-            result.append(f"git {self.args}\n", style="bold #fbbf24")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"  {out}\n", style="#fbbf24")
+                result.append(f"    {out}\n", style="#93c5fd")
         elif self.tool == "web-search":
-            result.append(f"  search {self.args}\n", style="bold #60a5fa")
+            result.append(f"  ◎ search ", style="#60a5fa")
+            result.append(f"{self.args}\n", style="#888")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="#93c5fd")
+                result.append(f"    {out}\n", style="#93c5fd")
         elif self.tool == "todo":
-            result.append(f"  todo {self.args}\n", style="bold #c084fc")
+            result.append(f"  ◎ todo ", style="#c084fc")
+            result.append(f"{self.args}\n", style="#888")
             if self.result:
-                result.append(f"  {self.result[:200]}\n", style="#d8b4fe")
+                result.append(f"    {self.result[:200]}\n", style="#d8b4fe")
+        else:
+            result.append(f"  {ok} ", style=ok_style)
+            result.append(f"{self.tool} {self.args}\n", style="#888")
         return result
 
 
@@ -293,13 +322,12 @@ class LoadingIndicator(Static):
         self.frame_idx = 0
         self.text = "Thinking"
         self.dots = "..."
-        self.update(f"  {THINKING_FRAMES[0]} {self.text}...")
+        self.update(f"  {THINKING_FRAMES[0]} {self.text}")
     def on_mount(self):
         self.set_interval(0.15, self._tick)
     def _tick(self):
         self.frame_idx = (self.frame_idx + 1) % len(THINKING_FRAMES)
-        self.dots = "." * ((self.frame_idx % 3) + 1)
-        self.update(f"  {THINKING_FRAMES[self.frame_idx]} {self.text}{self.dots}")
+        self.update(f"  {THINKING_FRAMES[self.frame_idx]} {self.text}")
 
 
 class CommandPalette(ModalScreen):
@@ -405,7 +433,14 @@ class SessionModal(ModalScreen):
     def on_button_pressed(self, event):
         if event.button.id == "session_cancel":
             self.dismiss(None)
-    CSS = """SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; } .sess-row { margin: 0; padding: 0; color: #888888; } .sess-active { color: #f5c542; }"""
+    CSS = """
+    SessionModal { align: center middle; }
+    #session-panel { width: 72; max-height: 85%; background: #080808; border: tall #f5c542; padding: 1 2; }
+    #panel-title { color: #f5c542; text-style: bold; margin-bottom: 1; padding: 0 1; }
+    #session-empty { color: #444; padding: 1 2; }
+    .sess-row { margin: 0; padding: 0 1; color: #666; }
+    .sess-active { color: #f5c542; background: #0f0f0f; }
+    """
 
 
 class SettingsModal(ModalScreen):
@@ -491,7 +526,18 @@ class SettingsModal(ModalScreen):
             self.dismiss({"type": "action", "action": "quit"})
         else:
             self.dismiss(None)
-    CSS = """SettingsModal { align: center middle; } #settings-container { width: 55; max-height: 90%; background: $surface; border: tall #f5c542; padding: 1 2; } #settings-scroll { height: 1fr; overflow-y: auto; } #settings-footer { height: 3; } #settings-title { text-align: center; text-style: bold; margin-bottom: 1; } .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; } Checkbox { margin: 0 0 1 0; } Select { margin: 0 0 1 0; } Button { margin: 0 1 0 0; } #settings_save { margin-right: 1; }"""
+    CSS = """
+    SettingsModal { align: center middle; }
+    #settings-container { width: 58; max-height: 90%; background: #080808; border: tall #f5c542; padding: 1 2; }
+    #settings-scroll { height: 1fr; overflow-y: auto; }
+    #settings-footer { height: 3; margin-top: 1; }
+    #settings-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
+    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #555; }
+    Checkbox { margin: 0 0 0 0; color: #aaa; }
+    Select { margin: 0 0 1 0; }
+    Button { margin: 0 1 0 0; }
+    #settings_save { margin-right: 1; }
+    """
 
 
 class YesNoModal(ModalScreen):
@@ -521,7 +567,15 @@ class YesNoModal(ModalScreen):
             self.action_yes()
         else:
             self.action_no()
-    CSS = """YesNoModal { align: center middle; width: 50; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }"""
+    CSS = """
+    YesNoModal { align: center middle; }
+    #yn-panel { width: 52; background: #080808; border: tall #f5c542; padding: 1 2; }
+    #yn-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
+    #yn-tool { color: #aaa; }
+    #yn-args { color: #666; margin-bottom: 1; }
+    #yn-prompt { color: #888; margin-bottom: 1; }
+    #yn-buttons { margin-top: 1; }
+    """
 
 
 class QuestionScreen(ModalScreen):
@@ -547,7 +601,12 @@ class QuestionScreen(ModalScreen):
     def on_input_submitted(self, event):
         self.answer = event.value.strip()
         self.dismiss(self.answer)
-    CSS = """QuestionScreen { align: center middle; width: 60; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }"""
+    CSS = """
+    QuestionScreen { align: center middle; }
+    #question-panel { width: 62; background: #080808; border: tall #f5c542; padding: 1 2; }
+    #question-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
+    #question-text { color: #ccc; margin-bottom: 1; }
+    """
 
 
 
@@ -594,17 +653,15 @@ class CipherApp(App):
     #input-hint { height: 2; padding: 0 2; color: #2e2e2e; content-align: left middle; }
 
     /* Messages */
-    .msg-user { margin: 0; padding: 0 2; color: #f5c542; }
-    .msg-user-container { margin: 1 2 0 2; background: #0b0b0b; border-left: solid #f5c542; padding: 0 0 0 1; }
-    .msg-assistant { margin: 0; padding: 0 2; color: #cccccc; }
-    .msg-assistant-container { margin: 0 2 1 2; background: #070707; border-left: solid #1e1e1e; padding: 0 0 0 1; }
-    .msg-plan { margin: 1 0; }
-    .msg-code { margin: 0; }
-    .msg-tool { margin: 0; }
-    .msg-explanation { margin: 1 0; }
-    .msg-system { margin: 0 2; color: #484848; text-style: italic; padding: 0 2; }
+    .msg-user { margin: 1 2 0 2; padding: 0 1; color: #f5c542; border-left: solid #f5c542; background: #0b0b0b; }
+    .msg-assistant { margin: 0 2 1 2; padding: 0 1; color: #cccccc; border-left: solid #1e1e1e; background: #070707; }
+    .msg-plan { margin: 1 2; padding: 0 1; border-left: solid #3b5bdb; background: #070712; }
+    .msg-code { margin: 0 2; padding: 0 1; background: #06060a; }
+    .msg-tool { margin: 0 2; padding: 0; }
+    .msg-explanation { margin: 1 2; padding: 0 1; }
+    .msg-system { margin: 0 2; color: #383838; text-style: italic; padding: 0 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
-    .loading-msg { margin: 0 0 1 4; color: #f5c542; }
+    .loading-msg { margin: 1 4; color: #f5c542; }
     #app-layout > Container { height: 100%; }
     """
 
@@ -728,9 +785,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
-        self._add_system(f"Cipher ready")
-        self._add_system(f"Provider: {self.config.get('provider')} | Model: {self.config.get('model')}")
-        self._add_system(f"Work dir: {self.project_root}")
+        self._add_system(f"{self.config.get('provider')}  {self.config.get('model')}  {self.project_root}")
         if self.session_title:
             self.query_one("#header-center").update(self.session_title)
         self.run_worker(self._detect_providers_async, exclusive=False, thread=True)
@@ -802,7 +857,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                 btn = Button(f"  {title}", id=f"ss-{sid}", classes="sess-item", variant="default")
                 btn._sid = sid
                 container.mount(btn)
-            container.mount(Button("  [Browse all...]", id="sidebar-browse-all", classes="sidebar-action", variant="default"))
+            container.mount(Button("  browse all", id="sidebar-browse-all", classes="sidebar-action", variant="default"))
         except Exception:
             pass
 
