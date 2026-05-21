@@ -1,5 +1,4 @@
 const { execSync, spawn } = require("child_process");
-const path = require("path");
 
 const PYPI_URL = "git+https://github.com/elevenpercent/cipher.git@master";
 
@@ -15,5 +14,5 @@ try {
   }
 }
 
-const cp = spawn("cip", process.argv.slice(2), { stdio: "inherit", shell: true });
+const cp = spawn("python", ["-m", "cipher", ...process.argv.slice(2)], { stdio: "inherit", shell: true });
 cp.on("exit", (code) => process.exit(code));
