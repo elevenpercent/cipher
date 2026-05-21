@@ -14,6 +14,8 @@ from textual.widgets import Static, Input, Label, Button, Checkbox, Select, Rule
 from textual.binding import Binding
 from textual.screen import Screen, ModalScreen
 from rich.text import Text
+from rich.markdown import Markdown as RichMarkdown
+from rich.syntax import Syntax
 from cipher.provider import AIProvider, PROVIDERS
 from cipher.tools import ToolRegistry
 from cipher.permissions import PermissionManager
@@ -39,6 +41,19 @@ SKILLS_DIR.mkdir(exist_ok=True)
 THINKING_FRAMES = ["-", "\\", "|", "/"]
 _PROVIDER_CACHE = None
 _PROVIDER_CACHE_TIME = 0
+
+SLASH_COMMANDS = {
+    "/help": "Show available commands",
+    "/clear": "Clear the chat",
+    "/new": "Start a new session",
+    "/sessions": "Browse saved sessions",
+    "/theme": "Change theme (e.g., /theme dracula)",
+    "/model": "Switch model (e.g., /model llama-3.3-70b)",
+    "/provider": "Switch provider (e.g., /provider groq)",
+    "/compact": "Toggle compact mode",
+    "/tokens": "Show token usage",
+    "/quit": "Exit Cipher",
+}
 
 
 def detect_available_providers():
@@ -83,10 +98,7 @@ def load_config():
         "compact_mode": False,
         "lint_command": "",
         "skills_dir": str(SKILLS_DIR),
-        "permissions": {
-            "auto_allow": {},
-            "auto_deny": {},
-        },
+        "permissions": {"auto_allow": {}, "auto_deny": {}},
         "custom_tools": [],
         "proxy_url": "https://proxy-blue-kappa.vercel.app",
         "theme": "dark",
@@ -154,17 +166,17 @@ class CodeBlock(Static):
         self.old_content = old_content
     def render(self):
         result = Text()
-        result.append(f" {self.path}\n", style="bold green")
+        result.append(f"  {self.path}\n", style="bold #f5c542")
         old_lines = self.old_content.split('\n') if self.old_content else []
         new_lines = self.content.split('\n') if self.content else []
         if not self.old_content:
             for line in new_lines:
-                result.append(f"+ ", style="bold green")
-                result.append(f"{line}\n", style="green")
+                result.append(f"  + ", style="#4ade80")
+                result.append(f"{line}\n", style="#86efac")
         elif not self.content:
             for line in old_lines:
-                result.append(f"- ", style="bold red")
-                result.append(f"{line}\n", style="red")
+                result.append(f"  - ", style="#f87171")
+                result.append(f"{line}\n", style="#fca5a5")
         else:
             max_len = max(len(old_lines), len(new_lines))
             for i in range(max_len):
@@ -172,12 +184,12 @@ class CodeBlock(Static):
                 nl = new_lines[i] if i < len(new_lines) else None
                 if ol != nl:
                     if ol is not None:
-                        result.append(f"- ", style="bold red")
-                        result.append(f"{ol}\n", style="red")
+                        result.append(f"  - ", style="#f87171")
+                        result.append(f"{ol}\n", style="#fca5a5")
                     if nl is not None:
-                        result.append(f"+ ", style="bold green")
-                        result.append(f"{nl}\n", style="green")
-        result.append(f"  ({len(new_lines)} lines)", style="dim")
+                        result.append(f"  + ", style="#4ade80")
+                        result.append(f"{nl}\n", style="#86efac")
+        result.append(f"  ({len(new_lines)} lines)", style="dim #888")
         return result
 
 
@@ -187,10 +199,10 @@ class PlanBlock(Static):
         self.content = content
     def render(self):
         result = Text()
-        result.append(" Plan\n", style="bold cyan")
+        result.append("  Plan\n", style="bold #60a5fa")
         for line in self.content.strip().split('\n'):
             if line.strip():
-                result.append(f"  {line.strip()}\n", style="cyan")
+                result.append(f"    {line.strip()}\n", style="#93c5fd")
         return result
 
 
@@ -204,11 +216,11 @@ class ExplanationBlock(Static):
     def render(self):
         result = Text()
         arrow = "\u25bc" if self.expanded else "\u25b6"
-        result.append(f" {arrow} ", style="dim")
-        result.append(self.summary, style="white")
+        result.append(f"  {arrow} ", style="dim")
+        result.append(self.summary, style="#ddd")
         if self.expanded and self.details:
             result.append("\n")
-            result.append(self.details, style="dim")
+            result.append(self.details, style="#888")
         return result
     def action_toggle(self):
         self.expanded = not self.expanded
@@ -225,53 +237,53 @@ class ToolResult(Static):
     def render(self):
         result = Text()
         icon = "OK" if self.success else "FAIL"
-        style = "green" if self.success else "red"
+        style = "bold #4ade80" if self.success else "bold #f87171"
         if self.tool == "write":
             result.append(f"  {icon} ", style=style)
             result.append(f"Writing {self.args}\n", style="bold")
             for line in self.result.split('\n')[:3]:
                 if line.strip():
-                    result.append(f"+ {line}\n", style="green")
+                    result.append(f"  + {line}\n", style="#4ade80")
         elif self.tool == "run":
             result.append(f"  {icon} ", style=style)
-            result.append(f"$ {self.args}\n", style="yellow")
+            result.append(f"$ {self.args}\n", style="#fbbf24")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="green" if self.success else "red")
+                result.append(f"  {out}\n", style="#4ade80" if self.success else "#f87171")
         elif self.tool == "grep":
-            result.append(f"  grep {self.args}\n", style="bold cyan")
+            result.append(f"  grep {self.args}\n", style="bold #60a5fa")
             out = self.result[:300].strip()
             if out:
                 for line in out.split('\n')[:5]:
-                    result.append(f"  {line}\n", style="cyan")
+                    result.append(f"  {line}\n", style="#93c5fd")
         elif self.tool == "glob":
-            result.append(f"  glob {self.args}\n", style="bold cyan")
+            result.append(f"  glob {self.args}\n", style="bold #60a5fa")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="cyan")
+                result.append(f"  {out}\n", style="#93c5fd")
         elif self.tool == "edit":
             result.append(f"  {icon} ", style=style)
             result.append(f"Editing {self.args}\n", style="bold")
         elif self.tool == "web-fetch":
-            result.append(f"  fetch {self.args}\n", style="bold cyan")
+            result.append(f"  fetch {self.args}\n", style="bold #60a5fa")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out[:200]}\n", style="cyan")
+                result.append(f"  {out[:200]}\n", style="#93c5fd")
         elif self.tool == "git":
             result.append(f"  {icon} ", style=style)
-            result.append(f"git {self.args}\n", style="bold yellow")
+            result.append(f"git {self.args}\n", style="bold #fbbf24")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="yellow")
+                result.append(f"  {out}\n", style="#fbbf24")
         elif self.tool == "web-search":
-            result.append(f"  search {self.args}\n", style="bold cyan")
+            result.append(f"  search {self.args}\n", style="bold #60a5fa")
             out = self.result[:200].strip()
             if out:
-                result.append(f"  {out}\n", style="cyan")
+                result.append(f"  {out}\n", style="#93c5fd")
         elif self.tool == "todo":
-            result.append(f"  todo {self.args}\n", style="bold magenta")
+            result.append(f"  todo {self.args}\n", style="bold #c084fc")
             if self.result:
-                result.append(f"  {self.result[:200]}\n", style="magenta")
+                result.append(f"  {self.result[:200]}\n", style="#d8b4fe")
         return result
 
 
@@ -290,7 +302,53 @@ class LoadingIndicator(Static):
         self.update(f"  {THINKING_FRAMES[self.frame_idx]} {self.text}{self.dots}")
 
 
-
+class CommandPalette(ModalScreen):
+    BINDINGS = [Binding("escape", "dismiss", "Close"), Binding("up", "cursor_up", "Up", show=False), Binding("down", "cursor_down", "Down", show=False)]
+    def __init__(self, actions, **kwargs):
+        super().__init__(**kwargs)
+        self.actions = actions
+        self.filtered = list(actions)
+        self.selected = 0
+    def compose(self):
+        with Container(id="palette-container"):
+            yield Input(placeholder="Search actions...", id="palette-input")
+            yield Static("", id="palette-results")
+    def on_mount(self):
+        self.query_one("#palette-input").focus()
+        self._render()
+    def on_input_changed(self, event):
+        q = event.value.lower()
+        if q:
+            self.filtered = [(k, v) for k, v in self.actions if q in k.lower() or q in v.lower()]
+        else:
+            self.filtered = list(self.actions)
+        self.selected = 0
+        self._render()
+    def _render(self):
+        results = self.query_one("#palette-results", Static)
+        t = Text()
+        for i, (k, v) in enumerate(self.filtered[:12]):
+            prefix = " \u25b6 " if i == self.selected else "   "
+            t.append(f"{prefix}{k}", style="#f5c542" if i == self.selected else "#ccc")
+            t.append(f"  {v}\n", style="#888" if i == self.selected else "#666")
+        results.update(t)
+    def action_cursor_up(self):
+        self.selected = max(0, self.selected - 1)
+        self._render()
+    def action_cursor_down(self):
+        self.selected = min(len(self.filtered) - 1, self.selected + 1)
+        self._render()
+    def on_input_submitted(self, event):
+        if self.filtered:
+            self.dismiss(self.filtered[self.selected][0])
+        else:
+            self.dismiss(None)
+    CSS = """
+    CommandPalette { align: center top; }
+    #palette-container { width: 50; margin-top: 3; background: #111; border: tall #333; padding: 1; }
+    #palette-input { margin-bottom: 1; }
+    #palette-results { height: 20; }
+    """
 
 
 class SessionModal(ModalScreen):
@@ -310,7 +368,6 @@ class SessionModal(ModalScreen):
                 yield Static(f"  {title:<40} {msg_count:>3} msgs  {created}", id=f"sess-{s['id']}", classes="sess-row")
             yield Rule()
             yield Button("Cancel", id="session_cancel", variant="default")
-
     def on_key(self, event):
         if event.key in ("up", "down", "enter"):
             event.prevent_default()
@@ -339,22 +396,15 @@ class SessionModal(ModalScreen):
         if rows:
             rows[idx].add_class("sess-active")
             self._current_idx = idx
-
     def on_mount(self):
         rows = list(self.query(".sess-row"))
         if rows:
             rows[0].add_class("sess-active")
             self._current_idx = 0
-
     def on_button_pressed(self, event):
         if event.button.id == "session_cancel":
             self.dismiss(None)
-
-    CSS = """
-    SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; }
-    .sess-row { margin: 0; padding: 0; color: #888; }
-    .sess-active { color: #f5c542; }
-    """
+    CSS = """SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; } .sess-row { margin: 0; padding: 0; color: #888; } .sess-active { color: #f5c542; }"""
 
 
 class SettingsModal(ModalScreen):
@@ -400,7 +450,6 @@ class SettingsModal(ModalScreen):
             with Horizontal(id="settings-footer"):
                 yield Button("Save", id="settings_save", variant="primary")
                 yield Button("Cancel", id="settings_cancel", variant="default")
-
     def on_select_changed(self, event):
         if event.select.id == "provider_select":
             pid = event.value
@@ -411,7 +460,6 @@ class SettingsModal(ModalScreen):
                 ms.set_options(model_options)
                 if model_options:
                     ms.value = model_options[0][1]
-
     def on_button_pressed(self, event):
         bid = event.button.id
         if bid == "settings_save":
@@ -442,19 +490,7 @@ class SettingsModal(ModalScreen):
             self.dismiss({"type": "action", "action": "quit"})
         else:
             self.dismiss(None)
-
-    CSS = """
-    SettingsModal { align: center middle; }
-    #settings-container { width: 55; max-height: 90%; background: $surface; border: tall #f5c542; padding: 1 2; }
-    #settings-scroll { height: 1fr; overflow-y: auto; }
-    #settings-footer { height: 3; }
-    #settings-title { text-align: center; text-style: bold; margin-bottom: 1; }
-    .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; }
-    Checkbox { margin: 0 0 1 0; }
-    Select { margin: 0 0 1 0; }
-    Button { margin: 0 1 0 0; }
-    #settings_save { margin-right: 1; }
-    """
+    CSS = """SettingsModal { align: center middle; } #settings-container { width: 55; max-height: 90%; background: $surface; border: tall #f5c542; padding: 1 2; } #settings-scroll { height: 1fr; overflow-y: auto; } #settings-footer { height: 3; } #settings-title { text-align: center; text-style: bold; margin-bottom: 1; } .settings-section { margin-top: 1; margin-bottom: 1; text-style: bold; color: $text-muted; } Checkbox { margin: 0 0 1 0; } Select { margin: 0 0 1 0; } Button { margin: 0 1 0 0; } #settings_save { margin-right: 1; }"""
 
 
 class YesNoModal(ModalScreen):
@@ -484,9 +520,7 @@ class YesNoModal(ModalScreen):
             self.action_yes()
         else:
             self.action_no()
-    CSS = """
-    YesNoModal { align: center middle; width: 50; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }
-    """
+    CSS = """YesNoModal { align: center middle; width: 50; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }"""
 
 
 class QuestionScreen(ModalScreen):
@@ -512,31 +546,61 @@ class QuestionScreen(ModalScreen):
     def on_input_submitted(self, event):
         self.answer = event.value.strip()
         self.dismiss(self.answer)
-    CSS = """
-    QuestionScreen { align: center middle; width: 60; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }
-    """
-
-
+    CSS = """QuestionScreen { align: center middle; width: 60; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }"""
 
 
 
 class CipherApp(App):
     CSS = """
     Screen { background: #050505; }
-    .msg-user { margin: 1 0; padding: 0 1; color: #f5c542; }
-    .msg-assistant { margin: 1 0; padding: 0 1; color: #ddd; }
-    .msg-plan { margin: 1 0 1 2; }
-    .msg-code { margin: 1 0 1 4; }
-    .msg-tool { margin: 0 0 1 4; }
-    .msg-explanation { margin: 1 0 1 2; }
-    .msg-system { margin: 0 0 1 0; color: $text-muted; text-style: italic; }
+    #app-layout { layout: horizontal; }
+    #sidebar { width: 28; dock: left; background: #0a0a0a; border-right: solid #1a1a1a; height: 100%; }
+    #sidebar-header { height: 3; padding: 1 0 0 1; }
+    #sidebar-header Label { color: #f5c542; text-style: bold; }
+    #sidebar-status { height: 1; color: #666; padding: 0 1; }
+    #agent-tabs { height: 3; margin: 1 0; }
+    #agent-tabs Label { padding: 0 1; color: #666; }
+    #agent-tabs .agent-active { color: #f5c542; text-style: bold; }
+    #sidebar-sessions { height: 1fr; overflow-y: auto; }
+    #sidebar-sessions Label { padding: 0 1; color: #555; }
+    #sidebar-sessions .sess-item { padding: 0 1; color: #666; background: transparent; border: none; width: 100%; text-align: left; }
+    #sidebar-sessions .sess-item:hover { color: #f5c542; background: #111; }
+    #sidebar-footer { height: 5; border-top: solid #1a1a1a; padding: 0 1; }
+    #sidebar-footer Label { color: #555; }
+    .sidebar-action { color: #666; }
+    .sidebar-action:hover { color: #f5c542; }
+    #main-area { width: 1fr; height: 100%; }
+    #header-bar { height: 3; background: #0a0a0a; border-bottom: solid #1a1a1a; }
+    #header-left { padding: 0 0 0 2; content-align: left middle; color: #f5c542; text-style: bold; }
+    #header-right { padding: 0 2 0 0; content-align: right middle; color: #666; }
+    #header-center { width: 1fr; content-align: center middle; color: #888; text-style: italic; }
+    #session-title { height: 1; color: #444; padding: 0 0 0 2; }
+    #chat-container { height: 1fr; overflow-y: auto; }
+    #input-bar { height: 3; background: #0a0a0a; border-top: solid #1a1a1a; padding: 0 1; }
+    #chat-input { width: 1fr; }
+    #status-bar { height: 1; color: #555; padding: 0 0 0 2; }
+    .msg-user { margin: 0 0; padding: 0 2; color: #f5c542; }
+    .msg-user-container { margin: 1 0 1 0; background: #0d0d0d; border-left: solid #f5c542; padding: 0 0 0 1; }
+    .msg-assistant { margin: 0 0; padding: 0 2; color: #ddd; }
+    .msg-assistant-container { margin: 1 0 1 0; background: #080808; border-left: solid #333; padding: 0 0 0 1; }
+    .msg-plan { margin: 1 0 1 4; }
+    .msg-code { margin: 0 0 0 4; }
+    .msg-tool { margin: 0 0 0 4; }
+    .msg-explanation { margin: 1 0 1 4; }
+    .msg-system { margin: 0 0 1 0; color: #666; text-style: italic; padding: 0 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 0 0 1 4; color: #f5c542; }
+    #app-layout > Container { height: 100%; }
     """
 
     BINDINGS = [
         Binding("ctrl+s", "settings", "Settings", show=True),
+        Binding("ctrl+p", "command_palette", "Commands", show=True),
+        Binding("ctrl+n", "new_session", "New Session", show=False),
+        Binding("ctrl+l", "clear_chat", "Clear", show=False),
+        Binding("ctrl+d", "quit", "Quit", show=False),
         Binding("escape", "clear_input", "Clear input", show=False),
+        Binding("tab", "cycle_agent", "Agent", show=False),
     ]
 
     def __init__(self, project_root=None, provider=None, model=None, api_key=None, session_id=None, proxy_url=None):
@@ -569,6 +633,7 @@ class CipherApp(App):
         self._input_event = None
         self._input_result = ""
         self._stream_widget = None
+        self.agent_mode = "build"
         self.tool_registry = ToolRegistry()
         self.permission_manager = PermissionManager(self.config)
         self.plugin_manager = PluginManager()
@@ -618,14 +683,28 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
 
     def compose(self):
         with Container(id="app-layout"):
-            with Horizontal(id="header-bar"):
-                yield Label("CIPHER //", id="header-left")
-                yield Label(f"{self.config['provider']} | {self.config['model']}", id="header-right")
-            yield Label(f"  {self.session_title or 'New Session'}", id="session-title")
-            yield Static(" ", id="status-bar")
-            yield VerticalScroll(id="chat-container")
-            with Container(id="input-bar"):
-                yield Input(placeholder="Ask Cipher...  Ctrl+S settings", id="chat-input")
+            with Vertical(id="sidebar"):
+                yield Label("CIPHER //", id="sidebar-header")
+                yield Label("Ready", id="sidebar-status")
+                with Horizontal(id="agent-tabs"):
+                    yield Label("Build", id="agent-build", classes="agent-active")
+                    yield Label("Plan", id="agent-plan")
+                    yield Label("Explore", id="agent-explore")
+                yield Static("Sessions", classes="settings-section")
+                yield VerticalScroll(id="sidebar-sessions")
+                with Vertical(id="sidebar-footer"):
+                    yield Label(f"[P] {self.config['provider']}", id="sidebar-provider")
+                    yield Label(f"[M] {self.config['model']}", id="sidebar-model")
+                    yield Label("[T] 0 tokens", id="sidebar-tokens")
+            with Vertical(id="main-area"):
+                with Horizontal(id="header-bar"):
+                    yield Label("CIPHER //", id="header-left")
+                    yield Label(self.session_title or "New Session", id="header-center")
+                    yield Label(f"{self.config['provider']} | {self.config['model']}", id="header-right")
+                yield Static(" ", id="status-bar")
+                yield VerticalScroll(id="chat-container")
+                with Container(id="input-bar"):
+                    yield Input(placeholder="Ask Cipher...  /help for commands  Ctrl+P palette", id="chat-input")
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
@@ -633,8 +712,9 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         self._add_system(f"Provider: {self.config.get('provider')} | Model: {self.config.get('model')}")
         self._add_system(f"Work dir: {self.project_root}")
         if self.session_title:
-            self.query_one("#session-title").update(f"  {self.session_title}")
+            self.query_one("#header-center").update(self.session_title)
         self.run_worker(self._detect_providers_async, exclusive=False, thread=True)
+        self._refresh_sidebar_sessions()
 
         saved = load_session(self.session_id)
         if saved and saved.get("messages"):
@@ -689,6 +769,23 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         except Exception:
             return None
 
+    def _refresh_sidebar_sessions(self):
+        try:
+            container = self.query_one("#sidebar-sessions", VerticalScroll)
+            for c in list(container.children):
+                c.remove()
+            sessions = load_sessions()
+            container.mount(Static("  Recent sessions", classes="sidebar-action"))
+            for s in sessions[:8]:
+                title = s.get("title", "Untitled")[:25]
+                sid = s["id"]
+                btn = Button(f"  {title}", id=f"ss-{sid}", classes="sess-item", variant="default")
+                btn._sid = sid
+                container.mount(btn)
+            container.mount(Button("  [Browse all...]", id="sidebar-browse-all", classes="sidebar-action", variant="default"))
+        except Exception:
+            pass
+
     def _add_user(self, text):
         container = self._get_chat()
         if container is None:
@@ -701,7 +798,11 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         container = self._get_chat()
         if container is None:
             return
-        msg = Static(text, classes="msg-assistant")
+        try:
+            md = RichMarkdown(text)
+            msg = Static(md, classes="msg-assistant")
+        except Exception:
+            msg = Static(text, classes="msg-assistant")
         container.mount(msg)
         container.scroll_end()
 
@@ -775,6 +876,44 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         else:
             self.api_key = ""
 
+    def _handle_slash_command(self, cmd):
+        parts = cmd.strip().split()
+        base = parts[0].lower()
+        arg = " ".join(parts[1:]) if len(parts) > 1 else ""
+        if base == "/help":
+            self._add_system("Available commands:")
+            for k, v in SLASH_COMMANDS.items():
+                self._add_system(f"  {k:<20} {v}")
+        elif base == "/clear":
+            self._do_clear()
+        elif base == "/new":
+            self._do_new()
+        elif base == "/sessions":
+            self._show_sessions()
+        elif base == "/theme" and arg:
+            self.config["theme"] = arg
+            self.theme_manager.set_theme(arg)
+            self.css = self.theme_manager.get_css()
+            self.refresh_css()
+            save_config(self.config)
+            self._add_system(f"Theme: {arg}")
+        elif base == "/model" and arg:
+            self.config["model"] = arg
+            self._add_system(f"Model: {arg}")
+        elif base == "/provider" and arg:
+            self.config["provider"] = arg
+            self._add_system(f"Provider: {arg}")
+        elif base == "/compact":
+            self.config["compact_mode"] = not self.config.get("compact_mode", False)
+            self._add_system(f"Compact: {self.config['compact_mode']}")
+        elif base == "/tokens":
+            self._add_system(f"Tokens used: {self.total_tokens} | Tools: {self.total_tools} | Session: {self.session_id}")
+        elif base == "/quit":
+            self.exit()
+        else:
+            self._add_system(f"Unknown: {cmd}. Try /help")
+        return True
+
     def action_settings(self):
         def on_settings(result):
             if not result:
@@ -808,6 +947,44 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self.exit()
         self.push_screen(SettingsModal(self.config), on_settings)
 
+    def action_command_palette(self):
+        actions = [
+            ("/help", "Show commands"),
+            ("/clear", "Clear chat"),
+            ("/new", "New session"),
+            ("/sessions", "Browse sessions"),
+            ("/compact", "Toggle compact mode"),
+            ("/tokens", "Show usage"),
+            ("Settings", "Open settings"),
+            ("Quit", "Exit Cipher"),
+        ]
+        def on_select(cmd):
+            if cmd:
+                if cmd == "Settings":
+                    self.action_settings()
+                elif cmd == "Quit":
+                    self.exit()
+                else:
+                    self._handle_slash_command(cmd)
+        self.push_screen(CommandPalette(actions), on_select)
+
+    def action_cycle_agent(self):
+        modes = ["build", "plan", "explore"]
+        idx = modes.index(self.agent_mode)
+        self.agent_mode = modes[(idx + 1) % len(modes)]
+        for m in modes:
+            w = self.query_one(f"#agent-{m}", Label)
+            if m == self.agent_mode:
+                w.add_class("agent-active")
+                w.styles.color = "#f5c542"
+            else:
+                w.remove_class("agent-active")
+                w.styles.color = "#666"
+        self._add_system(f"Agent mode: {self.agent_mode}")
+
+    def action_new_session(self):
+        self._do_new()
+
     def _do_clear(self):
         self.chat_messages = [{"role": "system", "content": self.system_prompt}]
         container = self._get_chat()
@@ -826,7 +1003,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         if container is not None:
             for child in list(container.children):
                 child.remove()
-            self.query_one("#session-title").update("  New Session")
+            self.query_one("#header-center").update("New Session")
         self._add_system("New session started.")
 
     def _show_sessions(self):
@@ -834,6 +1011,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             if sid:
                 session = load_session(sid)
                 if session:
+                    load_session(sid)
                     self.session_id = sid
                     self.session_title = session.get("title", "Untitled")
                     self.chat_messages = session.get("messages", [])
@@ -842,7 +1020,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     container = self.query_one("#chat-container")
                     for child in list(container.children):
                         child.remove()
-                    self.query_one("#session-title").update(f"  {self.session_title}")
+                    self.query_one("#header-center").update(self.session_title)
                     self._add_system(f"Loaded: {self.session_title}")
         self.push_screen(SessionModal(), on_session)
 
@@ -859,10 +1037,37 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         if self.autocomplete:
             self.autocomplete.update_suggestions(event.value)
 
+    def _on_sidebar_session_click(self, sid):
+        session = load_session(sid)
+        if session:
+            self.session_id = sid
+            self.session_title = session.get("title", "Untitled")
+            self.chat_messages = session.get("messages", [])
+            self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
+            self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
+            container = self.query_one("#chat-container")
+            for child in list(container.children):
+                child.remove()
+            self.query_one("#header-center").update(self.session_title)
+            self._add_system(f"Loaded: {self.session_title}")
+
+    def on_button_pressed(self, event):
+        btn = event.button
+        sid = getattr(btn, "_sid", None)
+        if sid:
+            self._on_sidebar_session_click(sid)
+        elif btn.id == "sidebar-browse-all":
+            self._show_sessions()
+
     def on_input_submitted(self, event):
         try:
             user_input = event.value.strip()
             if not user_input:
+                return
+
+            if user_input.startswith("/"):
+                self.query_one("#chat-input").value = ""
+                self._handle_slash_command(user_input)
                 return
 
             if self._input_event:
@@ -887,7 +1092,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
 
             if not self.session_title:
                 self.session_title = generate_title(user_input)
-                self.query_one("#session-title").update(f"  {self.session_title}")
+                self.query_one("#header-center").update(self.session_title)
 
             self._add_user(user_input)
             self.chat_messages.append({"role": "user", "content": user_input})
@@ -925,6 +1130,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self._ai_provider.provider_id != pid or
                     self._ai_provider.model_id != mid):
                     self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key, proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
+                self.call_from_thread(self._set_status, "Thinking")
                 for chunk in self._ai_provider.chat(self.chat_messages, stream=True):
                     token = chunk.get("content", "")
                     if not token:

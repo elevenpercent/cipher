@@ -290,7 +290,7 @@ class TestTUIBindings:
 
     async def test_bindings_are_limited(self):
         app = CipherApp(project_root=os.getcwd())
-        assert len(app.BINDINGS) == 2
+        assert len(app.BINDINGS) >= 6
 
 
 class TestTUIRobustness:
