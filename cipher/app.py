@@ -582,19 +582,19 @@ class CipherApp(App):
             for ct in ctools:
                 lines.append(f"<{ct['name']}>args</{ct['name']}> - {ct.get('description', ct['name'])}")
             custom_text = "\n" + "\n".join(lines)
-        return f"""You are Cipher, an autonomous coding agent. Your goal is the user's request. Authorized directory: {self.project_root}.{skills_text}
+        return f"""You are Cipher, an autonomous coding agent. Authorized directory: {self.project_root}.{skills_text}
 
-FLOW: <plan>...</plan> -> gather context (read/ls/grep) -> act (write/edit/run) -> verify. When done: <done>Summary</done>.
+Respond conversationally to simple questions. Use tags only when taking actions:
 
-TAGS:
-<run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
+<plan>steps</plan>  <run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
 <ls>path</ls>  <grep pattern="x" path="d">  <glob pattern="**/*.py">
 <edit path="p"><old>exact</old><new>replacement</new></edit>
 <web-fetch url="...">  <web-search query="...">
 <git status|diff|commit message="..."|log --oneline -5>
 <todo add="task"|done="N"|list>{custom_text}
 
-RULES: No markdown code blocks. Relative paths. Use <edit> for small changes. Multiple tags allowed.
+When done with a task: <done>Summary</done>.
+No markdown code blocks. Relative paths. Use <edit> for small changes.
 """
 
     def _load_skills(self):
