@@ -14,6 +14,13 @@ from textual.binding import Binding
 from textual.screen import Screen, ModalScreen
 from rich.text import Text
 from cipher.provider import AIProvider, PROVIDERS
+from cipher.tools import ToolRegistry
+from cipher.permissions import PermissionManager
+from cipher.plugin import PluginManager
+from cipher.themes import ThemeManager
+from cipher.formatters import FormatterManager
+from cipher.mcp import MCPServerManager
+from cipher.lsp import LSPManager
 import fnmatch
 import threading
 import urllib.request
@@ -81,6 +88,8 @@ def load_config():
         },
         "custom_tools": [],
         "proxy_url": "https://proxy-blue-kappa.vercel.app",
+        "theme": "dark",
+        "mcp_servers": {},
     }
     if CONFIG_FILE.exists():
         try:
@@ -382,6 +391,9 @@ class SettingsModal(ModalScreen):
                 yield Checkbox("Show tool results", id="show_tool_exec", value=self.config.get("show_tool_exec", True))
                 yield Checkbox("Compact mode", id="compact_mode", value=self.config.get("compact_mode", False))
                 yield Checkbox("Auto-confirm tool execution", id="auto_confirm", value=self.config.get("auto_confirm", False))
+                theme_options = [("Dark", "dark"), ("Light", "light"), ("Dracula", "dracula"), ("Solarized", "solarized"), ("Nord", "nord"), ("Monokai", "monokai"), ("Gruvbox", "gruvbox"), ("Tokyo Night", "tokyo-night")]
+                current_theme = self.config.get("theme", "dark")
+                yield Select(theme_options, value=current_theme, id="theme_select", prompt="Select theme...")
                 yield Rule()
                 yield Static("Actions", classes="settings-section")
                 with Horizontal():
@@ -415,6 +427,9 @@ class SettingsModal(ModalScreen):
             self.config["show_tool_exec"] = self.query_one("#show_tool_exec", Checkbox).value
             self.config["compact_mode"] = self.query_one("#compact_mode", Checkbox).value
             self.config["auto_confirm"] = self.query_one("#auto_confirm", Checkbox).value
+            theme_select = self.query_one("#theme_select", Select)
+            if theme_select.value:
+                self.config["theme"] = str(theme_select.value)
             ps = self.query_one("#provider_select", Select)
             ms = self.query_one("#model_select", Select)
             if ps.value:
@@ -572,6 +587,14 @@ class CipherApp(App):
         self._input_event = None
         self._input_result = ""
         self._stream_widget = None
+        self.tool_registry = ToolRegistry()
+        self.permission_manager = PermissionManager(self.config)
+        self.plugin_manager = PluginManager()
+        self.theme_manager = ThemeManager()
+        self.formatter_manager = FormatterManager()
+        self.formatter_manager.lint_command = self.config.get("lint_command", "")
+        self.mcp_manager = MCPServerManager()
+        self.lsp_manager = LSPManager()
 
     def _build_system_prompt(self):
         skills_text = self._load_skills()
@@ -637,6 +660,34 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
             self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
             self._add_system(f"Resumed session: {saved.get('title', 'untitled')}")
+
+        theme_name = self.config.get("theme", "dark")
+        self.theme_manager.set_theme(theme_name)
+        try:
+            self.stylesheet.add_css(self.theme_manager.get_css())
+        except Exception:
+            pass
+        self.plugin_manager.discover()
+        self.plugin_manager.trigger("app_start", self)
+        mcp_config = self.config.get("mcp_servers", {})
+        if mcp_config:
+            self.mcp_manager.load_config(self.config)
+        else:
+            self.mcp_manager.discover()
+        mcp_tools = self.mcp_manager.get_tools()
+        for t in mcp_tools:
+            from cipher.tools import Tool
+            class MCPTool(Tool):
+                name = t.get("name", "")
+                description = t.get("description", "")
+                def execute(self_, args, body, project_root, context=None):
+                    return self.mcp_manager.call_tool(t.get("_mcp_server", ""), self_.name, {"args": args, "body": body})
+                builtin = False
+            if MCPTool.name:
+                self.tool_registry.register(MCPTool())
+        custom_count = self.tool_registry.discover()
+        if custom_count:
+            self._add_system(f"Loaded {custom_count} custom tools")
 
     def _detect_providers_async(self):
         available = detect_available_providers()
@@ -757,6 +808,12 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self._refresh_api_key(provider)
                     self.query_one("#header-right").update(f"{provider} | {model}")
                     self._add_system(f"Provider: {provider} | Model: {model}")
+                theme = cfg.get("theme", "dark")
+                if self.config.get("theme") != theme:
+                    self.config["theme"] = theme
+                    self.theme_manager.set_theme(theme)
+                    self.css = self.theme_manager.get_css()
+                    self.refresh_css()
             elif rt == "action":
                 action = result.get("action", "")
                 if action == "clear":
@@ -942,6 +999,8 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                                     lint_result = self._run_lint()
                                     if lint_result:
                                         self.call_from_thread(self._add_system, lint_result)
+                                    file_path = t.get("path", t.get("args", ""))
+                                    self._format_file(file_path)
                             except concurrent.futures.TimeoutError:
                                 results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
                             except Exception as e:
@@ -999,23 +1058,12 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         self.call_from_thread(self._set_status, "Continuing...")
         return self._input_result
 
-    _CONFIRM_TOOLS = {"run", "write", "edit", "git"}
-
     def _confirm_action(self, tool, args):
-        if self.config.get("auto_confirm", False):
+        verdict = self.permission_manager.check(tool, args)
+        if verdict == "allow":
             return True
-        if tool not in self._CONFIRM_TOOLS:
-            return True
-        perms = self.config.get("permissions", {})
-        for rule_type, rules in perms.items():
-            if rule_type == "auto_allow":
-                for t, patterns in rules.items():
-                    if t == tool and any(fnmatch.fnmatch(args, p) for p in patterns):
-                        return True
-            elif rule_type == "auto_deny":
-                for t, patterns in rules.items():
-                    if t == tool and any(fnmatch.fnmatch(args, p) for p in patterns):
-                        return False
+        if verdict == "deny":
+            return False
         event = threading.Event()
         result = [False]
         def on_answer(answer):
@@ -1115,316 +1163,94 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             return {"type": "git", "path": "", "args": cmd, "body": msg_m.group(1)}
         return {"type": "git", "path": "", "args": cmd, "body": ""}
 
-    def _execute_tool(self, tool, args, body=""):
-        if tool == "run":
-            cmd = args.strip()
-            self._add_tool_safe("run", cmd, "")
-            try:
-                r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=self.project_root)
-                out = r.stdout.rstrip()
-                err = r.stderr.rstrip()[:500]
-                success = r.returncode == 0
-                result = out or err or "(ok)"
-                self._add_tool_safe("run", cmd, result[:500], success)
-                return result[:2000]
-            except subprocess.TimeoutExpired:
-                self._add_tool_safe("run", cmd, "Timeout (60s)", False)
-                return "Error: timeout"
-            except Exception as e:
-                self._add_tool_safe("run", cmd, str(e), False)
-                return f"Error: {e}"
-
-        elif tool == "write":
+    def _execute_tool(self, tool_name, args, body=""):
+        if tool_name == "write":
             path = args.strip().strip('"').strip("'")
             full = os.path.abspath(os.path.join(self.project_root, path))
             full = os.path.normpath(full)
             root = os.path.normpath(self.project_root)
-            if not full.startswith(root + os.sep) and full != root:
-                self._add_tool_safe("write", path, "Escapes project root", False)
-                return "Path escapes project root"
             old_content = ""
-            if os.path.exists(full):
+            if os.path.exists(full) and full.startswith(root + os.sep):
                 try:
                     with open(full, encoding="utf-8", errors="replace") as f:
                         old_content = f.read()
                 except Exception:
                     pass
-            self._add_code_safe(path, body.strip(), old_content)
-            try:
-                os.makedirs(os.path.dirname(full) or ".", exist_ok=True)
-                with open(full, "w", encoding="utf-8") as f:
-                    f.write(body.strip())
-                lines = body.count("\n") + 1
-                self._add_tool_safe("write", path, f"{lines} lines written", True)
-                return f"Written: {path} ({lines} lines)"
-            except Exception as e:
-                self._add_tool_safe("write", path, str(e), False)
-                return f"Error: {e}"
+            if old_content:
+                self._add_code_safe(path, body.strip(), old_content)
 
-        elif tool == "read":
-            path = args.strip().strip('"').strip("'")
-            full = os.path.abspath(os.path.join(self.project_root, path))
-            full = os.path.normpath(full)
-            root = os.path.normpath(self.project_root)
-            if not full.startswith(root + os.sep) and full != root:
-                self._add_tool_safe("read", path, "Escapes project root", False)
-                return "Path escapes project root"
-            if not os.path.exists(full):
-                self._add_tool_safe("read", path, "File not found", False)
-                return f"File not found: {path}"
-            try:
-                line_range = json.loads(body) if body else {}
-                start = line_range.get("start")
-                end = line_range.get("end")
-            except Exception:
-                start = end = None
-            with open(full, encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-            if start is not None or end is not None:
-                s = max(0, (start or 1) - 1)
-                e = min(len(lines), end or len(lines))
-                content = "".join(lines[s:e])
-                meta = f" (lines {s+1}-{e} of {len(lines)})"
-            else:
-                content = "".join(lines)
-                meta = f" ({len(lines)} lines)"
-            label = f"{path}{meta}"
-            self._add_code_safe(label, content)
-            return content
+        plugin_results = self.plugin_manager.trigger("tool_execute", tool_name, args, body)
+        for pr in plugin_results:
+            if pr is not None:
+                return pr
 
-        elif tool == "ls":
-            path = (args or ".").strip().strip('"').strip("'")
-            full = os.path.abspath(os.path.join(self.project_root, path))
-            full = os.path.normpath(full)
-            root = os.path.normpath(self.project_root)
-            if not full.startswith(root + os.sep) and full != root:
-                self._add_tool_safe("ls", path, "Escapes project root", False)
-                return "Path escapes project root"
-            if not os.path.isdir(full):
-                self._add_tool_safe("ls", path, "Not a directory", False)
-                return f"Not a directory: {path}"
-            entries = []
-            for e in sorted(os.listdir(full)):
-                is_dir = os.path.isdir(os.path.join(full, e))
-                icon = "DIR" if is_dir else "   "
-                entries.append(f"{icon} {e}")
-            self._add_tool_safe("ls", path, f"{len(entries)} entries", True)
-            return "\n".join(entries)
+        result = self.tool_registry.execute(tool_name, args, body, self.project_root, {"todo_list": self.todo_list})
 
-        elif tool == "grep":
-            pattern = args
-            search_path = body or "."
-            full = os.path.normpath(os.path.join(self.project_root, search_path))
-            root = os.path.normpath(self.project_root)
-            if not full.startswith(root + os.sep) and full != root:
-                return "Path escapes project root"
-            if not os.path.isdir(full):
-                return f"Not a directory: {search_path}"
-            if not pattern:
-                return "No pattern provided"
-            try:
-                regex = re.compile(pattern, re.DOTALL)
-            except re.error as e:
-                return f"Invalid regex: {e}"
-            matches = []
-            for dirpath, dirnames, filenames in os.walk(full):
-                for fn in sorted(filenames):
-                    fpath = os.path.join(dirpath, fn)
-                    rel = os.path.relpath(fpath, self.project_root)
+        tool_result_text = result.get("result", "")
+        success = result.get("success", True)
+
+        if tool_name == "write" and result.get("old_content"):
+            self._add_code_safe(args.strip().strip('"').strip("'"), body.strip(), result["old_content"])
+
+        if tool_name == "run":
+            self._add_tool_safe(tool_name, args, tool_result_text[:500], success)
+        elif tool_name == "write":
+            lines = body.count("\n") + 1 if body else 0
+            self._add_tool_safe(tool_name, args, f"{lines} lines written", success)
+        elif tool_name == "read":
+            self._add_code_safe(f"{args.strip()}", tool_result_text)
+        elif tool_name == "ls":
+            count = result.get("count", 0)
+            self._add_tool_safe(tool_name, args, f"{count} entries", success)
+        elif tool_name == "grep":
+            count = result.get("count", 0)
+            self._add_tool_safe(tool_name, f"{args}", f"{count} matches", success)
+        elif tool_name == "glob":
+            count = result.get("count", 0)
+            extra = result.get("extra", "")
+            self._add_tool_safe(tool_name, args, f"{count} files{extra}", success)
+        elif tool_name == "edit":
+            self._add_code_safe(args.strip(), result.get("new_content", ""), result.get("old_content", ""))
+            self._add_tool_safe(tool_name, args, "Applied", success)
+        elif tool_name == "web-fetch":
+            bytes_fetched = result.get("bytes", 0)
+            self._add_tool_safe(tool_name, args, f"{bytes_fetched} bytes fetched", success)
+        elif tool_name == "web-search":
+            count = result.get("count", 0)
+            self._add_tool_safe(tool_name, args, f"{count} results", success)
+        elif tool_name == "git":
+            self._add_tool_safe(tool_name, args, tool_result_text[:500], success)
+        elif tool_name == "todo":
+            if "todo_list" in result:
+                self.todo_list = result["todo_list"]
+            self._add_tool_safe(tool_name, args, tool_result_text, success)
+        else:
+            self._add_tool_safe(tool_name, args, tool_result_text[:500], success)
+
+        self.plugin_manager.trigger("tool_result", tool_name, args, result)
+
+        if not success and "Unknown tool" in tool_result_text:
+            for ct in self.config.get("custom_tools", []):
+                if tool_name == ct.get("name", ""):
+                    cmd = ct.get("command", "").replace("{path}", args).replace("{args}", args)
+                    self._add_tool_safe(tool_name, cmd, "")
                     try:
-                        with open(fpath, encoding="utf-8", errors="replace") as f:
-                            for i, line in enumerate(f, 1):
-                                if regex.search(line.rstrip()):
-                                    matches.append(f"{rel}:{i}: {line.rstrip()[:200]}")
-                    except Exception:
-                        pass
-                    if len(matches) >= 100:
-                        break
-                if len(matches) >= 100:
-                    break
-            result = "\n".join(matches) if matches else "No matches found"
-            self._add_tool_safe("grep", f"{pattern} in {search_path}", f"{len(matches)} matches", True)
-            return result[:3000]
+                        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=self.project_root)
+                        out = r.stdout.rstrip()
+                        err = r.stderr.rstrip()[:500]
+                        result_text = out or err or "(ok)"
+                        self._add_tool_safe(tool_name, cmd, result_text[:500], r.returncode == 0)
+                        return result_text[:2000]
+                    except Exception as e:
+                        self._add_tool_safe(tool_name, cmd, str(e), False)
+                        return f"Error: {e}"
 
-        elif tool == "glob":
-            pattern = args
-            if not pattern:
-                return "No pattern provided"
-            full_root = os.path.normpath(self.project_root)
-            matches = []
-            for p in glob_module.iglob(pattern, root_dir=full_root, recursive=True):
-                matches.append(p)
-            matches.sort()
-            result = "\n".join(matches[:200]) if matches else "No files matched"
-            extra = f" ({len(matches)-200} more)" if len(matches) > 200 else ""
-            self._add_tool_safe("glob", pattern, f"{len(matches)} files{extra}", True)
-            return result[:3000]
-
-        elif tool == "edit":
-            path = args.strip().strip('"').strip("'")
-            full = os.path.abspath(os.path.join(self.project_root, path))
-            full = os.path.normpath(full)
-            root = os.path.normpath(self.project_root)
-            if not full.startswith(root + os.sep) and full != root:
-                return "Path escapes project root"
-            if not os.path.exists(full):
-                return f"File not found: {path}"
-            try:
-                parsed = json.loads(body)
-                old_text = parsed.get("old", "")
-                new_text = parsed.get("new", "")
-            except Exception:
-                return "Invalid edit body"
-            try:
-                with open(full, encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-            except Exception as e:
-                return f"Error reading: {e}"
-            if old_text not in content:
-                self._add_tool_safe("edit", path, "old text not found", False)
-                return f"Error: old text not found in {path}"
-            if content.count(old_text) > 1:
-                self._add_tool_safe("edit", path, "old text matched multiple times", False)
-                return f"Error: old text matched {content.count(old_text)} times in {path}"
-            new_content = content.replace(old_text, new_text, 1)
-            try:
-                with open(full, "w", encoding="utf-8") as f:
-                    f.write(new_content)
-                self._add_code_safe(path, new_text, old_text)
-                self._add_tool_safe("edit", path, "Applied", True)
-                return f"Edited: {path}"
-            except Exception as e:
-                return f"Error writing: {e}"
-
-        elif tool == "web-fetch":
-            url = args.strip()
-            if not url.startswith(("http://", "https://")):
-                return "Invalid URL"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Cipher/1.0"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    raw = resp.read().decode("utf-8", errors="replace")
-                text = re.sub(r'<[^>]+>', ' ', raw)
-                text = re.sub(r'\s+', ' ', text).strip()[:5000]
-                self._add_tool_safe("web-fetch", url, f"{len(raw)} bytes fetched", True)
-                return text[:3000]
-            except Exception as e:
-                self._add_tool_safe("web-fetch", url, str(e), False)
-                return f"Error fetching: {e}"
-
-        elif tool == "git":
-            cmd = args.strip()
-            safe_cmds = ["status", "diff", "log", "show", "branch", "add", "commit", "push", "pull", "stash", "checkout"]
-            base = cmd.split()[0] if cmd else "status"
-            if base not in safe_cmds:
-                return f"Git command '{base}' not allowed"
-            if base == "commit" and body:
-                full_cmd = f'git commit -m "{body}"'
-            else:
-                full_cmd = f"git {cmd}"
-            try:
-                r = subprocess.run(full_cmd, shell=True, capture_output=True, text=True, timeout=30, cwd=self.project_root)
-                out = r.stdout.rstrip()
-                err = r.stderr.rstrip()[:500]
-                result = out or err or "(ok)"
-                self._add_tool_safe("git", cmd, result[:500], r.returncode == 0)
-                return result[:2000]
-            except subprocess.TimeoutExpired:
-                return "Error: git timeout"
-            except Exception as e:
-                return f"Error: {e}"
-
-        elif tool == "question":
-            return "Questions not supported"
-
-        elif tool == "web-search":
-            query = args.strip()
-            if not query:
-                return "No search query"
-            try:
-                url = f"https://lite.duckduckgo.com/lite/?q={urllib.parse.quote(query)}"
-                req = urllib.request.Request(url, headers={"User-Agent": "Cipher/1.0"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    raw = resp.read().decode("utf-8", errors="replace")
-                links = re.findall(r"<a rel=\"nofollow\"[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>", raw, re.DOTALL)
-                results = []
-                seen_urls = set()
-                for href, text in links:
-                    clean_href = href.strip()
-                    clean_text = re.sub(r"<[^>]+>", "", text).strip()
-                    if not clean_text or "More at" in clean_text:
-                        continue
-                    if clean_href.startswith("//"):
-                        clean_href = "https:" + clean_href
-                    if clean_href in seen_urls or not clean_href.startswith("http"):
-                        continue
-                    seen_urls.add(clean_href)
-                    results.append(f"{len(results)+1}. {clean_text} - {clean_href}")
-                result = "\n".join(results[:8]) if results else "No results found"
-                self._add_tool_safe("web-search", query, f"{len(results)} results", True)
-                return result[:3000]
-            except Exception as e:
-                self._add_tool_safe("web-search", query, str(e), False)
-                return f"Search error: {e}"
-
-        elif tool == "todo":
-            action = "list"
-            rest = args
-            eq = args.find("=")
-            if eq > 0:
-                action = args[:eq].strip()
-                rest = args[eq + 1:].strip().strip('"').strip("'")
-            elif " " in args.strip():
-                parts = args.split(None, 1)
-                action = parts[0].lower()
-                rest = parts[1].strip('"').strip("'")
-            if action == "add" and rest:
-                self.todo_list.append({"task": rest, "done": False})
-                status = f"Todo added: {rest}"
-                self._add_system_safe(f"[TODO] Added: {rest}")
-            elif action == "done":
-                try:
-                    idx = int(rest) - 1
-                    if 0 <= idx < len(self.todo_list):
-                        self.todo_list[idx]["done"] = True
-                        status = f"Todo done: {self.todo_list[idx]['task']}"
-                        self._add_system_safe(f"[TODO] Done: {self.todo_list[idx]['task']}")
-                    else:
-                        status = f"Invalid todo index: {rest}"
-                except ValueError:
-                    status = f"Invalid todo index: {rest}"
-            else:
-                if not self.todo_list:
-                    status = "No todos"
-                else:
-                    lines = []
-                    for i, t in enumerate(self.todo_list, 1):
-                        mark = "\u2713" if t["done"] else " "
-                        lines.append(f"  {i}. [{mark}] {t['task']}")
-                    status = "Todos:\n" + "\n".join(lines)
-                self._add_tool_safe("todo", "list", status, True)
-                return status
-            self._add_tool_safe("todo", action, status, True)
-            return status
-
-        ctools = self.config.get("custom_tools", [])
-        for ct in ctools:
-            if tool == ct.get("name", ""):
-                cmd = ct.get("command", "").replace("{path}", args).replace("{args}", args)
-                self._add_tool_safe(tool, cmd, "")
-                try:
-                    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=self.project_root)
-                    out = r.stdout.rstrip()
-                    err = r.stderr.rstrip()[:500]
-                    result = out or err or "(ok)"
-                    self._add_tool_safe(tool, cmd, result[:500], r.returncode == 0)
-                    return result[:2000]
-                except Exception as e:
-                    self._add_tool_safe(tool, cmd, str(e), False)
-                    return f"Error: {e}"
-        return f"Unknown tool: {tool}"
+        return tool_result_text[:2000]
 
     def _run_lint(self):
+        result = self.formatter_manager.run_lint(self.project_root)
+        if result:
+            return result
         cmd = self.config.get("lint_command", "").strip()
         if not cmd:
             return ""
@@ -1437,6 +1263,13 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         except Exception:
             pass
         return ""
+
+    def _format_file(self, filepath):
+        result = self.formatter_manager.format_file(filepath, self.project_root)
+        if result:
+            for r in result:
+                if r:
+                    self._add_system_safe(f"[format] {r}")
 
     def _add_tool_safe(self, tool, args, result, success=True):
         try:
