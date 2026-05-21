@@ -724,19 +724,30 @@ class CipherApp(App):
             for ct in ctools:
                 lines.append(f"<{ct['name']}>args</{ct['name']}> - {ct.get('description', ct['name'])}")
             custom_text = "\n" + "\n".join(lines)
-        return f"""You are Cipher, an autonomous coding agent. Authorized directory: {self.project_root}.{skills_text}
+        return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{skills_text}
 
-Respond conversationally to simple questions. For tasks, use tags to take actions:
+RULES — read carefully:
+1. You CANNOT do anything without tool tags. Saying you did something is NOT the same as doing it.
+2. ALWAYS use tool tags to read, write, run, edit files. Never claim success without running the tool first.
+3. Only output <done> AFTER you have used tools and verified the work is complete.
+4. If a task needs multiple steps, do them one turn at a time using tools.
 
-<run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
-<ls>path</ls>  <grep pattern="x" path="d">  <glob pattern="**/*.py">
-<edit path="p"><old>exact</old><new>replacement</new></edit>
-<web-fetch url="...">  <web-search query="...">
-<git status|diff|commit message="..."|log --oneline -5>
+Tool tags (use these to take real actions):
+<run>command</run>               — run a shell command
+<write path="file">content</write>  — create or overwrite a file
+<read path="file">               — read a file
+<edit path="file"><old>exact text</old><new>replacement</new></edit>  — edit a file
+<ls>path</ls>                    — list directory contents
+<grep pattern="x" path="dir">   — search files
+<glob pattern="**/*.py">        — find files by pattern
+<git status|diff|log --oneline -5|commit message="msg">
+<web-fetch url="...">           — fetch a URL
+<web-search query="...">        — search the web
 <todo add="task"|done="N"|list>{custom_text}
 
-When done: <done>Summary</done>.
-No markdown code blocks. Relative paths. Use <edit> for small changes.
+When ALL work is verified complete: <done>one-line summary of what was done</done>
+
+Rules: no markdown code blocks, use relative paths, use <edit> for small changes to existing files.
 """
 
     def _load_skills(self):
@@ -1268,9 +1279,9 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                         continue
                     buffer += token
                     stream_interval += 1
-                    if stream_interval % 20 == 0:
-                        self._update_stream(token)
-                self._update_stream("")
+                    if stream_interval % 5 == 0:
+                        self._update_stream(buffer)
+                self._update_stream(buffer)
 
                 try:
                     import tiktoken
@@ -1415,10 +1426,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             container = self.query_one("#chat-container")
             container.mount(self._stream_widget)
             container.scroll_end()
-        current = self._stream_widget.renderable
-        if not isinstance(current, str):
-            current = str(current)
-        self._stream_widget.update(current + text)
+        self._stream_widget.update(text)
         try:
             self.query_one("#chat-container").scroll_end()
         except Exception:
