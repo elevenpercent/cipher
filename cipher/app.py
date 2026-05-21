@@ -485,13 +485,7 @@ class YesNoModal(ModalScreen):
         else:
             self.action_no()
     CSS = """
-    YesNoModal { align: center middle; }
-        width: 50;
-        height: auto;
-        background: #0a0a0a;
-        border: tall #f5c542;
-        padding: 1 2;
-    }
+    YesNoModal { align: center middle; width: 50; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }
     """
 
 
@@ -519,13 +513,7 @@ class QuestionScreen(ModalScreen):
         self.answer = event.value.strip()
         self.dismiss(self.answer)
     CSS = """
-    QuestionScreen { align: center middle; }
-        width: 60;
-        height: auto;
-        background: #0a0a0a;
-        border: tall #f5c542;
-        padding: 1 2;
-    }
+    QuestionScreen { align: center middle; width: 60; background: #0a0a0a; border: tall #f5c542; padding: 1 2; }
     """
 
 
