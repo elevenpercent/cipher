@@ -351,15 +351,8 @@ class SessionModal(ModalScreen):
             self.dismiss(None)
 
     CSS = """
-    SessionModal { align: center middle; }
-        width: 70;
-        max-height: 80%;
-        background: #0a0a0a;
-        border: tall #f5c542;
-        padding: 1 2;
-        overflow-y: auto;
-    }
-    .sess-row { margin: 0 0 0 0; padding: 0 0 0 0; font-family: monospace; font-size: 12px; color: #888; }
+    SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; }
+    .sess-row { margin: 0; padding: 0; color: #888; }
     .sess-active { color: #f5c542; }
     """
 
