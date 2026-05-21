@@ -21,7 +21,6 @@
     "bin/install.js"
   ],
   "scripts": {
-    "postinstall": "node bin/install.js"
   },
   "engines": {
     "node": ">=14"
