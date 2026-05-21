@@ -315,7 +315,7 @@ class CommandPalette(ModalScreen):
             yield Static("", id="palette-results")
     def on_mount(self):
         self.query_one("#palette-input").focus()
-        self._render()
+        self._update_palette()
     def on_input_changed(self, event):
         q = event.value.lower()
         if q:
@@ -323,8 +323,8 @@ class CommandPalette(ModalScreen):
         else:
             self.filtered = list(self.actions)
         self.selected = 0
-        self._render()
-    def _render(self):
+        self._update_palette()
+    def _update_palette(self):
         results = self.query_one("#palette-results", Static)
         t = Text()
         for i, (k, v) in enumerate(self.filtered[:12]):
@@ -334,10 +334,10 @@ class CommandPalette(ModalScreen):
         results.update(t)
     def action_cursor_up(self):
         self.selected = max(0, self.selected - 1)
-        self._render()
+        self._update_palette()
     def action_cursor_down(self):
         self.selected = min(len(self.filtered) - 1, self.selected + 1)
-        self._render()
+        self._update_palette()
     def on_input_submitted(self, event):
         if self.filtered:
             self.dismiss(self.filtered[self.selected][0])
