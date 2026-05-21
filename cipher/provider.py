@@ -257,6 +257,10 @@ class AIProvider:
     def __init__(self, provider_id: str = None, model_id: str = None, api_key: str = None, proxy_url: str = None):
         self.provider_id = provider_id or os.getenv("CIPHER_PROVIDER", "ollama")
         self.model_id = model_id or os.getenv("CIPHER_MODEL", "ollama/qwen3:14b")
+        if not self.model_id:
+            provider_config = PROVIDERS.get(self.provider_id, {})
+            models = provider_config.get("models", [])
+            self.model_id = models[0]["id"] if models else "llama-3.3-70b"
         self.api_key = api_key
         self.proxy_url = proxy_url or os.getenv("CIPHER_PROXY_URL", "http://localhost:8080")
         self._init_client()
