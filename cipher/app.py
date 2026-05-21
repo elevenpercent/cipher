@@ -189,7 +189,7 @@ class CodeBlock(Static):
                     if nl is not None:
                         result.append(f"  + ", style="#4ade80")
                         result.append(f"{nl}\n", style="#86efac")
-        result.append(f"  ({len(new_lines)} lines)", style="dim #888")
+        result.append(f"  ({len(new_lines)} lines)", style="dim #888888")
         return result
 
 
@@ -217,10 +217,10 @@ class ExplanationBlock(Static):
         result = Text()
         arrow = "\u25bc" if self.expanded else "\u25b6"
         result.append(f"  {arrow} ", style="dim")
-        result.append(self.summary, style="#ddd")
+        result.append(self.summary, style="#dddddd")
         if self.expanded and self.details:
             result.append("\n")
-            result.append(self.details, style="#888")
+            result.append(self.details, style="#888888")
         return result
     def action_toggle(self):
         self.expanded = not self.expanded
@@ -329,8 +329,8 @@ class CommandPalette(ModalScreen):
         t = Text()
         for i, (k, v) in enumerate(self.filtered[:12]):
             prefix = " \u25b6 " if i == self.selected else "   "
-            t.append(f"{prefix}{k}", style="#f5c542" if i == self.selected else "#ccc")
-            t.append(f"  {v}\n", style="#888" if i == self.selected else "#666")
+            t.append(f"{prefix}{k}", style="#f5c542" if i == self.selected else "#cccccc")
+            t.append(f"  {v}\n", style="#888888" if i == self.selected else "#666666")
         results.update(t)
     def action_cursor_up(self):
         self.selected = max(0, self.selected - 1)
@@ -404,7 +404,7 @@ class SessionModal(ModalScreen):
     def on_button_pressed(self, event):
         if event.button.id == "session_cancel":
             self.dismiss(None)
-    CSS = """SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; } .sess-row { margin: 0; padding: 0; color: #888; } .sess-active { color: #f5c542; }"""
+    CSS = """SessionModal { align: center middle; width: 70; border: tall #f5c542; background: #0a0a0a; padding: 1 2; } .sess-row { margin: 0; padding: 0; color: #888888; } .sess-active { color: #f5c542; }"""
 
 
 class SettingsModal(ModalScreen):
@@ -573,7 +573,7 @@ class CipherApp(App):
     #header-bar { height: 3; background: #0a0a0a; border-bottom: solid #1a1a1a; }
     #header-left { padding: 0 0 0 2; content-align: left middle; color: #f5c542; text-style: bold; }
     #header-right { padding: 0 2 0 0; content-align: right middle; color: #666; }
-    #header-center { width: 1fr; content-align: center middle; color: #888; text-style: italic; }
+    #header-center { width: 1fr; content-align: center middle; color: #888888; text-style: italic; }
     #session-title { height: 1; color: #444; padding: 0 0 0 2; }
     #chat-container { height: 1fr; overflow-y: auto; }
     #input-bar { height: 3; background: #0a0a0a; border-top: solid #1a1a1a; padding: 0 1; }

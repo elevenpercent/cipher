@@ -135,7 +135,7 @@ def interactive_setup():
     class SetupApp(App):
         CSS = """
         Screen { background: #050505; }
-        .setup-subtitle { color: #888; }
+        .setup-subtitle { color: #888888; }
         .setup-spacer { height: 1; }
         .setup-section { color: #555; margin-top: 1; margin-bottom: 0; }
         .setup-hint { color: #555; margin-bottom: 1; }
