@@ -17,8 +17,7 @@
     "cip": "bin/cipher.js"
   },
   "files": [
-    "bin/cipher.js",
-    "bin/install.js"
+    "bin/cipher.js"
   ],
   "scripts": {
   },
