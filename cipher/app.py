@@ -553,42 +553,56 @@ class QuestionScreen(ModalScreen):
 
 class CipherApp(App):
     CSS = """
-    Screen { background: #050505; }
+    Screen { background: #060606; }
     #app-layout { layout: horizontal; }
-    #sidebar { width: 30; dock: left; background: #0a0a0a; border-right: solid #1a1a1a; height: 100%; }
-    #sidebar-header { height: 3; padding: 1 0 0 1; }
+
+    /* Sidebar — slimmer, quieter */
+    #sidebar { width: 22; dock: left; background: #080808; border-right: solid #131313; height: 100%; }
+    #sidebar-header { height: 2; padding: 0 0 0 1; content-align: left middle; }
     #sidebar-header Label { color: #f5c542; text-style: bold; }
-    #sidebar-status { height: 2; color: #666666; padding: 0 1; margin-top: 1; }
-    #agent-tabs { height: 3; margin: 1 0; padding: 0 1; }
-    #agent-tabs Label { padding: 0 1; color: #666666; }
+    #sidebar-status { height: 1; color: #444; padding: 0 1; }
+    #agent-tabs { height: 2; margin: 0; padding: 0 1; }
+    #agent-tabs Label { padding: 0 1; color: #444; }
     #agent-tabs .agent-active { color: #f5c542; text-style: bold; }
-    #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0 0; }
-    #sidebar-sessions Label { padding: 0 1; }
-    #sidebar-sessions .sess-item { padding: 0 1; color: #666666; background: transparent; border: none; width: 100%; text-align: left; }
-    #sidebar-sessions .sess-item:hover { color: #f5c542; background: #111; }
-    #sidebar-footer { height: 6; border-top: solid #1a1a1a; padding: 1 1; }
-    #sidebar-footer Label { color: #555555; }
-    .sidebar-action { color: #666666; }
+    #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0; }
+    #sidebar-sessions Label { padding: 0 1; color: #3a3a3a; }
+    #sidebar-sessions .sess-item { padding: 0 1; color: #484848; background: transparent; border: none; width: 100%; text-align: left; }
+    #sidebar-sessions .sess-item:hover { color: #f5c542; background: #0e0e0e; }
+    #sidebar-footer { height: 5; border-top: solid #131313; padding: 1 1; }
+    #sidebar-footer Label { color: #383838; }
+    .sidebar-action { color: #444; }
     .sidebar-action:hover { color: #f5c542; }
+
+    /* Main area */
     #main-area { width: 1fr; height: 100%; }
-    #header-bar { height: 3; background: #0a0a0a; border-bottom: solid #1a1a1a; }
+
+    /* Header — minimal, no duplicate logo */
+    #header-bar { height: 2; background: #080808; border-bottom: solid #131313; }
     #header-left { padding: 0 0 0 2; content-align: left middle; color: #f5c542; text-style: bold; }
-    #header-right { padding: 0 2 0 0; content-align: right middle; color: #666666; }
-    #header-center { width: 1fr; content-align: center middle; color: #888888; text-style: italic; }
-    #session-title { height: 1; color: #444444; padding: 0 0 0 2; }
+    #header-right { padding: 0 2 0 0; content-align: right middle; color: #383838; }
+    #header-center { width: 1fr; content-align: center middle; color: #505050; text-style: italic; }
+    #session-title { height: 1; color: #2a2a2a; padding: 0 0 0 2; }
+
+    /* Chat */
     #chat-container { height: 1fr; overflow-y: auto; padding: 1 0; }
-    #input-bar { height: 3; background: #0a0a0a; border-top: solid #1a1a1a; padding: 0 1; }
-    #chat-input { width: 1fr; }
-    #status-bar { height: 1; color: #555555; padding: 0 0 0 2; }
-    .msg-user { margin: 0 0; padding: 0 2; color: #f5c542; }
-    .msg-user-container { margin: 1 2 1 2; background: #0d0d0d; border-left: solid #f5c542; padding: 0 0 0 1; }
-    .msg-assistant { margin: 0 0; padding: 0 2; color: #dddddd; }
-    .msg-assistant-container { margin: 1 2 1 2; background: #080808; border-left: solid #333; padding: 0 0 0 1; }
+    #status-bar { height: 1; color: #383838; padding: 0 0 0 2; }
+
+    /* Input area — taller, opencode-style hint row */
+    #input-area { height: 5; background: #080808; border-top: solid #131313; }
+    #input-bar { height: 3; padding: 0 2; background: #080808; }
+    #chat-input { width: 1fr; background: #080808; border: none; }
+    #input-hint { height: 2; padding: 0 2; color: #2e2e2e; content-align: left middle; }
+
+    /* Messages */
+    .msg-user { margin: 0; padding: 0 2; color: #f5c542; }
+    .msg-user-container { margin: 1 2 0 2; background: #0b0b0b; border-left: solid #f5c542; padding: 0 0 0 1; }
+    .msg-assistant { margin: 0; padding: 0 2; color: #cccccc; }
+    .msg-assistant-container { margin: 0 2 1 2; background: #070707; border-left: solid #1e1e1e; padding: 0 0 0 1; }
     .msg-plan { margin: 1 0; }
-    .msg-code { margin: 0 0; }
-    .msg-tool { margin: 0 0; }
+    .msg-code { margin: 0; }
+    .msg-tool { margin: 0; }
     .msg-explanation { margin: 1 0; }
-    .msg-system { margin: 0 2; color: #666666; text-style: italic; padding: 1 2; }
+    .msg-system { margin: 0 2; color: #484848; text-style: italic; padding: 0 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 0 0 1 4; color: #f5c542; }
     #app-layout > Container { height: 100%; }
@@ -685,27 +699,32 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
     def compose(self):
         with Container(id="app-layout"):
             with Vertical(id="sidebar"):
-                yield Label("CIPHER //", id="sidebar-header")
-                yield Label("Ready", id="sidebar-status")
+                yield Label("CIPHER", id="sidebar-header")
+                yield Label("ready", id="sidebar-status")
                 with Horizontal(id="agent-tabs"):
                     yield Label("Build", id="agent-build", classes="agent-active")
                     yield Label("Plan", id="agent-plan")
                     yield Label("Explore", id="agent-explore")
-                yield Static("Sessions", classes="settings-section")
+                yield Static("sessions", classes="settings-section")
                 yield VerticalScroll(id="sidebar-sessions")
                 with Vertical(id="sidebar-footer"):
-                    yield Label(f"[P] {self.config['provider']}", id="sidebar-provider")
-                    yield Label(f"[M] {self.config['model']}", id="sidebar-model")
-                    yield Label("[T] 0 tokens", id="sidebar-tokens")
+                    yield Label(self.config['provider'], id="sidebar-provider")
+                    yield Label(self.config['model'], id="sidebar-model")
+                    yield Label("0 tokens", id="sidebar-tokens")
             with Vertical(id="main-area"):
                 with Horizontal(id="header-bar"):
-                    yield Label("CIPHER //", id="header-left")
-                    yield Label(self.session_title or "New Session", id="header-center")
-                    yield Label(f"{self.config['provider']} | {self.config['model']}", id="header-right")
-                yield Static(" ", id="status-bar")
+                    yield Label("CIPHER", id="header-left")
+                    yield Label(self.session_title or "", id="header-center")
+                    yield Label(f"{self.config['provider']}  {self.config['model']}", id="header-right")
+                yield Static("", id="status-bar")
                 yield VerticalScroll(id="chat-container")
-                with Container(id="input-bar"):
-                    yield Input(placeholder="Ask Cipher...  /help for commands  Ctrl+P palette", id="chat-input")
+                with Vertical(id="input-area"):
+                    with Container(id="input-bar"):
+                        yield Input(placeholder="Ask Cipher...", id="chat-input")
+                    yield Static(
+                        f"  {self.agent_mode.capitalize()} ·   /help  ctrl+p commands  ctrl+s settings",
+                        id="input-hint"
+                    )
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
@@ -928,7 +947,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self.config["provider"] = provider
                     self.config["model"] = model
                     self._refresh_api_key(provider)
-                    self.query_one("#header-right").update(f"{provider} | {model}")
+                    self.query_one("#header-right").update(f"{provider}  {model}")
                     self._add_system(f"Provider: {provider} | Model: {model}")
                 theme = cfg.get("theme", "dark")
                 if self.config.get("theme") != theme:
@@ -995,7 +1014,13 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                 w.styles.color = "#f5c542"
             else:
                 w.remove_class("agent-active")
-                w.styles.color = "#666"
+                w.styles.color = "#444"
+        try:
+            self.query_one("#input-hint", Static).update(
+                f"  {self.agent_mode.capitalize()} ·   /help  ctrl+p commands  ctrl+s settings"
+            )
+        except Exception:
+            pass
         self._add_system(f"Agent mode: {self.agent_mode}")
 
     def action_new_session(self):
