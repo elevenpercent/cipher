@@ -1,4 +1,5 @@
 {
+  "framework": null,
   "routes": [
     { "src": "/v1/chat/completions", "dest": "/api/chat.js" },
     { "src": "/v1/models", "dest": "/api/chat.js" },
