@@ -240,22 +240,22 @@ class ToolResult(Static):
         ok_style = "#4ade80" if self.success else "#f87171"
         if self.tool == "write":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"wrote ", style="#888")
+            result.append(f"wrote ", style="#888888")
             result.append(f"{self.args}\n", style="#f5c542")
             for line in self.result.split('\n')[:3]:
                 if line.strip():
                     result.append(f"    {line}\n", style="#4ade80")
         elif self.tool == "read":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"read ", style="#888")
+            result.append(f"read ", style="#888888")
             result.append(f"{self.args}\n", style="#f5c542")
             out = self.result[:300].strip()
             if out:
                 for line in out.split('\n')[:4]:
-                    result.append(f"    {line}\n", style="#666")
+                    result.append(f"    {line}\n", style="#666666")
         elif self.tool == "run":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"$ ", style="#888")
+            result.append(f"$ ", style="#888888")
             result.append(f"{self.args}\n", style="#fbbf24")
             out = self.result[:300].strip()
             if out:
@@ -263,31 +263,31 @@ class ToolResult(Static):
                     result.append(f"    {line}\n", style="#4ade80" if self.success else "#f87171")
         elif self.tool == "edit":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"edited ", style="#888")
+            result.append(f"edited ", style="#888888")
             result.append(f"{self.args}\n", style="#f5c542")
         elif self.tool == "ls":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"ls ", style="#888")
+            result.append(f"ls ", style="#888888")
             result.append(f"{self.args}\n", style="#f5c542")
             out = self.result[:200].strip()
             if out:
-                result.append(f"    {out}\n", style="#666")
+                result.append(f"    {out}\n", style="#666666")
         elif self.tool == "grep":
             result.append(f"  ◎ grep ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888")
+            result.append(f"{self.args}\n", style="#888888")
             out = self.result[:400].strip()
             if out:
                 for line in out.split('\n')[:6]:
                     result.append(f"    {line}\n", style="#93c5fd")
         elif self.tool == "glob":
             result.append(f"  ◎ glob ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888")
+            result.append(f"{self.args}\n", style="#888888")
             out = self.result[:200].strip()
             if out:
                 result.append(f"    {out}\n", style="#93c5fd")
         elif self.tool == "git":
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"git ", style="#888")
+            result.append(f"git ", style="#888888")
             result.append(f"{self.args}\n", style="#fbbf24")
             out = self.result[:300].strip()
             if out:
@@ -295,24 +295,24 @@ class ToolResult(Static):
                     result.append(f"    {line}\n", style="#fbbf24")
         elif self.tool == "web-fetch":
             result.append(f"  ◎ fetch ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888")
+            result.append(f"{self.args}\n", style="#888888")
             out = self.result[:200].strip()
             if out:
                 result.append(f"    {out}\n", style="#93c5fd")
         elif self.tool == "web-search":
             result.append(f"  ◎ search ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888")
+            result.append(f"{self.args}\n", style="#888888")
             out = self.result[:200].strip()
             if out:
                 result.append(f"    {out}\n", style="#93c5fd")
         elif self.tool == "todo":
             result.append(f"  ◎ todo ", style="#c084fc")
-            result.append(f"{self.args}\n", style="#888")
+            result.append(f"{self.args}\n", style="#888888")
             if self.result:
                 result.append(f"    {self.result[:200]}\n", style="#d8b4fe")
         else:
             result.append(f"  {ok} ", style=ok_style)
-            result.append(f"{self.tool} {self.args}\n", style="#888")
+            result.append(f"{self.tool} {self.args}\n", style="#888888")
         return result
 
 
@@ -373,7 +373,7 @@ class CommandPalette(ModalScreen):
             self.dismiss(None)
     CSS = """
     CommandPalette { align: center top; }
-    #palette-container { width: 56; margin-top: 5; background: #111; border: tall #444; padding: 1 2; }
+    #palette-container { width: 56; margin-top: 5; background: #111111; border: tall #444444; padding: 1 2; }
     #palette-input { margin-bottom: 1; }
     #palette-results { height: 24; padding: 0 0; }
     #palette-results Static { padding: 0 0; }
@@ -437,8 +437,8 @@ class SessionModal(ModalScreen):
     SessionModal { align: center middle; }
     #session-panel { width: 72; max-height: 85%; background: #080808; border: tall #f5c542; padding: 1 2; }
     #panel-title { color: #f5c542; text-style: bold; margin-bottom: 1; padding: 0 1; }
-    #session-empty { color: #444; padding: 1 2; }
-    .sess-row { margin: 0; padding: 0 1; color: #666; }
+    #session-empty { color: #444444; padding: 1 2; }
+    .sess-row { margin: 0; padding: 0 1; color: #666666; }
     .sess-active { color: #f5c542; background: #0f0f0f; }
     """
 
@@ -532,8 +532,8 @@ class SettingsModal(ModalScreen):
     #settings-scroll { height: 1fr; overflow-y: auto; }
     #settings-footer { height: 3; margin-top: 1; }
     #settings-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
-    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #555; }
-    Checkbox { margin: 0 0 0 0; color: #aaa; }
+    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #555555; }
+    Checkbox { margin: 0 0 0 0; color: #aaaaaa; }
     Select { margin: 0 0 1 0; }
     Button { margin: 0 1 0 0; }
     #settings_save { margin-right: 1; }
@@ -571,9 +571,9 @@ class YesNoModal(ModalScreen):
     YesNoModal { align: center middle; }
     #yn-panel { width: 52; background: #080808; border: tall #f5c542; padding: 1 2; }
     #yn-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
-    #yn-tool { color: #aaa; }
-    #yn-args { color: #666; margin-bottom: 1; }
-    #yn-prompt { color: #888; margin-bottom: 1; }
+    #yn-tool { color: #aaaaaa; }
+    #yn-args { color: #666666; margin-bottom: 1; }
+    #yn-prompt { color: #888888; margin-bottom: 1; }
     #yn-buttons { margin-top: 1; }
     """
 
@@ -605,7 +605,7 @@ class QuestionScreen(ModalScreen):
     QuestionScreen { align: center middle; }
     #question-panel { width: 62; background: #080808; border: tall #f5c542; padding: 1 2; }
     #question-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
-    #question-text { color: #ccc; margin-bottom: 1; }
+    #question-text { color: #cccccc; margin-bottom: 1; }
     """
 
 
@@ -619,9 +619,9 @@ class CipherApp(App):
     #sidebar { width: 22; dock: left; background: #080808; border-right: solid #131313; height: 100%; }
     #sidebar-header { height: 2; padding: 0 0 0 1; content-align: left middle; }
     #sidebar-header Label { color: #f5c542; text-style: bold; }
-    #sidebar-status { height: 1; color: #444; padding: 0 1; }
+    #sidebar-status { height: 1; color: #444444; padding: 0 1; }
     #agent-tabs { height: 2; margin: 0; padding: 0 1; }
-    #agent-tabs Label { padding: 0 1; color: #444; }
+    #agent-tabs Label { padding: 0 1; color: #444444; }
     #agent-tabs .agent-active { color: #f5c542; text-style: bold; }
     #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0; }
     #sidebar-sessions Label { padding: 0 1; color: #3a3a3a; }
@@ -629,7 +629,7 @@ class CipherApp(App):
     #sidebar-sessions .sess-item:hover { color: #f5c542; background: #0e0e0e; }
     #sidebar-footer { height: 5; border-top: solid #131313; padding: 1 1; }
     #sidebar-footer Label { color: #383838; }
-    .sidebar-action { color: #444; }
+    .sidebar-action { color: #444444; }
     .sidebar-action:hover { color: #f5c542; }
 
     /* Main area */
@@ -1069,7 +1069,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                 w.styles.color = "#f5c542"
             else:
                 w.remove_class("agent-active")
-                w.styles.color = "#444"
+                w.styles.color = "#444444"
         try:
             self.query_one("#input-hint", Static).update(
                 f"  {self.agent_mode.capitalize()} ·   /help  ctrl+p commands  ctrl+s settings"
