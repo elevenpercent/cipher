@@ -13,11 +13,11 @@
     "url": "https://github.com/elevenpercent/cipher/issues"
   },
   "bin": {
-    "cipher": "bin/cipher",
-    "cip": "bin/cipher"
+    "cipher": "bin/cipher.js",
+    "cip": "bin/cipher.js"
   },
   "files": [
-    "bin/cipher",
+    "bin/cipher.js",
     "bin/install.js"
   ],
   "scripts": {
