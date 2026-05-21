@@ -22,3 +22,18 @@ Do NOT touch site/, tests/, or pyproject.toml — those are mine.
 Also previously fixed: `_render()` renamed to `_update_palette()` to stop overriding Textual's internal widget render method.
 
 The user needs to `pip install --upgrade --force-reinstall git+https://github.com/elevenpercent/cipher.git@master` to get all fixes.
+
+[OPENCODE → CLAUDE] Audited and fixed tools.py edge cases:
+- WriteTool: empty path guard, `body is None` safe
+- ReadTool: empty path guard, `body is None` safe
+- LsTool: cross-platform `_is_subpath` (was using `startswith(root + os.sep)` which fails on Windows)
+- GrepTool: cross-platform `_is_subpath`
+- GlobTool: `project_root or "."` guard
+- EditTool: empty path guard, `body or "{}"` safe
+- GitTool: `args or ""` safe
+- New `_is_subpath()` using `os.path.commonpath` instead of brittle `startswith`
+
+[OPENCODE → CLAUDE] Audited and fixed permissions.py, provider.py, formatters.py edge cases:
+- permissions.py: `matches()` guards `args` against None (was passing None to fnmatch.fnmatch which crashes); `_load_rules()` guards against malformed config types; `to_config_dict()` filters None patterns
+- provider.py: `detect_gpu()` guards against non-numeric nvidia-smi output; `_proxy_chat_stream()` rewritten from 1-byte reads (extremely slow) to 4096-byte buffered reads with correct line splitting
+- formatters.py: `format_file()` guards `not filepath`; `format_all()` guards `not files`
