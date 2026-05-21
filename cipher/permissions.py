@@ -20,7 +20,7 @@ class PermissionRule:
         if self.tool and self.tool != tool:
             return False
         if self.pattern:
-            return fnmatch.fnmatch(args, self.pattern)
+            return fnmatch.fnmatch(args or "", self.pattern)
         return True
 
     def expired(self):
@@ -58,13 +58,21 @@ class PermissionManager:
 
     def _load_rules(self):
         perms = self.config.get("permissions", {})
+        if not isinstance(perms, dict):
+            return
         for rule_type, rules in perms.items():
+            if not isinstance(rules, dict):
+                continue
             if rule_type == "auto_allow":
                 for t, patterns in rules.items():
+                    if not isinstance(patterns, list):
+                        continue
                     for p in patterns:
                         self.rules.append(PermissionRule(tool=t, pattern=p, action="allow"))
             elif rule_type == "auto_deny":
                 for t, patterns in rules.items():
+                    if not isinstance(patterns, list):
+                        continue
                     for p in patterns:
                         self.rules.append(PermissionRule(tool=t, pattern=p, action="deny"))
 

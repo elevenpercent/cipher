@@ -24,7 +24,10 @@ def detect_gpu():
         if result.returncode == 0:
             lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
             if lines:
-                return max(int(lines[0]) // 1024, 0)
+                try:
+                    return max(int(lines[0]) // 1024, 0)
+                except (ValueError, IndexError):
+                    pass
     except Exception:
         pass
     return 0
@@ -350,24 +353,39 @@ class AIProvider:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 buffer = ""
                 while True:
-                    chunk = resp.read(1)
+                    chunk = resp.read(4096)
                     if not chunk:
+                        if buffer.strip():
+                            for line in buffer.strip().split("\n"):
+                                if line.startswith("data: "):
+                                    data = line[6:].strip()
+                                    if data == "[DONE]":
+                                        break
+                                    try:
+                                        d = json.loads(data)
+                                        delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                        if delta:
+                                            yield {"content": delta, "full": ""}
+                                    except json.JSONDecodeError:
+                                        pass
                         break
                     buffer += chunk.decode()
-                    if buffer.endswith("\n"):
-                        for line in buffer.strip().split("\n"):
-                            if line.startswith("data: "):
-                                data = line[6:].strip()
-                                if data == "[DONE]":
-                                    return
-                                try:
-                                    d = json.loads(data)
-                                    delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                                    if delta:
-                                        yield {"content": delta, "full": ""}
-                                except json.JSONDecodeError:
-                                    pass
-                        buffer = ""
+                    if "\n" not in buffer:
+                        continue
+                    lines = buffer.split("\n")
+                    buffer = lines[-1]
+                    for line in lines[:-1]:
+                        if line.startswith("data: "):
+                            data = line[6:].strip()
+                            if data == "[DONE]":
+                                break
+                            try:
+                                d = json.loads(data)
+                                delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if delta:
+                                    yield {"content": delta, "full": ""}
+                            except json.JSONDecodeError:
+                                pass
         except Exception as e:
             yield {"content": f" Proxy error: {e}"}
 

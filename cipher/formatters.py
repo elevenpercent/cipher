@@ -167,7 +167,7 @@ class FormatterManager:
         self.lint_command = ""
 
     def format_file(self, filepath, cwd=None):
-        if not self.enabled:
+        if not self.enabled or not filepath:
             return None
         results = []
         for fmt in self.formatters:
@@ -178,6 +178,8 @@ class FormatterManager:
         return results
 
     def format_all(self, files, cwd=None):
+        if not files:
+            return {}
         results = {}
         for f in files:
             r = self.format_file(f, cwd)
