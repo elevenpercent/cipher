@@ -222,22 +222,22 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     <div class="install-box rec">
       <h3>pip (recommended)</h3>
       <p>Works everywhere — Windows, macOS, Linux.</p>
-      <div class="install-code" onclick="copy(this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')copy(this)">pip install git+https://github.com/elevenpercent/cipher.git@master</div>
+        <div class="install-code" role="button" tabindex="0">pip install git+https://github.com/elevenpercent/cipher.git@master</div>
     </div>
     <div class="install-box">
       <h3>npm</h3>
       <p>If you're in the Node.js ecosystem.</p>
-      <div class="install-code" onclick="copy(this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')copy(this)">npm install https://github.com/elevenpercent/cipher.git</div>
+      <div class="install-code" role="button" tabindex="0">npm install -g https://github.com/elevenpercent/cipher.git</div>
     </div>
     <div class="install-box">
       <h3>Windows (PowerShell)</h3>
       <p>One-liner — downloads and installs.</p>
-      <div class="install-code" onclick="copy(this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')copy(this)">powershell -c "irm https://cipher.elevenpct.com/install.ps1 | iex"</div>
+      <div class="install-code" role="button" tabindex="0">powershell -c "irm https://cipher.elevenpct.com/install.ps1 | iex"</div>
     </div>
     <div class="install-box">
       <h3>macOS / Linux</h3>
       <p>One-liner — curl pipe to bash.</p>
-      <div class="install-code" onclick="copy(this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')copy(this)">curl -fsSL https://cipher.elevenpct.com/install.sh | bash</div>
+      <div class="install-code" role="button" tabindex="0">curl -fsSL https://cipher.elevenpct.com/install.sh | bash</div>
     </div>
   </div>
   <p class="install-note">After installing, run <code style="color:var(--gold)">cip</code> in your project directory. The setup screen will appear on first launch.</p>
@@ -309,21 +309,30 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     </div>
   </div>
   <div class="footer-bottom">
-    <p>MIT License — Cipher v0.4.0</p>
+    <p>MIT License — Cipher v0.5.0</p>
     <p><a href="https://cipher.elevenpct.com" style="color:var(--gold-dim);text-decoration:none">cipher.elevenpct.com</a></p>
   </div>
 </footer>
 
 <script>
-document.querySelectorAll('.install-code').forEach(el => {
-  el.addEventListener('click', () => {
-    const t = el.textContent.trim();
-    navigator.clipboard.writeText(t).then(() => {
-      el.style.borderColor = 'var(--gold)';
-      el.style.color = '#fff';
-      setTimeout(() => { el.style.borderColor = ''; el.style.color = ''; }, 800);
-    });
+function copyInstall(el) {
+  const t = el.textContent.trim();
+  navigator.clipboard.writeText(t).then(() => {
+    const prev = el.dataset.prev || el.textContent;
+    el.dataset.prev = prev;
+    el.textContent = 'Copied!';
+    el.style.borderColor = 'var(--gold)';
+    el.style.color = '#fff';
+    setTimeout(() => {
+      el.textContent = prev;
+      el.style.borderColor = '';
+      el.style.color = '';
+    }, 1000);
   });
+}
+document.querySelectorAll('.install-code').forEach(el => {
+  el.addEventListener('click', () => copyInstall(el));
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyInstall(el); } });
 });
 </script>
 </body>

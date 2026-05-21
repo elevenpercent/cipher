@@ -75,6 +75,7 @@ footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-si
 
     <h4>Usage</h4>
     <a href="#keyboard">Keyboard</a>
+    <a href="#slash-commands">Slash commands</a>
     <a href="#settings">Settings</a>
     <a href="#providers">Providers</a>
 
@@ -101,7 +102,7 @@ footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-si
     <pre><code>pip install git+https://github.com/elevenpercent/cipher.git@master</code></pre>
 
     <p><strong>npm:</strong></p>
-    <pre><code>npm install https://github.com/elevenpercent/cipher.git</code></pre>
+    <pre><code>npm install -g https://github.com/elevenpercent/cipher.git</code></pre>
 
     <p><strong>Windows (one-liner):</strong></p>
     <pre><code>powershell -c "irm https://cipher.elevenpct.com/install.ps1 | iex"</code></pre>
@@ -135,7 +136,22 @@ cip</code></pre>
       <tr><td><kbd>Ctrl+S</kbd></td><td>Open settings</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Clear input</td></tr>
     </table>
-    <p>There are no slash commands. All configuration goes through the settings modal (<kbd>Ctrl+S</kbd>).</p>
+
+    <h2 id="slash-commands">Slash Commands</h2>
+    <p>Type a slash command in the input box and press Enter:</p>
+    <table>
+      <tr><th>Command</th><th>Description</th></tr>
+      <tr><td><code>/help</code></td><td>Show all available commands</td></tr>
+      <tr><td><code>/clear</code></td><td>Clear the current chat</td></tr>
+      <tr><td><code>/new</code></td><td>Start a new session</td></tr>
+      <tr><td><code>/sessions</code></td><td>Browse and resume saved sessions</td></tr>
+      <tr><td><code>/theme &lt;name&gt;</code></td><td>Switch theme — e.g. <code>/theme dracula</code></td></tr>
+      <tr><td><code>/model &lt;id&gt;</code></td><td>Switch model — e.g. <code>/model llama-3.3-70b</code></td></tr>
+      <tr><td><code>/provider &lt;id&gt;</code></td><td>Switch provider — e.g. <code>/provider groq</code></td></tr>
+      <tr><td><code>/compact</code></td><td>Toggle compact mode</td></tr>
+      <tr><td><code>/tokens</code></td><td>Show token usage for this session</td></tr>
+      <tr><td><code>/quit</code></td><td>Exit Cipher</td></tr>
+    </table>
 
     <h2 id="settings">Settings</h2>
     <p>Press <kbd>Ctrl+S</kbd> to open the settings modal. It has three sections:</p>
@@ -213,7 +229,7 @@ cip</code></pre>
 </div>
 
 <footer>
-  <p>MIT License — Cipher v0.4.0</p>
+  <p>MIT License — Cipher v0.5.0</p>
 </footer>
 
 </body>
