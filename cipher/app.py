@@ -1162,7 +1162,12 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
 
     def _run_agent_loop_thread(self):
         max_turns = 30
+        loop_start = time.time()
+        max_duration = 600
         for turn in range(max_turns):
+            if time.time() - loop_start > max_duration:
+                self.call_from_thread(self._add_system, "Task timed out (10 min)")
+                break
             buffer = ""
             stream_interval = 0
             try:
@@ -1195,6 +1200,15 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self.total_tokens += len(buffer) // 4
 
                 self.call_from_thread(self._set_status, "Processing")
+
+                if not buffer.strip():
+                    self.call_from_thread(self._set_status, "AI returned empty response")
+                    self.chat_messages.append({"role": "assistant", "content": "(no response)"})
+                    self.call_from_thread(self._add_system, "AI returned empty response. Try asking again.")
+                    save_session(self.session_id, self.chat_messages, self.session_title)
+                    self.call_from_thread(self._remove_loading)
+                    self.call_from_thread(self._set_ready)
+                    continue
 
                 plan_match = re.search(r'<plan>(.*?)</plan>', buffer, re.DOTALL)
                 if plan_match:
@@ -1234,7 +1248,7 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                                     if lint_result:
                                         self.call_from_thread(self._add_system, lint_result)
                                     file_path = t.get("path", t.get("args", ""))
-                                    self._format_file(file_path)
+                                    self.call_from_thread(self._format_file, file_path)
                             except concurrent.futures.TimeoutError:
                                 results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
                             except Exception as e:
@@ -1293,6 +1307,8 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
         return self._input_result
 
     def _confirm_action(self, tool, args):
+        if not tool:
+            return True
         verdict = self.permission_manager.check(tool, args)
         if verdict == "allow":
             return True
@@ -1319,7 +1335,10 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             container = self.query_one("#chat-container")
             container.mount(self._stream_widget)
             container.scroll_end()
-        self._stream_widget.update(str(self._stream_widget.renderable) + text)
+        current = self._stream_widget.renderable
+        if not isinstance(current, str):
+            current = str(current)
+        self._stream_widget.update(current + text)
         try:
             self.query_one("#chat-container").scroll_end()
         except Exception:
