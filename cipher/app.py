@@ -584,16 +584,16 @@ class CipherApp(App):
             custom_text = "\n" + "\n".join(lines)
         return f"""You are Cipher, an autonomous coding agent. Authorized directory: {self.project_root}.{skills_text}
 
-Respond conversationally to simple questions. Use tags only when taking actions:
+Respond conversationally to simple questions. For tasks, use tags to take actions:
 
-<plan>steps</plan>  <run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
+<run>cmd</run>  <write path="p">content</write>  <read path="p" start="1" end="50">
 <ls>path</ls>  <grep pattern="x" path="d">  <glob pattern="**/*.py">
 <edit path="p"><old>exact</old><new>replacement</new></edit>
 <web-fetch url="...">  <web-search query="...">
 <git status|diff|commit message="..."|log --oneline -5>
 <todo add="task"|done="N"|list>{custom_text}
 
-When done with a task: <done>Summary</done>.
+When done: <done>Summary</done>.
 No markdown code blocks. Relative paths. Use <edit> for small changes.
 """
 
