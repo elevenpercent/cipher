@@ -149,7 +149,10 @@ def interactive_setup():
             self.push_screen(ProviderSelectScreen())
 
         def on_no_models(self, provider_id):
-            self.on_selection(provider_id, "", None)
+            info = PROVIDERS.get(provider_id, {})
+            models = info.get("models", [])
+            mid = models[0]["id"] if models else ""
+            self.on_selection(provider_id, mid, None)
 
         def on_selection(self, provider_id, model_id, api_key):
             self.result["provider"] = provider_id
