@@ -34,3 +34,6 @@ Thumbs.db
 # Temp
 *.tmp
 tmp/
+
+# opencode reference material
+opencode-dev/
