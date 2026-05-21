@@ -345,9 +345,10 @@ class CommandPalette(ModalScreen):
             self.dismiss(None)
     CSS = """
     CommandPalette { align: center top; }
-    #palette-container { width: 50; margin-top: 3; background: #111; border: tall #333; padding: 1; }
+    #palette-container { width: 56; margin-top: 5; background: #111; border: tall #444; padding: 1 2; }
     #palette-input { margin-bottom: 1; }
-    #palette-results { height: 20; }
+    #palette-results { height: 24; padding: 0 0; }
+    #palette-results Static { padding: 0 0; }
     """
 
 
@@ -554,40 +555,40 @@ class CipherApp(App):
     CSS = """
     Screen { background: #050505; }
     #app-layout { layout: horizontal; }
-    #sidebar { width: 28; dock: left; background: #0a0a0a; border-right: solid #1a1a1a; height: 100%; }
+    #sidebar { width: 30; dock: left; background: #0a0a0a; border-right: solid #1a1a1a; height: 100%; }
     #sidebar-header { height: 3; padding: 1 0 0 1; }
     #sidebar-header Label { color: #f5c542; text-style: bold; }
-    #sidebar-status { height: 1; color: #666; padding: 0 1; }
-    #agent-tabs { height: 3; margin: 1 0; }
-    #agent-tabs Label { padding: 0 1; color: #666; }
+    #sidebar-status { height: 2; color: #666666; padding: 0 1; margin-top: 1; }
+    #agent-tabs { height: 3; margin: 1 0; padding: 0 1; }
+    #agent-tabs Label { padding: 0 1; color: #666666; }
     #agent-tabs .agent-active { color: #f5c542; text-style: bold; }
-    #sidebar-sessions { height: 1fr; overflow-y: auto; }
-    #sidebar-sessions Label { padding: 0 1; color: #555; }
-    #sidebar-sessions .sess-item { padding: 0 1; color: #666; background: transparent; border: none; width: 100%; text-align: left; }
+    #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0 0; }
+    #sidebar-sessions Label { padding: 0 1; }
+    #sidebar-sessions .sess-item { padding: 0 1; color: #666666; background: transparent; border: none; width: 100%; text-align: left; }
     #sidebar-sessions .sess-item:hover { color: #f5c542; background: #111; }
-    #sidebar-footer { height: 5; border-top: solid #1a1a1a; padding: 0 1; }
-    #sidebar-footer Label { color: #555; }
-    .sidebar-action { color: #666; }
+    #sidebar-footer { height: 6; border-top: solid #1a1a1a; padding: 1 1; }
+    #sidebar-footer Label { color: #555555; }
+    .sidebar-action { color: #666666; }
     .sidebar-action:hover { color: #f5c542; }
     #main-area { width: 1fr; height: 100%; }
     #header-bar { height: 3; background: #0a0a0a; border-bottom: solid #1a1a1a; }
     #header-left { padding: 0 0 0 2; content-align: left middle; color: #f5c542; text-style: bold; }
-    #header-right { padding: 0 2 0 0; content-align: right middle; color: #666; }
+    #header-right { padding: 0 2 0 0; content-align: right middle; color: #666666; }
     #header-center { width: 1fr; content-align: center middle; color: #888888; text-style: italic; }
-    #session-title { height: 1; color: #444; padding: 0 0 0 2; }
-    #chat-container { height: 1fr; overflow-y: auto; }
+    #session-title { height: 1; color: #444444; padding: 0 0 0 2; }
+    #chat-container { height: 1fr; overflow-y: auto; padding: 1 0; }
     #input-bar { height: 3; background: #0a0a0a; border-top: solid #1a1a1a; padding: 0 1; }
     #chat-input { width: 1fr; }
-    #status-bar { height: 1; color: #555; padding: 0 0 0 2; }
+    #status-bar { height: 1; color: #555555; padding: 0 0 0 2; }
     .msg-user { margin: 0 0; padding: 0 2; color: #f5c542; }
-    .msg-user-container { margin: 1 0 1 0; background: #0d0d0d; border-left: solid #f5c542; padding: 0 0 0 1; }
-    .msg-assistant { margin: 0 0; padding: 0 2; color: #ddd; }
-    .msg-assistant-container { margin: 1 0 1 0; background: #080808; border-left: solid #333; padding: 0 0 0 1; }
-    .msg-plan { margin: 1 0 1 4; }
-    .msg-code { margin: 0 0 0 4; }
-    .msg-tool { margin: 0 0 0 4; }
-    .msg-explanation { margin: 1 0 1 4; }
-    .msg-system { margin: 0 0 1 0; color: #666; text-style: italic; padding: 0 2; }
+    .msg-user-container { margin: 1 2 1 2; background: #0d0d0d; border-left: solid #f5c542; padding: 0 0 0 1; }
+    .msg-assistant { margin: 0 0; padding: 0 2; color: #dddddd; }
+    .msg-assistant-container { margin: 1 2 1 2; background: #080808; border-left: solid #333; padding: 0 0 0 1; }
+    .msg-plan { margin: 1 0; }
+    .msg-code { margin: 0 0; }
+    .msg-tool { margin: 0 0; }
+    .msg-explanation { margin: 1 0; }
+    .msg-system { margin: 0 2; color: #666666; text-style: italic; padding: 1 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 0 0 1 4; color: #f5c542; }
     #app-layout > Container { height: 100%; }
@@ -956,6 +957,11 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
             ("/compact", "Toggle compact mode"),
             ("/tokens", "Show usage"),
             ("Settings", "Open settings"),
+            ("Reset config", "Reset config to defaults"),
+            ("Clear config", "Delete config and start fresh"),
+            ("Clear sessions", "Delete all saved sessions"),
+            ("Setup wizard", "Run initial setup"),
+            ("Update", "Pull latest version from GitHub"),
             ("Quit", "Exit Cipher"),
         ]
         def on_select(cmd):
@@ -964,6 +970,16 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                     self.action_settings()
                 elif cmd == "Quit":
                     self.exit()
+                elif cmd == "Reset config":
+                    self._reset_config()
+                elif cmd == "Clear config":
+                    self._clear_config()
+                elif cmd == "Clear sessions":
+                    self._clear_sessions()
+                elif cmd == "Setup wizard":
+                    self._run_setup()
+                elif cmd == "Update":
+                    self._update_cipher()
                 else:
                     self._handle_slash_command(cmd)
         self.push_screen(CommandPalette(actions), on_select)
@@ -1005,6 +1021,36 @@ No markdown code blocks. Relative paths. Use <edit> for small changes.
                 child.remove()
             self.query_one("#header-center").update("New Session")
         self._add_system("New session started.")
+
+    def _reset_config(self):
+        if CONFIG_FILE.exists():
+            CONFIG_FILE.unlink()
+        self.config = load_config()
+        save_config(self.config)
+        self._add_system("Config reset to defaults.")
+
+    def _clear_config(self):
+        if CONFIG_FILE.exists():
+            CONFIG_FILE.unlink()
+        self._add_system("Config deleted. Restart Cipher to start fresh.")
+
+    def _clear_sessions(self):
+        count = 0
+        for f in SESSIONS_DIR.glob("*.json"):
+            f.unlink()
+            count += 1
+        self._add_system(f"Deleted {count} saved session(s).")
+
+    def _run_setup(self):
+        self._add_system("Cipher is ready to use. Configure provider/model in Settings (Ctrl+S).")
+
+    def _update_cipher(self):
+        self._add_system("Updating Cipher from GitHub...")
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "git+https://github.com/elevenpercent/cipher.git@master"], check=True, capture_output=True)
+            self._add_system("Update complete! Restart Cipher for changes to take effect.")
+        except Exception as e:
+            self._add_system(f"Update failed: {e}")
 
     def _show_sessions(self):
         def on_session(sid):
