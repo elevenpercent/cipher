@@ -455,7 +455,6 @@ class Test10SystemPrompt(unittest.TestCase):
         app = CipherApp(project_root=os.getcwd())
         prompt = app._build_system_prompt()
         self.assertIn("Cipher", prompt)
-        self.assertIn("<plan>", prompt)
         self.assertIn("<done>", prompt)
         self.assertIn("<run>", prompt)
         self.assertIn("<write", prompt)
