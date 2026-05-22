@@ -730,7 +730,8 @@ RULES — read carefully:
 1. You CANNOT do anything without tool tags. Saying you did something is NOT the same as doing it.
 2. ALWAYS use tool tags to read, write, run, edit files. Never claim success without running the tool first.
 3. Only output <done> AFTER you have used tools and verified the work is complete.
-4. If a task needs multiple steps, do them one turn at a time using tools.
+4. Before each tool tag, write ONE short sentence explaining what you're doing (e.g. "Writing the calculator file." or "Running it to check for errors."). This is how you talk to the user.
+5. After running something, briefly comment on the result before continuing.
 
 Tool tags (use these to take real actions):
 <run>command</run>               — run a shell command
@@ -1280,8 +1281,8 @@ Rules: no markdown code blocks, use relative paths, use <edit> for small changes
                     buffer += token
                     stream_interval += 1
                     if stream_interval % 5 == 0:
-                        self._update_stream(buffer)
-                self._update_stream(buffer)
+                        self._update_stream(self._stream_clean(buffer))
+                self._update_stream(self._stream_clean(buffer))
 
                 try:
                     import tiktoken
@@ -1318,6 +1319,8 @@ Rules: no markdown code blocks, use relative paths, use <edit> for small changes
 
                 tools = self._parse_tools_all(buffer)
                 if tools:
+                    clean_text = self._stream_clean(buffer)
+                    self.call_from_thread(self._stream_finalize, clean_text)
                     results = []
                     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
                         futures = []
@@ -1445,6 +1448,14 @@ Rules: no markdown code blocks, use relative paths, use <edit> for small changes
         self.is_processing = False
         self._stream_widget = None
         self.query_one("#chat-input").focus()
+
+    def _stream_clean(self, buffer):
+        clean = buffer
+        for cp in self._CLEAN_PATTERNS:
+            clean = cp.sub('', clean)
+        # Drop any partial/unclosed tag at the end of stream
+        clean = re.sub(r'<[^>]*$', '', clean)
+        return clean.strip()
 
     _CLEAN_PATTERNS = [re.compile(p, re.DOTALL) for p in [
         r'<plan>.*?</plan>', r'<run>.*?</run>', r'<write\s+path=["\'].*?["\']>.*?</write>',
