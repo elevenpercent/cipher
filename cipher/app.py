@@ -113,7 +113,7 @@ def load_config():
         "show_tool_exec": True,
         "show_diff": True,
         "expand_explanations": False,
-        "auto_confirm": False,
+        "auto_confirm": True,
         "compact_mode": False,
         "lint_command": "",
         "skills_dir": str(SKILLS_DIR),
@@ -678,6 +678,7 @@ class CipherApp(App):
 
     .msg-explanation { margin: 1 4; padding: 1 2; }
     .msg-system { margin: 1 4; color: #333333; text-style: italic; padding: 0 2; }
+    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #3a3a3a; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 1 4; color: #fab283; }
     #app-layout > Container { height: 100%; }
@@ -744,33 +745,40 @@ class CipherApp(App):
             custom_text = "\n" + "\n".join(lines)
         return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{skills_text}
 
-RULES — read carefully:
+RULES — follow exactly:
 1. You CANNOT do anything without tool tags. Saying you did something is NOT the same as doing it.
 2. ALWAYS use tool tags to read, write, run, edit files. Never claim success without running the tool first.
 3. Only output <done> AFTER you have used tools and verified the work is complete.
-4. Before each tool tag, write ONE short sentence explaining what you're doing (e.g. "Writing the calculator file." or "Running it to check for errors."). This is how you talk to the user.
+4. Before each tool tag, write ONE short sentence explaining what you're doing. This is how you talk to the user.
 5. After running something, briefly comment on the result before continuing.
 
-Tool tags (use these to take real actions):
-<run>command</run>               — run a shell command
-<write path="file">content</write>  — create or overwrite a file
-<read path="file">               — read a file
-<edit path="file"><old>exact text</old><new>replacement</new></edit>  — edit a file
-<ls>path</ls>                    — list directory contents
-<grep pattern="x" path="dir">   — search files
-<glob pattern="**/*.py">        — find files by pattern
-<git status|diff|log --oneline -5|commit message="msg">
-<web-fetch url="...">           — fetch a URL
-<web-search query="...">        — search the web
-<todo add="task"|done="N"|list>{custom_text}
+TOOL TAG FORMAT — this is the ONLY correct format:
+<run>python script.py</run>
+<write path="hello.py">print('hello')
+</write>
+<read path="hello.py">
+<edit path="hello.py"><old>print('hello')</old><new>print('hi')</new></edit>
+<ls>.</ls>
+<grep pattern="def " path=".">
+<glob pattern="**/*.py">
+<git status>
+<web-fetch url="https://example.com">
+<web-search query="python tkinter tutorial">
+<todo add="task">
+<done>summary of what was done</done>
 
-When ALL work is verified complete: <done>one-line summary of what was done</done>
+CRITICAL FORMAT RULES:
+- File content goes BETWEEN the write tags: <write path="file.py">THE CODE HERE</write>
+- NEVER use content= as an attribute. WRONG: <write path="f.py" content="code">
+- NEVER use <create> — always use <write>
+- NEVER use markdown code fences (``` ```) — they break the parser
+- Use relative paths only
+- Use <edit> for small changes to existing files, <write> to create or fully replace
 
 Extra rules:
-- No markdown code blocks, use relative paths, use <edit> for small changes to existing files.
-- GUI apps (tkinter, pygame, etc.) and servers launch automatically in the background — if the run result says "running in background", the window IS open. Do not run it again.
-- When a run result says "running in background", tell the user the app is open and what to do with it.
-"""
+- GUI apps (tkinter, pygame) launch in background automatically — "running in background" means it IS open.
+- When a run result says "running in background", tell the user the app is open.
+{custom_text}"""
 
     def _load_skills(self):
         skills_dir = Path(self.config.get("skills_dir", str(SKILLS_DIR)))
@@ -1373,10 +1381,7 @@ Extra rules:
                     self.chat_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
                     continue
 
-                clean = buffer
-                for cp in self._CLEAN_PATTERNS:
-                    clean = cp.sub('', clean)
-                clean = clean.strip()
+                clean = self._stream_clean(buffer)
                 if clean:
                     self.call_from_thread(self._stream_finalize, clean)
                     self.chat_messages.append({"role": "assistant", "content": buffer.strip()})
@@ -1474,20 +1479,33 @@ Extra rules:
         clean = buffer
         for cp in self._CLEAN_PATTERNS:
             clean = cp.sub('', clean)
-        # Drop any partial/unclosed tag at the end of stream
+        # Drop partial/unclosed tag at the end (e.g. "<run" with no ">")
         clean = re.sub(r'<[^>]*$', '', clean)
+        # Drop any open tool tag that hasn't been closed yet, plus everything after it.
+        # This prevents half-streamed tags like "<ls>ls ." showing raw in the widget.
+        clean = re.sub(
+            r'<(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done)\b[^>]*>.*',
+            '', clean, flags=re.DOTALL
+        )
+        # Drop orphan closing tags the AI sometimes emits (</read>, </grep>, etc.)
+        clean = re.sub(r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search)>', '', clean)
+        # Strip markdown code fences the AI mistakenly uses
+        clean = re.sub(r'```[a-z]*\n?', '', clean)
         return clean.strip()
 
     _CLEAN_PATTERNS = [re.compile(p, re.DOTALL) for p in [
         r'<plan>.*?</plan>', r'<run>.*?</run>', r'<write\s+path=["\'].*?["\']>.*?</write>',
-        r'<read\s+path=["\'].*?["\']\s*/?\s*>', r'<ls>.*?</ls>', r'<edit\s+path=["\'].*?["\']>.*?</edit>',
-        r'<grep\s+[^>]*>', r'<glob[^>]*>', r'<web-fetch\s+[^>]*>', r'<web-search\s+[^>]*>',
-        r'<git\s+[^>]*>',         r'<git\s+[^>]*/>', r'<todo[^>]*>',
+        r'<read\s+path=["\'].*?["\']\s*/?\s*>(?:.*?</read>)?',
+        r'<ls>.*?</ls>', r'<edit\s+path=["\'].*?["\']>.*?</edit>',
+        r'<grep\s+[^>]*>(?:.*?</grep>)?', r'<glob[^>]*>(?:.*?</glob>)?',
+        r'<web-fetch\s+[^>]*>(?:.*?</web-fetch>)?', r'<web-search\s+[^>]*>(?:.*?</web-search>)?',
+        r'<git\s+[^>]*>(?:.*?</git>)?', r'<todo[^>]*>(?:.*?</todo>)?',
+        r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|run|write|edit)>',
     ]]
 
     _TOOL_PATTERNS = [
         (re.compile(r'<?run>(.+?)</run>', re.DOTALL), lambda m: {"type": "run", "path": "", "args": m.group(1), "body": ""}),
-        (re.compile(r'<?write\s+path=["\'](.+?)["\']>(.*?)</write>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(2)}),
+        (re.compile(r'<?write\s+path=["\']([^"\']+)["\']>(.*?)</write>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(2)}),
         (re.compile(r'<?read\s+path=["\'](.+?)["\'](?:\s+start=["\']?(\d+)["\']?)?(?:\s+end=["\']?(\d+)["\']?)?\s*/?\s*>', re.DOTALL), lambda m: {"type": "read", "path": m.group(1), "args": m.group(1), "body": json.dumps({"start": int(m.group(2)) if m.group(2) else None, "end": int(m.group(3)) if m.group(3) else None})}),
         (re.compile(r'<?ls>(.*?)</ls>', re.DOTALL), lambda m: {"type": "ls", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
         (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), _parse_edit_tag),
