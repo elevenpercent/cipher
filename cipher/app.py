@@ -246,13 +246,13 @@ class ExplanationBlock(Static):
 
 
 class ToolResult(Static):
-    def __init__(self, tool, args, result, success=True, **kwargs):
+    def __init__(self, tool, args, result, success=True, auto_expand=False, **kwargs):
         super().__init__(**kwargs)
         self.tool = tool
         self.args = args
         self.result = result
         self.success = success
-        self.expanded = False
+        self.expanded = auto_expand
 
     def on_click(self):
         self.expanded = not self.expanded
@@ -977,7 +977,9 @@ Rules:
         container = self._get_chat()
         if container is None:
             return
-        widget = ToolResult(tool, args, result, success, classes="msg-tool")
+        # Auto-expand run results so output is always visible
+        auto_expand = (tool == "run" and bool(result and result.strip() and result.strip() != "(ok)"))
+        widget = ToolResult(tool, args, result, success, auto_expand=auto_expand, classes="msg-tool")
         container.mount(widget)
         container.scroll_end()
 
