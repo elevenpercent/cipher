@@ -40,14 +40,21 @@ class RunTool(Tool):
     def execute(self, args, body, project_root, context=None):
         cmd = args.strip()
         try:
-            r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60, cwd=project_root)
-            out = r.stdout.rstrip()
-            err = r.stderr.rstrip()[:500]
-            success = r.returncode == 0
-            result = out or err or "(ok)"
-            return {"result": result[:2000], "success": success, "exit_code": r.returncode}
-        except subprocess.TimeoutExpired:
-            return {"result": "Error: timeout", "success": False, "exit_code": -1}
+            proc = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, cwd=project_root
+            )
+            try:
+                out, err = proc.communicate(timeout=10)
+                success = proc.returncode == 0
+                result = (out or err or "(ok)").rstrip()
+                return {"result": result[:2000], "success": success, "exit_code": proc.returncode}
+            except subprocess.TimeoutExpired:
+                # Still running after 10s — GUI app or long-running server, detach it
+                proc.stdout.close()
+                proc.stderr.close()
+                return {"result": "Process launched (running in background)", "success": True, "exit_code": 0}
         except Exception as e:
             return {"result": f"Error: {e}", "success": False, "exit_code": -1}
 

@@ -234,86 +234,61 @@ class ToolResult(Static):
         self.args = args
         self.result = result
         self.success = success
+        self.expanded = False
+
+    def on_click(self):
+        self.expanded = not self.expanded
+        self.refresh()
+
     def render(self):
-        result = Text()
+        t = Text()
         ok = "✓" if self.success else "✗"
         ok_style = "#4ade80" if self.success else "#f87171"
-        if self.tool == "write":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"wrote ", style="#888888")
-            result.append(f"{self.args}\n", style="#f5c542")
-            for line in self.result.split('\n')[:3]:
-                if line.strip():
-                    result.append(f"    {line}\n", style="#4ade80")
-        elif self.tool == "read":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"read ", style="#888888")
-            result.append(f"{self.args}\n", style="#f5c542")
-            out = self.result[:300].strip()
-            if out:
-                for line in out.split('\n')[:4]:
-                    result.append(f"    {line}\n", style="#666666")
-        elif self.tool == "run":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"$ ", style="#888888")
-            result.append(f"{self.args}\n", style="#fbbf24")
-            out = self.result[:300].strip()
-            if out:
-                for line in out.split('\n')[:6]:
-                    result.append(f"    {line}\n", style="#4ade80" if self.success else "#f87171")
-        elif self.tool == "edit":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"edited ", style="#888888")
-            result.append(f"{self.args}\n", style="#f5c542")
-        elif self.tool == "ls":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"ls ", style="#888888")
-            result.append(f"{self.args}\n", style="#f5c542")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"    {out}\n", style="#666666")
-        elif self.tool == "grep":
-            result.append(f"  ◎ grep ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888888")
-            out = self.result[:400].strip()
-            if out:
-                for line in out.split('\n')[:6]:
-                    result.append(f"    {line}\n", style="#93c5fd")
-        elif self.tool == "glob":
-            result.append(f"  ◎ glob ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888888")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"    {out}\n", style="#93c5fd")
-        elif self.tool == "git":
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"git ", style="#888888")
-            result.append(f"{self.args}\n", style="#fbbf24")
-            out = self.result[:300].strip()
-            if out:
-                for line in out.split('\n')[:5]:
-                    result.append(f"    {line}\n", style="#fbbf24")
-        elif self.tool == "web-fetch":
-            result.append(f"  ◎ fetch ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888888")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"    {out}\n", style="#93c5fd")
-        elif self.tool == "web-search":
-            result.append(f"  ◎ search ", style="#60a5fa")
-            result.append(f"{self.args}\n", style="#888888")
-            out = self.result[:200].strip()
-            if out:
-                result.append(f"    {out}\n", style="#93c5fd")
+        arrow = "▼" if self.expanded else "▶"
+
+        # Arrow toggle indicator
+        t.append(f"  {arrow} ", style="dim #3a3a3a")
+
+        # Icon + summary line
+        if self.tool in ("grep", "glob", "web-fetch", "web-search"):
+            t.append(f"◎ {self.tool} ", style="#60a5fa")
+            t.append(f"{self.args}", style="#888888")
         elif self.tool == "todo":
-            result.append(f"  ◎ todo ", style="#c084fc")
-            result.append(f"{self.args}\n", style="#888888")
-            if self.result:
-                result.append(f"    {self.result[:200]}\n", style="#d8b4fe")
+            t.append(f"◎ todo ", style="#c084fc")
+            t.append(f"{self.args}", style="#888888")
+        elif self.tool == "run":
+            t.append(f"{ok} $ ", style=ok_style)
+            t.append(f"{self.args}", style="#fbbf24")
+        elif self.tool == "write":
+            t.append(f"{ok} wrote ", style=ok_style)
+            t.append(f"{self.args}", style="#f5c542")
+        elif self.tool == "read":
+            t.append(f"{ok} read ", style=ok_style)
+            t.append(f"{self.args}", style="#f5c542")
+        elif self.tool == "edit":
+            t.append(f"{ok} edited ", style=ok_style)
+            t.append(f"{self.args}", style="#f5c542")
+        elif self.tool == "ls":
+            t.append(f"{ok} ls ", style=ok_style)
+            t.append(f"{self.args}", style="#f5c542")
+        elif self.tool == "git":
+            t.append(f"{ok} git ", style=ok_style)
+            t.append(f"{self.args}", style="#fbbf24")
         else:
-            result.append(f"  {ok} ", style=ok_style)
-            result.append(f"{self.tool} {self.args}\n", style="#888888")
-        return result
+            t.append(f"{ok} {self.tool} ", style=ok_style)
+            t.append(f"{self.args}", style="#888888")
+
+        # Expanded output
+        if self.expanded and self.result and self.result.strip():
+            t.append("\n")
+            out_style = "#f87171" if not self.success else "#555555"
+            lines = self.result.strip().split("\n")
+            for line in lines[:40]:
+                t.append(f"      {line}\n", style=out_style)
+            if len(lines) > 40:
+                t.append(f"      … {len(lines) - 40} more lines\n", style="#3a3a3a")
+
+        return t
 
 
 class LoadingIndicator(Static):
@@ -643,23 +618,42 @@ class CipherApp(App):
     #session-title { height: 1; color: #2a2a2a; padding: 0 0 0 2; }
 
     /* Chat */
-    #chat-container { height: 1fr; overflow-y: auto; padding: 1 0; }
+    #chat-container { height: 1fr; overflow-y: auto; padding: 1 0 2 0; }
     #status-bar { height: 1; color: #383838; padding: 0 0 0 2; }
 
-    /* Input area — taller, opencode-style hint row */
+    /* Input area */
     #input-area { height: 5; background: #080808; border-top: solid #131313; }
     #input-bar { height: 3; padding: 0 2; background: #080808; }
     #chat-input { width: 1fr; background: #080808; border: none; }
     #input-hint { height: 2; padding: 0 2; color: #2e2e2e; content-align: left middle; }
 
-    /* Messages */
-    .msg-user { margin: 1 2 0 2; padding: 0 1; color: #f5c542; border-left: solid #f5c542; background: #0b0b0b; }
-    .msg-assistant { margin: 0 2 1 2; padding: 0 1; color: #cccccc; border-left: solid #1e1e1e; background: #070707; }
-    .msg-plan { margin: 1 2; padding: 0 1; border-left: solid #3b5bdb; background: #070712; }
-    .msg-code { margin: 0 2; padding: 0 1; background: #06060a; }
-    .msg-tool { margin: 0 2; padding: 0; }
-    .msg-explanation { margin: 1 2; padding: 0 1; }
-    .msg-system { margin: 0 2; color: #383838; text-style: italic; padding: 0 2; }
+    /* Messages — generous spacing so nothing feels cramped */
+    .msg-user {
+        margin: 2 4 0 4;
+        padding: 1 2;
+        color: #f5c542;
+        border-left: solid #f5c542;
+        background: #0b0b0b;
+    }
+    .msg-assistant {
+        margin: 1 4 0 4;
+        padding: 1 2;
+        color: #d4d4d4;
+        border-left: solid #1e1e1e;
+        background: #070707;
+    }
+    .msg-plan { margin: 1 4; padding: 1 2; border-left: solid #3b5bdb; background: #070712; }
+    .msg-code { margin: 0 4; padding: 1 2; background: #06060a; }
+
+    /* Tool results — compact row, clickable, grouped under the assistant turn */
+    .msg-tool {
+        margin: 0 4 0 6;
+        padding: 0 1;
+    }
+    .msg-tool:hover { background: #0a0a0a; }
+
+    .msg-explanation { margin: 1 4; padding: 1 2; }
+    .msg-system { margin: 1 4; color: #303030; text-style: italic; padding: 0 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 1 4; color: #f5c542; }
     #app-layout > Container { height: 100%; }
@@ -748,7 +742,10 @@ Tool tags (use these to take real actions):
 
 When ALL work is verified complete: <done>one-line summary of what was done</done>
 
-Rules: no markdown code blocks, use relative paths, use <edit> for small changes to existing files.
+Extra rules:
+- No markdown code blocks, use relative paths, use <edit> for small changes to existing files.
+- GUI apps (tkinter, pygame, etc.) and servers launch automatically in the background — if the run result says "running in background", the window IS open. Do not run it again.
+- When a run result says "running in background", tell the user the app is open and what to do with it.
 """
 
     def _load_skills(self):
