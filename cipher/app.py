@@ -56,6 +56,25 @@ SLASH_COMMANDS = {
 }
 
 
+def _parse_edit_tag(m):
+    inner = m.group(2)
+    old_m = re.search(r'<old>(.*?)</old>', inner, re.DOTALL)
+    new_m = re.search(r'<new>(.*?)</new>', inner, re.DOTALL)
+    if old_m and new_m:
+        return {"type": "edit", "path": m.group(1), "args": m.group(1),
+                "body": json.dumps({"old": old_m.group(1), "new": new_m.group(1)})}
+    return None
+
+
+def _parse_git_tag(m):
+    cmd = (m.group(1) or "status").strip()
+    msg_m = re.search(r'message=["\'](.+?)["\']', cmd)
+    if msg_m:
+        cmd = re.sub(r'message=["\'].+?["\']', '', cmd).strip()
+        return {"type": "git", "path": "", "args": cmd, "body": msg_m.group(1)}
+    return {"type": "git", "path": "", "args": cmd, "body": ""}
+
+
 def detect_available_providers():
     available = []
     for pid, info in PROVIDERS.items():
@@ -1466,12 +1485,12 @@ Extra rules:
         (re.compile(r'<?write\s+path=["\'](.+?)["\']>(.*?)</write>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(2)}),
         (re.compile(r'<?read\s+path=["\'](.+?)["\'](?:\s+start=["\']?(\d+)["\']?)?(?:\s+end=["\']?(\d+)["\']?)?\s*/?\s*>', re.DOTALL), lambda m: {"type": "read", "path": m.group(1), "args": m.group(1), "body": json.dumps({"start": int(m.group(2)) if m.group(2) else None, "end": int(m.group(3)) if m.group(3) else None})}),
         (re.compile(r'<?ls>(.*?)</ls>', re.DOTALL), lambda m: {"type": "ls", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
-        (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), lambda m: self._parse_edit_body(m)),
+        (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), _parse_edit_tag),
         (re.compile(r'<grep(?:\s+pattern=["\'](.+?)["\'])?(?:\s+path=["\'](.*?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "grep", "path": m.group(2) or ".", "args": m.group(1) or "", "body": m.group(1) or ""}),
         (re.compile(r'<glob(?:\s+pattern=["\'](.+?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "glob", "path": "", "args": m.group(1) or "", "body": ""}),
         (re.compile(r'<web-fetch\s+url=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-fetch", "path": m.group(1), "args": m.group(1), "body": ""}),
         (re.compile(r'<web-search\s+query=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-search", "path": "", "args": m.group(1), "body": ""}),
-        (re.compile(r'<git(?:\s+([^>]*?))?\s*/?\s*>', re.DOTALL), lambda m: self._parse_git_body(m)),
+        (re.compile(r'<git(?:\s+([^>]*?))?\s*/?\s*>', re.DOTALL), _parse_git_tag),
         (re.compile(r'<todo\s+(.+?)\s*/?\s*>', re.DOTALL), lambda m: {"type": "todo", "path": "", "args": m.group(1).strip(), "body": ""}),
     ]
 
