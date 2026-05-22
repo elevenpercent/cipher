@@ -1412,8 +1412,13 @@ Rules:
 
             # Show any text the chat AI wrote before the <task> tag
             pre = self._clean_chat_ai_display(chat_buffer[:task_m.start()])
-            self.call_from_thread(self._stream_finalize, pre if pre else "")
-            self._stream_widget = None  # reset so coding phase doesn't pollute the chat message
+            _phase1_widget = self._stream_widget
+            self._stream_widget = None  # reset before Phase 2
+            if _phase1_widget is not None:
+                if pre:
+                    self.call_from_thread(_phase1_widget.update, pre)
+                else:
+                    self.call_from_thread(_phase1_widget.remove)
 
             coding_task = task_m.group(1).strip()
             self.call_from_thread(self._set_status, "Coding...")
