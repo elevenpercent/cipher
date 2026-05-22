@@ -185,7 +185,7 @@ class CodeBlock(Static):
         self.old_content = old_content
     def render(self):
         result = Text()
-        result.append(f"  {self.path}\n", style="bold #f5c542")
+        result.append(f"  {self.path}\n", style="bold #fab283")
         old_lines = self.old_content.split('\n') if self.old_content else []
         new_lines = self.content.split('\n') if self.content else []
         if not self.old_content:
@@ -268,30 +268,36 @@ class ToolResult(Static):
         # Arrow toggle indicator
         t.append(f"  {arrow} ", style="dim #3a3a3a")
 
-        # Icon + summary line
-        if self.tool in ("grep", "glob", "web-fetch", "web-search"):
-            t.append(f"◎ {self.tool} ", style="#60a5fa")
+        # Icon + summary line  (opencode icon set)
+        if self.tool in ("grep", "glob", "ls"):
+            t.append("✱ ", style="#60a5fa")
+            t.append(f"{self.tool} ", style="#555555")
+            t.append(f"{self.args}", style="#888888")
+        elif self.tool == "web-search":
+            t.append("◈ ", style="#60a5fa")
+            t.append(f"search ", style="#555555")
+            t.append(f"{self.args}", style="#888888")
+        elif self.tool == "web-fetch":
+            t.append(f"{ok} % ", style=ok_style)
             t.append(f"{self.args}", style="#888888")
         elif self.tool == "todo":
-            t.append(f"◎ todo ", style="#c084fc")
+            t.append("◈ ", style="#c084fc")
+            t.append(f"todo ", style="#555555")
             t.append(f"{self.args}", style="#888888")
         elif self.tool == "run":
             t.append(f"{ok} $ ", style=ok_style)
             t.append(f"{self.args}", style="#fbbf24")
         elif self.tool == "write":
-            t.append(f"{ok} wrote ", style=ok_style)
-            t.append(f"{self.args}", style="#f5c542")
+            t.append(f"{ok} ← ", style=ok_style)
+            t.append(f"{self.args}", style="#fab283")
         elif self.tool == "read":
-            t.append(f"{ok} read ", style=ok_style)
-            t.append(f"{self.args}", style="#f5c542")
+            t.append(f"{ok} → ", style=ok_style)
+            t.append(f"{self.args}", style="#fab283")
         elif self.tool == "edit":
-            t.append(f"{ok} edited ", style=ok_style)
-            t.append(f"{self.args}", style="#f5c542")
-        elif self.tool == "ls":
-            t.append(f"{ok} ls ", style=ok_style)
-            t.append(f"{self.args}", style="#f5c542")
+            t.append(f"{ok} ← ", style=ok_style)
+            t.append(f"{self.args}", style="#fab283")
         elif self.tool == "git":
-            t.append(f"{ok} git ", style=ok_style)
+            t.append(f"{ok} $ git ", style=ok_style)
             t.append(f"{self.args}", style="#fbbf24")
         else:
             t.append(f"{ok} {self.tool} ", style=ok_style)
@@ -351,7 +357,7 @@ class CommandPalette(ModalScreen):
         t = Text()
         for i, (k, v) in enumerate(self.filtered[:12]):
             prefix = " \u25b6 " if i == self.selected else "   "
-            t.append(f"{prefix}{k}", style="#f5c542" if i == self.selected else "#cccccc")
+            t.append(f"{prefix}{k}", style="#fab283" if i == self.selected else "#cccccc")
             t.append(f"  {v}\n", style="#888888" if i == self.selected else "#666666")
         results.update(t)
     def action_cursor_up(self):
@@ -367,7 +373,7 @@ class CommandPalette(ModalScreen):
             self.dismiss(None)
     CSS = """
     CommandPalette { align: center top; }
-    #palette-container { width: 56; margin-top: 5; background: #111111; border: tall #444444; padding: 1 2; }
+    #palette-container { width: 56; margin-top: 5; background: #141414; border: tall #2a2a2a; padding: 1 2; }
     #palette-input { margin-bottom: 1; }
     #palette-results { height: 24; padding: 0 0; }
     #palette-results Static { padding: 0 0; }
@@ -429,11 +435,11 @@ class SessionModal(ModalScreen):
             self.dismiss(None)
     CSS = """
     SessionModal { align: center middle; }
-    #session-panel { width: 72; max-height: 85%; background: #080808; border: tall #f5c542; padding: 1 2; }
-    #panel-title { color: #f5c542; text-style: bold; margin-bottom: 1; padding: 0 1; }
+    #session-panel { width: 72; max-height: 85%; background: #0e0e0e; border: tall #fab283; padding: 1 2; }
+    #panel-title { color: #fab283; text-style: bold; margin-bottom: 1; padding: 0 1; }
     #session-empty { color: #444444; padding: 1 2; }
     .sess-row { margin: 0; padding: 0 1; color: #666666; }
-    .sess-active { color: #f5c542; background: #0f0f0f; }
+    .sess-active { color: #fab283; background: #0f0f0f; }
     """
 
 
@@ -522,10 +528,10 @@ class SettingsModal(ModalScreen):
             self.dismiss(None)
     CSS = """
     SettingsModal { align: center middle; }
-    #settings-container { width: 58; max-height: 90%; background: #080808; border: tall #f5c542; padding: 1 2; }
+    #settings-container { width: 58; max-height: 90%; background: #0e0e0e; border: tall #fab283; padding: 1 2; }
     #settings-scroll { height: 1fr; overflow-y: auto; }
     #settings-footer { height: 3; margin-top: 1; }
-    #settings-title { text-align: center; text-style: bold; color: #f5c542; margin-bottom: 1; }
+    #settings-title { text-align: center; text-style: bold; color: #fab283; margin-bottom: 1; }
     .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #555555; }
     Checkbox { margin: 0 0 0 0; color: #aaaaaa; }
     Select { margin: 0 0 1 0; }
@@ -563,8 +569,8 @@ class YesNoModal(ModalScreen):
             self.action_no()
     CSS = """
     YesNoModal { align: center middle; }
-    #yn-panel { width: 52; background: #080808; border: tall #f5c542; padding: 1 2; }
-    #yn-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
+    #yn-panel { width: 52; background: #0e0e0e; border: tall #fab283; padding: 1 2; }
+    #yn-title { color: #fab283; text-style: bold; margin-bottom: 1; }
     #yn-tool { color: #aaaaaa; }
     #yn-args { color: #666666; margin-bottom: 1; }
     #yn-prompt { color: #888888; margin-bottom: 1; }
@@ -597,8 +603,8 @@ class QuestionScreen(ModalScreen):
         self.dismiss(self.answer)
     CSS = """
     QuestionScreen { align: center middle; }
-    #question-panel { width: 62; background: #080808; border: tall #f5c542; padding: 1 2; }
-    #question-title { color: #f5c542; text-style: bold; margin-bottom: 1; }
+    #question-panel { width: 62; background: #0e0e0e; border: tall #fab283; padding: 1 2; }
+    #question-title { color: #fab283; text-style: bold; margin-bottom: 1; }
     #question-text { color: #cccccc; margin-bottom: 1; }
     """
 
@@ -606,33 +612,32 @@ class QuestionScreen(ModalScreen):
 
 class CipherApp(App):
     CSS = """
-    Screen { background: #060606; }
+    Screen { background: #0a0a0a; }
     #app-layout { layout: horizontal; }
 
-    /* Sidebar — slimmer, quieter */
-    #sidebar { width: 22; dock: left; background: #080808; border-right: solid #131313; height: 100%; }
-    #sidebar-header { height: 2; padding: 0 0 0 1; content-align: left middle; }
-    #sidebar-header Label { color: #f5c542; text-style: bold; }
+    /* Sidebar — right side, opencode style */
+    #sidebar { width: 26; dock: right; background: #111111; border-left: solid #1c1c1c; height: 100%; }
+    #sidebar-header { height: 2; padding: 0 0 0 1; content-align: left middle; color: #fab283; text-style: bold; }
     #sidebar-status { height: 1; color: #444444; padding: 0 1; }
     #agent-tabs { height: 2; margin: 0; padding: 0 1; }
     #agent-tabs Label { padding: 0 1; color: #444444; }
-    #agent-tabs .agent-active { color: #f5c542; text-style: bold; }
+    #agent-tabs .agent-active { color: #fab283; text-style: bold; }
     #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0; }
     #sidebar-sessions Label { padding: 0 1; color: #3a3a3a; }
     #sidebar-sessions .sess-item { padding: 0 1; color: #484848; background: transparent; border: none; width: 100%; text-align: left; }
-    #sidebar-sessions .sess-item:hover { color: #f5c542; background: #0e0e0e; }
-    #sidebar-footer { height: 5; border-top: solid #131313; padding: 1 1; }
+    #sidebar-sessions .sess-item:hover { color: #fab283; background: #141414; }
+    #sidebar-footer { height: 5; border-top: solid #1c1c1c; padding: 1 1; }
     #sidebar-footer Label { color: #383838; }
     .sidebar-action { color: #444444; }
-    .sidebar-action:hover { color: #f5c542; }
+    .sidebar-action:hover { color: #fab283; }
 
     /* Main area */
     #main-area { width: 1fr; height: 100%; }
 
-    /* Header — minimal, no duplicate logo */
-    #header-bar { height: 2; background: #080808; border-bottom: solid #131313; }
-    #header-left { padding: 0 0 0 2; content-align: left middle; color: #f5c542; text-style: bold; }
-    #header-right { padding: 0 2 0 0; content-align: right middle; color: #383838; }
+    /* Header — minimal */
+    #header-bar { height: 2; background: #111111; border-bottom: solid #1c1c1c; }
+    #header-left { padding: 0 0 0 2; content-align: left middle; color: #fab283; text-style: bold; }
+    #header-right { padding: 0 2 0 0; content-align: right middle; color: #3a3a3a; }
     #header-center { width: 1fr; content-align: center middle; color: #505050; text-style: italic; }
     #session-title { height: 1; color: #2a2a2a; padding: 0 0 0 2; }
 
@@ -641,40 +646,40 @@ class CipherApp(App):
     #status-bar { height: 1; color: #383838; padding: 0 0 0 2; }
 
     /* Input area */
-    #input-area { height: 5; background: #080808; border-top: solid #131313; }
-    #input-bar { height: 3; padding: 0 2; background: #080808; }
-    #chat-input { width: 1fr; background: #080808; border: none; }
+    #input-area { height: 5; background: #111111; border-top: solid #1c1c1c; }
+    #input-bar { height: 3; padding: 0 2; background: #111111; }
+    #chat-input { width: 1fr; background: #111111; border: none; }
     #input-hint { height: 2; padding: 0 2; color: #2e2e2e; content-align: left middle; }
 
-    /* Messages — generous spacing so nothing feels cramped */
+    /* Messages */
     .msg-user {
         margin: 2 4 0 4;
         padding: 1 2;
-        color: #f5c542;
-        border-left: solid #f5c542;
-        background: #0b0b0b;
+        color: #fab283;
+        border-left: solid #fab283;
+        background: #0f0f0f;
     }
     .msg-assistant {
         margin: 1 4 0 4;
         padding: 1 2;
         color: #d4d4d4;
         border-left: solid #1e1e1e;
-        background: #070707;
+        background: #0c0c0c;
     }
-    .msg-plan { margin: 1 4; padding: 1 2; border-left: solid #3b5bdb; background: #070712; }
-    .msg-code { margin: 0 4; padding: 1 2; background: #06060a; }
+    .msg-plan { margin: 1 4; padding: 1 2; border-left: solid #3b5bdb; background: #0a0a12; }
+    .msg-code { margin: 0 4; padding: 1 2; background: #080810; }
 
-    /* Tool results — compact row, clickable, grouped under the assistant turn */
+    /* Tool results — compact row, clickable */
     .msg-tool {
         margin: 0 4 0 6;
         padding: 0 1;
     }
-    .msg-tool:hover { background: #0a0a0a; }
+    .msg-tool:hover { background: #111111; }
 
     .msg-explanation { margin: 1 4; padding: 1 2; }
-    .msg-system { margin: 1 4; color: #303030; text-style: italic; padding: 0 2; }
+    .msg-system { margin: 1 4; color: #333333; text-style: italic; padding: 0 2; }
     .cmd-block { margin: 1 0; padding: 0 1; }
-    .loading-msg { margin: 1 4; color: #f5c542; }
+    .loading-msg { margin: 1 4; color: #fab283; }
     #app-layout > Container { height: 100%; }
     """
 
@@ -893,7 +898,7 @@ Extra rules:
         container = self._get_chat()
         if container is None:
             return
-        msg = Static(f"\u2192 {text}", classes="msg-user")
+        msg = Static(f"\u2503 {text}", classes="msg-user")
         container.mount(msg)
         container.scroll_end()
 
@@ -1094,7 +1099,7 @@ Extra rules:
             w = self.query_one(f"#agent-{m}", Label)
             if m == self.agent_mode:
                 w.add_class("agent-active")
-                w.styles.color = "#f5c542"
+                w.styles.color = "#fab283"
             else:
                 w.remove_class("agent-active")
                 w.styles.color = "#444444"
