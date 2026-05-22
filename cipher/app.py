@@ -628,7 +628,7 @@ class CipherApp(App):
     #sidebar-sessions Label { padding: 0 1; color: #3a3a3a; }
     #sidebar-sessions .sess-item { padding: 0 1; color: #484848; background: transparent; border: none; width: 100%; text-align: left; height: 1; min-height: 1; }
     #sidebar-sessions .sess-item:hover { color: #fab283; background: #141414; }
-    #sidebar-footer { height: 6; border-top: solid #1c1c1c; padding: 1 1; }
+    #sidebar-footer { height: 4; border-top: solid #1c1c1c; padding: 1 1; }
     #sidebar-footer Label { color: #383838; margin-bottom: 0; }
     .sidebar-action { color: #444444; height: 1; min-height: 1; padding: 0 1; }
     .sidebar-action:hover { color: #fab283; }
@@ -859,7 +859,8 @@ Rules:
 
     def on_mount(self):
         self.query_one("#chat-input").focus()
-        self._add_system(f"{self.config.get('provider')}  {self.config.get('model')}  {self.project_root}")
+        _lbl = "Cipher AI" if self.config.get("provider") == "cipher-proxy" else f"{self.config.get('provider')}  {self.config.get('model')}"
+        self._add_system(f"{_lbl}  ·  {self.project_root}")
         if self.session_title:
             self.query_one("#header-center").update(self.session_title)
         self.run_worker(self._detect_providers_async, exclusive=False, thread=True)
@@ -903,10 +904,7 @@ Rules:
             self._add_system(f"Loaded {custom_count} custom tools")
 
     def _detect_providers_async(self):
-        available = detect_available_providers()
-        active = [p for p in available if p["available"]]
-        active_str = ", ".join([p["id"] for p in active]) if active else "none"
-        self.call_from_thread(self._add_system, f"Available: {active_str}")
+        detect_available_providers()  # run silently — no UI noise on startup
 
     def _set_status(self, text):
         try:
@@ -1080,8 +1078,9 @@ Rules:
                     self.config["provider"] = provider
                     self.config["model"] = model
                     self._refresh_api_key(provider)
-                    self.query_one("#header-right").update(f"{provider}  {model}")
-                    self._add_system(f"Provider: {provider} | Model: {model}")
+                    _hdr = "Cipher AI" if provider == "cipher-proxy" else f"{provider}  {model}"
+                    self.query_one("#header-right").update(_hdr)
+                    self._add_system(f"Switched to: {_hdr}")
                 theme = cfg.get("theme", "dark")
                 if self.config.get("theme") != theme:
                     self.config["theme"] = theme
@@ -1324,7 +1323,7 @@ Rules:
 
             self._add_user(user_input)
             self.chat_ai_messages.append({"role": "user", "content": user_input})
-            self.chat_ai_messages = self.chat_ai_messages[-30:]
+            self.chat_ai_messages = self.chat_ai_messages[-20:]
             save_session(self.session_id, self.chat_ai_messages, self.session_title)
 
             self.is_processing = True
@@ -1373,9 +1372,6 @@ Rules:
             def _chat_call(msgs):
                 if _is_proxy:
                     return self._ai_provider.chat_as_model(msgs, _CHAT_MODEL, stream=True)
-                return self._ai_provider.chat(msgs, stream=True)
-
-            def _code_call(msgs):
                 return self._ai_provider.chat(msgs, stream=True)
 
             # === PHASE 1: Chat AI decides what to do ===
@@ -1487,7 +1483,7 @@ Rules:
             self.call_from_thread(self._set_status, "Summarizing...")
             self._stream_widget = None
 
-            result_note = f"Task complete. {coding_summary}" if not had_error else f"There was an error: {coding_summary[:400]}"
+            result_note = f"Task complete. {coding_summary[:300]}" if not had_error else f"There was an error: {coding_summary[:300]}"
             self.chat_ai_messages.append({
                 "role": "user",
                 "content": f"Coding result: {result_note}\nGive the user a friendly 1-2 sentence summary."
@@ -1583,6 +1579,9 @@ Rules:
                             tool_error = True
                 combined = "\n".join(results)
                 self.coding_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
+                # Keep coding context lean: system + task + last 8 turn pairs
+                if len(self.coding_messages) > 20:
+                    self.coding_messages = self.coding_messages[:2] + self.coding_messages[-18:]
                 if tool_error and done_m:
                     return f"Tool error: {combined[:300]}", True
                 continue
