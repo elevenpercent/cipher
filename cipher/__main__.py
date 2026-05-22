@@ -241,7 +241,7 @@ def main():
         elif args[i] == "--setup":
             first_run = True; i += 1
         elif args[i] in ("--version", "-v"):
-            print("cip v0.4.0")
+            print("cip v0.6.0")
             return
         elif args[i] in ("--help", "-h"):
             print("Usage: cip [--setup] [--provider PROVIDER] [--model MODEL] [--api-key KEY] [--dir PATH]")
