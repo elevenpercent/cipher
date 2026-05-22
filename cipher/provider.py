@@ -315,15 +315,23 @@ class AIProvider:
                 full_text += delta
                 yield {"content": delta, "full": full_text}
 
+    def chat_as_model(self, messages, model_id, stream=True):
+        """Call the proxy with a specific model override (for smart phase switching)."""
+        if not PROVIDERS.get(self.provider_id, {}).get("proxy"):
+            return self.chat(messages, stream)
+        if not stream:
+            return self._proxy_chat_sync(messages, model_override=model_id)
+        return self._proxy_chat_stream(messages, model_override=model_id)
+
     def _proxy_chat(self, messages, stream=True):
         if not stream:
             return self._proxy_chat_sync(messages)
         return self._proxy_chat_stream(messages)
 
-    def _proxy_chat_sync(self, messages):
+    def _proxy_chat_sync(self, messages, model_override=None):
         url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
         payload = json.dumps({
-            "model": self.model_id,
+            "model": model_override or self.model_id,
             "messages": messages,
             "stream": False,
             "temperature": 0.15,
@@ -350,10 +358,10 @@ class AIProvider:
                 return f"Proxy error: {e}"
         return "Rate limited — too many requests. Wait 30 seconds and try again."
 
-    def _proxy_chat_stream(self, messages):
+    def _proxy_chat_stream(self, messages, model_override=None):
         url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
         payload = json.dumps({
-            "model": self.model_id,
+            "model": model_override or self.model_id,
             "messages": messages,
             "stream": True,
             "temperature": 0.15,

@@ -39,18 +39,27 @@ class RunTool(Tool):
     def execute(self, args, body, project_root, context=None):
         cmd = args.strip()
         try:
-            proc = subprocess.Popen(
-                cmd, shell=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                text=True, cwd=project_root
-            )
+            if sys.platform == "win32":
+                # Normalize && to ; for PowerShell 5.x compatibility
+                cmd = cmd.replace(" && ", "; ").replace("&&", "; ")
+                proc = subprocess.Popen(
+                    ["powershell", "-NoProfile", "-NonInteractive",
+                     "-ExecutionPolicy", "Bypass", "-Command", cmd],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, cwd=project_root
+                )
+            else:
+                proc = subprocess.Popen(
+                    cmd, shell=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, cwd=project_root
+                )
             try:
-                out, err = proc.communicate(timeout=10)
+                out, err = proc.communicate(timeout=15)
                 success = proc.returncode == 0
                 result = (out or err or "(ok)").rstrip()
                 return {"result": result[:2000], "success": success, "exit_code": proc.returncode}
             except subprocess.TimeoutExpired:
-                # Still running after 10s — GUI app or long-running server, detach it
                 proc.stdout.close()
                 proc.stderr.close()
                 return {"result": "Process launched (running in background)", "success": True, "exit_code": 0}

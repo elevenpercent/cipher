@@ -747,6 +747,10 @@ class CipherApp(App):
             for ct in ctools:
                 lines.append(f"<{ct['name']}>args</{ct['name']}> - {ct.get('description', ct['name'])}")
             custom_text = "\n" + "\n".join(lines)
+        import sys as _sys
+        platform_hint = ""
+        if _sys.platform == "win32":
+            platform_hint = "\n- WINDOWS: <run> uses PowerShell. Use semicolons (;) not && to chain commands. To open files/URLs: <run>Start-Process 'index.html'</run> or <run>Start-Process 'https://example.com'</run>. To open apps: <run>Start-Process 'notepad'</run>. Normal commands (python, npm, node, pip) work as-is."
         return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{skills_text}
 
 RULES — follow exactly:
@@ -784,7 +788,7 @@ CRITICAL FORMAT RULES:
 Extra rules:
 - GUI apps (tkinter, pygame) launch in background automatically — "running in background" means it IS open.
 - When a run result says "running in background", tell the user the app is open.
-- When the user says "open" a file, use <open path="file"> to open it in the default app (Notepad/VS Code on Windows). Do NOT write new code — just open the existing file.
+- When the user says "open" a file, use <open path="file"> to open it in the default app. Do NOT write new code — just open the existing file.{platform_hint}
 - ONLY use the tools required for the task. Do NOT run git, ls, glob, todo, grep, or web tools unless the user explicitly asks. Doing extra unnecessary work wastes time and API calls.
 - Do NOT create extra files (like main.py, utils.py, etc.) unless the user explicitly asks for them.
 - When the task is complete, output <done> immediately. Do not keep adding features or verifying things that weren't asked for.
@@ -834,14 +838,15 @@ Rules:
                 yield Static("sessions", classes="settings-section")
                 yield VerticalScroll(id="sidebar-sessions")
                 with Vertical(id="sidebar-footer"):
-                    yield Label(self.config['provider'], id="sidebar-provider")
-                    yield Label(self.config['model'], id="sidebar-model")
+                    _sidebar_model = "Cipher AI" if self.config.get("provider") == "cipher-proxy" else self.config['model']
+                    yield Label(_sidebar_model, id="sidebar-provider")
                     yield Label("0 tokens", id="sidebar-tokens")
             with Vertical(id="main-area"):
                 with Horizontal(id="header-bar"):
                     yield Label("CIPHER", id="header-left")
                     yield Label(self.session_title or "", id="header-center")
-                    yield Label(f"{self.config['provider']}  {self.config['model']}", id="header-right")
+                    _hdr_model = "Cipher AI" if self.config.get("provider") == "cipher-proxy" else f"{self.config['provider']}  {self.config['model']}"
+                    yield Label(_hdr_model, id="header-right")
                 yield Static("", id="status-bar")
                 yield VerticalScroll(id="chat-container")
                 with Vertical(id="input-area"):
@@ -1360,9 +1365,22 @@ Rules:
                 self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key,
                                                proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
 
+            # Smart model routing for cipher-proxy: Gemini for chat, Llama 70B for coding
+            _is_proxy = (pid == "cipher-proxy")
+            _CHAT_MODEL = "gemini-2.0-flash"
+            _CODE_MODEL = "llama-3.3-70b"
+
+            def _chat_call(msgs):
+                if _is_proxy:
+                    return self._ai_provider.chat_as_model(msgs, _CHAT_MODEL, stream=True)
+                return self._ai_provider.chat(msgs, stream=True)
+
+            def _code_call(msgs):
+                return self._ai_provider.chat(msgs, stream=True)
+
             # === PHASE 1: Chat AI decides what to do ===
             chat_buffer = ""
-            for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+            for chunk in _chat_call(self.chat_ai_messages):
                 token = chunk.get("content", "")
                 if not token:
                     continue
@@ -1453,7 +1471,7 @@ Rules:
                     "content": f"The coding agent hit an error: {coding_summary[:500]}\nIf this is a real error that needs fixing, output <fix>specific fix instruction</fix>. Otherwise say it's fine."
                 })
                 fix_buffer = ""
-                for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+                for chunk in _chat_call(self.chat_ai_messages):
                     fix_buffer += chunk.get("content", "")
                 self.chat_ai_messages.append({"role": "assistant", "content": fix_buffer})
 
@@ -1476,7 +1494,7 @@ Rules:
             })
 
             summary_buffer = ""
-            for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+            for chunk in _chat_call(self.chat_ai_messages):
                 token = chunk.get("content", "")
                 summary_buffer += token
                 self._update_stream(self._clean_chat_ai_display(summary_buffer))
@@ -1508,11 +1526,19 @@ Rules:
 
     def _run_coding_loop(self):
         """Run the coding AI for one task. Returns (summary, had_error)."""
+        pid = self.config.get("provider", "cipher-proxy")
+        _is_proxy = (pid == "cipher-proxy")
+
+        def _code_stream(msgs):
+            if _is_proxy:
+                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
+            return self._ai_provider.chat(msgs, stream=True)
+
         max_turns = 12
         for turn in range(max_turns):
             turn_buffer = ""
             try:
-                for chunk in self._ai_provider.chat(self.coding_messages, stream=True):
+                for chunk in _code_stream(self.coding_messages):
                     turn_buffer += chunk.get("content", "")
             except Exception as e:
                 return str(e), True
@@ -1730,8 +1756,7 @@ Rules:
         if tool_name == "run":
             self._add_tool_safe(tool_name, args, tool_result_text[:500], success)
         elif tool_name == "write":
-            lines = body.count("\n") + 1 if body else 0
-            self._add_tool_safe(tool_name, args, f"{lines} lines written", success)
+            self._add_tool_safe(tool_name, args, (body or "").strip()[:2000], success)
         elif tool_name == "read":
             self._add_code_safe(f"{args.strip()}", tool_result_text)
         elif tool_name == "ls":
