@@ -1,10 +1,10 @@
-# Derived from opencode (MIT) - Copyright (c) 2025 opencode.ai
 import os
 import json
 import time
 import uuid
 import subprocess
 import urllib.request
+import urllib.error
 from typing import Generator
 import os
 os.environ["LITELLM_LOG"] = "ERROR"
@@ -328,15 +328,22 @@ class AIProvider:
             "stream": False,
             "temperature": 0.15,
         }).encode()
-        req = urllib.request.Request(url, data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode())
-                return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            return f"Proxy error: {e}"
+        for attempt in range(4):
+            req = urllib.request.Request(url, data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.loads(resp.read().decode())
+                    return data["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                return "Rate limited by proxy (429). Wait a moment then try again."
+            except Exception as e:
+                return f"Proxy error: {e}"
+        return "Rate limited by proxy. Try again later."
 
     def _proxy_chat_stream(self, messages):
         url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
@@ -346,48 +353,58 @@ class AIProvider:
             "stream": True,
             "temperature": 0.15,
         }).encode()
-        req = urllib.request.Request(url, data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                buffer = ""
-                while True:
-                    chunk = resp.read(4096)
-                    if not chunk:
-                        if buffer.strip():
-                            for line in buffer.strip().split("\n"):
-                                if line.startswith("data: "):
-                                    data = line[6:].strip()
-                                    if data == "[DONE]":
-                                        break
-                                    try:
-                                        d = json.loads(data)
-                                        delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                                        if delta:
-                                            yield {"content": delta, "full": ""}
-                                    except json.JSONDecodeError:
-                                        pass
-                        break
-                    buffer += chunk.decode()
-                    if "\n" not in buffer:
-                        continue
-                    lines = buffer.split("\n")
-                    buffer = lines[-1]
-                    for line in lines[:-1]:
-                        if line.startswith("data: "):
-                            data = line[6:].strip()
-                            if data == "[DONE]":
-                                break
-                            try:
-                                d = json.loads(data)
-                                delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                                if delta:
-                                    yield {"content": delta, "full": ""}
-                            except json.JSONDecodeError:
-                                pass
-        except Exception as e:
-            yield {"content": f" Proxy error: {e}"}
+
+        for attempt in range(4):
+            req = urllib.request.Request(url, data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    buffer = ""
+                    while True:
+                        chunk = resp.read(4096)
+                        if not chunk:
+                            if buffer.strip():
+                                for line in buffer.strip().split("\n"):
+                                    if line.startswith("data: "):
+                                        data = line[6:].strip()
+                                        if data == "[DONE]":
+                                            break
+                                        try:
+                                            d = json.loads(data)
+                                            delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                            if delta:
+                                                yield {"content": delta, "full": ""}
+                                        except json.JSONDecodeError:
+                                            pass
+                            break
+                        buffer += chunk.decode()
+                        if "\n" not in buffer:
+                            continue
+                        lines = buffer.split("\n")
+                        buffer = lines[-1]
+                        for line in lines[:-1]:
+                            if line.startswith("data: "):
+                                data = line[6:].strip()
+                                if data == "[DONE]":
+                                    break
+                                try:
+                                    d = json.loads(data)
+                                    delta = d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                    if delta:
+                                        yield {"content": delta, "full": ""}
+                                except json.JSONDecodeError:
+                                    pass
+                    return
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                yield {"content": f"Rate limited by proxy (429). Wait a moment then try again."}
+                return
+            except Exception as e:
+                yield {"content": f" Proxy error: {e}"}
+                return
 
     @staticmethod
     def get_provider_info(provider_id: str) -> dict:

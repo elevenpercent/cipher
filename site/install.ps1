@@ -33,25 +33,30 @@ Write-Host "Found: " -NoNewline -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "Installing cipher..." -ForegroundColor Cyan
-& $PYTHON -m pip install git+https://github.com/elevenpercent/cipher.git@master --quiet
+& $PYTHON -m pip install --upgrade --no-cache-dir git+https://github.com/elevenpercent/cipher.git@master --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Install failed. Try running PowerShell as Administrator." -ForegroundColor Red
     exit 1
 }
-Write-Host "Installed: cipher v0.5.0" -ForegroundColor Green
+Write-Host "Installed: cipher v0.6.0" -ForegroundColor Green
 
-# Check cip is on PATH
-$cip = Get-Command cip -ErrorAction SilentlyContinue
-if (-not $cip) {
+# Auto-add Python Scripts dir to user PATH so 'cip' works from anywhere
+$scripts = & $PYTHON -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+$userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+if (-not $userPath) { $userPath = "" }
+
+if ($userPath -notlike "*$scripts*") {
+    $newPath = if ($userPath) { "$userPath;$scripts" } else { $scripts }
+    [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
     Write-Host ""
-    Write-Host "NOTE: 'cip' not on PATH. Add your Python Scripts folder:" -ForegroundColor Yellow
-    $scripts = & $PYTHON -c "import sysconfig; print(sysconfig.get_path('scripts'))"
-    Write-Host "  $scripts" -ForegroundColor DarkGray
-    Write-Host "Then restart your terminal." -ForegroundColor DarkGray
+    Write-Host "Added to PATH: $scripts" -ForegroundColor Green
+    Write-Host "NOTE: Restart your terminal, then run 'cip' anywhere." -ForegroundColor Yellow
+} else {
+    Write-Host "PATH already includes Python Scripts — 'cip' should work anywhere." -ForegroundColor DarkGray
 }
 
 Write-Host ""
-Write-Host "Done! Run:" -ForegroundColor Green
+Write-Host "Done! Open a new terminal, then run:" -ForegroundColor Green
 Write-Host "  cd your-project" -ForegroundColor DarkGray
 Write-Host "  cip" -ForegroundColor DarkGray
 Write-Host ""

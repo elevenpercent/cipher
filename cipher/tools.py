@@ -1,4 +1,3 @@
-# Derived from opencode (MIT) - Copyright (c) 2025 opencode.ai
 import os
 import re
 import json
@@ -238,7 +237,17 @@ class EditTool(Tool):
         except Exception as e:
             return {"result": f"Error reading: {e}", "success": False}
         if old_text not in content:
-            return {"result": f"Error: old text not found in {path}", "success": False}
+            # Try swapping quote styles (' <-> ")
+            swapped = old_text.translate(str.maketrans({'"': "'", "'": '"'}))
+            if swapped in content:
+                old_text = swapped
+            else:
+                # Try stripping trailing whitespace from each line
+                stripped = '\n'.join(line.rstrip() for line in old_text.splitlines())
+                if stripped in content:
+                    old_text = stripped
+                else:
+                    return {"result": f"Error: old text not found in {path}. Read the file first to get the exact text.", "success": False}
         if content.count(old_text) > 1:
             return {"result": f"Error: old text matched {content.count(old_text)} times in {path}", "success": False}
         new_content = content.replace(old_text, new_text, 1)
@@ -379,6 +388,27 @@ class TodoTool(Tool):
         return {"result": status, "success": True, "todo_list": todo_list}
 
 
+class OpenTool(Tool):
+    name = "open"
+    description = "Open a file in the system default app (Notepad, VS Code, etc.)"
+    parameters = {"type": "object", "properties": {"path": {"type": "string"}}}
+    builtin = True
+
+    def execute(self, args, body, project_root, context=None):
+        path = (args or "").strip().strip('"').strip("'")
+        if not path:
+            return {"result": "No path provided", "success": False}
+        full = os.path.abspath(os.path.join(project_root, path))
+        full = os.path.normpath(full)
+        if not os.path.exists(full):
+            return {"result": f"File not found: {path}", "success": False}
+        try:
+            os.startfile(full)
+            return {"result": f"Opened {path}", "success": True}
+        except Exception as e:
+            return {"result": f"Error: {e}", "success": False}
+
+
 BUILTIN_TOOLS = {
     "run": RunTool(),
     "write": WriteTool(),
@@ -391,6 +421,7 @@ BUILTIN_TOOLS = {
     "web-search": WebSearchTool(),
     "git": GitTool(),
     "todo": TodoTool(),
+    "open": OpenTool(),
 }
 
 

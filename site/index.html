@@ -134,7 +134,7 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
   </div>
   <div class="terminal">
     <div class="term-dots"><div class="term-dot"></div><div class="term-dot"></div><div class="term-dot"></div></div>
-    <div><span style="color:#28c840">✓</span> <span style="color:#666">$ pip install cipher-agent</span></div>
+    <div><span style="color:#28c840">✓</span> <span style="color:#666">$ pip install --upgrade git+https://github.com/elevenpercent/cipher.git@master</span></div>
     <div><span style="color:#28c840">✓</span> <span style="color:#666">$ cd your-project && cip</span></div>
     <div><span style="color:var(--gold)">→</span> <span style="color:#666">Cipher ready. Provider: cipher-proxy | Model: llama-3.3-70b</span></div>
     <div><span style="color:var(--gold)">→</span> <span style="color:#666">Build a REST API for todo list</span></div>
@@ -198,7 +198,7 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     <div class="step-card">
       <div class="step-num">1</div>
       <h3>Install</h3>
-      <p><code>pip install cipher-agent</code> — one command, any OS. Python 3.10+ required.</p>
+      <p><code>pip install --upgrade git+https://github.com/elevenpercent/cipher.git@master</code> or run the one-liner installer above. Python 3.10+ required.</p>
     </div>
     <div class="step-card">
       <div class="step-num">2</div>
@@ -222,7 +222,7 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     <div class="install-box rec">
       <h3>pip (recommended)</h3>
       <p>Works everywhere — Windows, macOS, Linux.</p>
-        <div class="install-code" role="button" tabindex="0">pip install git+https://github.com/elevenpercent/cipher.git@master</div>
+        <div class="install-code" role="button" tabindex="0">pip install --upgrade git+https://github.com/elevenpercent/cipher.git@master</div>
     </div>
     <div class="install-box">
       <h3>npm</h3>
@@ -231,7 +231,7 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     </div>
     <div class="install-box">
       <h3>Windows (PowerShell)</h3>
-      <p>One-liner — downloads and installs.</p>
+      <p>One-liner — installs and fixes PATH automatically.</p>
       <div class="install-code" role="button" tabindex="0">powershell -c "irm https://cipher.elevenpct.com/install.ps1 | iex"</div>
     </div>
     <div class="install-box">
@@ -241,6 +241,25 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     </div>
   </div>
   <p class="install-note">After installing, run <code style="color:var(--gold)">cip</code> in your project directory. The setup screen will appear on first launch.</p>
+
+  <div style="margin-top:3rem">
+    <div class="s-hdr">
+      <h2>Uninstall</h2>
+      <p>Completely removes Cipher and all saved sessions/config.</p>
+    </div>
+    <div class="install-grid" style="max-width:600px;margin:0 auto">
+      <div class="install-box">
+        <h3>Windows (PowerShell)</h3>
+        <p>Removes package and config directory.</p>
+        <div class="install-code" role="button" tabindex="0">pip uninstall cipher-agent -y; Remove-Item -Recurse -Force "$env:USERPROFILE\.cipher" -ErrorAction SilentlyContinue</div>
+      </div>
+      <div class="install-box">
+        <h3>macOS / Linux</h3>
+        <p>Removes package and config directory.</p>
+        <div class="install-code" role="button" tabindex="0">pip uninstall cipher-agent -y && rm -rf ~/.cipher</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section>
@@ -309,7 +328,7 @@ footer{border-top:1px solid var(--border);padding:3rem 2rem 2rem;max-width:1100p
     </div>
   </div>
   <div class="footer-bottom">
-    <p>MIT License — Cipher v0.5.0</p>
+    <p>MIT License — Cipher v0.6.0</p>
     <p><a href="https://cipher.elevenpct.com" style="color:var(--gold-dim);text-decoration:none">cipher.elevenpct.com</a></p>
   </div>
 </footer>

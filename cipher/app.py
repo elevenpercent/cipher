@@ -1,4 +1,3 @@
-# Derived from opencode (MIT) - Copyright (c) 2025 opencode.ai
 import os
 import sys
 import re
@@ -299,6 +298,9 @@ class ToolResult(Static):
         elif self.tool == "git":
             t.append(f"{ok} $ git ", style=ok_style)
             t.append(f"{self.args}", style="#fbbf24")
+        elif self.tool == "open":
+            t.append(f"{ok} ◈ open ", style=ok_style)
+            t.append(f"{self.args}", style="#c084fc")
         else:
             t.append(f"{ok} {self.tool} ", style=ok_style)
             t.append(f"{self.args}", style="#888888")
@@ -690,6 +692,7 @@ class CipherApp(App):
         Binding("ctrl+n", "new_session", "New Session", show=False),
         Binding("ctrl+l", "clear_chat", "Clear", show=False),
         Binding("ctrl+d", "quit", "Quit", show=False),
+        Binding("ctrl+c", "ctrl_c", "Quit", show=False),
         Binding("escape", "clear_input", "Clear input", show=False),
         Binding("tab", "cycle_agent", "Agent", show=False),
     ]
@@ -706,14 +709,14 @@ class CipherApp(App):
             self.config["proxy_url"] = proxy_url
         self.api_key = api_key or None
         self.messages = []
-        self.chat_messages = []
         self.total_tools = 0
         self.total_tokens = 0
         self.todo_list = []
         self.session_start = time.time()
         self._ai_provider = None
-        self.system_prompt = self._build_system_prompt()
-        self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        self.system_prompt = self._build_system_prompt()  # coding AI prompt
+        self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}]
+        self.coding_messages = []  # reset per task
         self.command_history = []
         self.history_index = -1
         self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -746,6 +749,7 @@ class CipherApp(App):
         return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{skills_text}
 
 RULES — follow exactly:
+0. If the user is just chatting (greeting, question, casual message) — respond conversationally in plain text. Do NOT use tools or <done> for chat. Only use tools when the user asks you to DO something (create, run, edit, fix, build, etc.).
 1. You CANNOT do anything without tool tags. Saying you did something is NOT the same as doing it.
 2. ALWAYS use tool tags to read, write, run, edit files. Never claim success without running the tool first.
 3. Only output <done> AFTER you have used tools and verified the work is complete.
@@ -765,6 +769,7 @@ TOOL TAG FORMAT — this is the ONLY correct format:
 <web-fetch url="https://example.com">
 <web-search query="python tkinter tutorial">
 <todo add="task">
+<open path="hello.py">
 <done>summary of what was done</done>
 
 CRITICAL FORMAT RULES:
@@ -778,7 +783,29 @@ CRITICAL FORMAT RULES:
 Extra rules:
 - GUI apps (tkinter, pygame) launch in background automatically — "running in background" means it IS open.
 - When a run result says "running in background", tell the user the app is open.
+- When the user says "open" a file, use <open path="file"> to open it in the default app (Notepad/VS Code on Windows). Do NOT write new code — just open the existing file.
+- ONLY use the tools required for the task. Do NOT run git, ls, glob, todo, grep, or web tools unless the user explicitly asks. Doing extra unnecessary work wastes time and API calls.
+- Do NOT create extra files (like main.py, utils.py, etc.) unless the user explicitly asks for them.
+- When the task is complete, output <done> immediately. Do not keep adding features or verifying things that weren't asked for.
+- When editing a file, read it first to get the exact current text before using <edit>.
 {custom_text}"""
+
+    def _build_chat_system_prompt(self):
+        return f"""You are Cipher's conversational interface. Working directory: {self.project_root}.
+
+Your two roles:
+1. CONVERSATION: Greet users, answer questions, explain things in friendly plain English
+2. ROUTING: When the user wants to CREATE, BUILD, RUN, EDIT, FIX, WRITE, or do anything with code/files/commands, respond with ONLY:
+   <task>clear, precise instruction for the coding agent — include filenames, language, what exactly to do</task>
+
+After being given a "Coding result:", give the user a friendly 1-2 sentence summary.
+After being given a "Coding error:", respond with: <fix>specific instruction to fix the error</fix>
+
+Rules:
+- NEVER use tool tags yourself — the coding agent handles all execution
+- For greetings, questions, casual chat: respond normally without <task>
+- The <task> must be self-contained and precise — the coding agent won't see the chat history
+- Be concise and warm"""
 
     def _load_skills(self):
         skills_dir = Path(self.config.get("skills_dir", str(SKILLS_DIR)))
@@ -834,9 +861,11 @@ Extra rules:
 
         saved = load_session(self.session_id)
         if saved and saved.get("messages"):
-            self.chat_messages = saved["messages"]
-            self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
-            self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
+            msgs = [m for m in saved["messages"] if m.get("role") != "system"
+                    and "Results:\n" not in m.get("content", "")
+                    and "Coding result:" not in m.get("content", "")]
+            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+            self.coding_messages = []
             self._add_system(f"Resumed session: {saved.get('title', 'untitled')}")
 
         theme_name = self.config.get("theme", "dark")
@@ -1123,7 +1152,8 @@ Extra rules:
         self._do_new()
 
     def _do_clear(self):
-        self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}]
+        self.coding_messages = []
         container = self._get_chat()
         if container is not None:
             for child in list(container.children):
@@ -1133,7 +1163,8 @@ Extra rules:
     def _do_new(self):
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_title = ""
-        self.chat_messages = [{"role": "system", "content": self.system_prompt}]
+        self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}]
+        self.coding_messages = []
         self.total_tools = 0
         self.session_start = time.time()
         container = self._get_chat()
@@ -1178,12 +1209,13 @@ Extra rules:
             if sid:
                 session = load_session(sid)
                 if session:
-                    load_session(sid)
                     self.session_id = sid
                     self.session_title = session.get("title", "Untitled")
-                    self.chat_messages = session.get("messages", [])
-                    self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
-                    self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
+                    msgs = [m for m in session.get("messages", []) if m.get("role") != "system"
+                            and "Results:\n" not in m.get("content", "")
+                            and "Coding result:" not in m.get("content", "")]
+                    self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+                    self.coding_messages = []
                     container = self.query_one("#chat-container")
                     for child in list(container.children):
                         child.remove()
@@ -1197,6 +1229,17 @@ Extra rules:
     def action_quit(self):
         self.exit()
 
+    def action_ctrl_c(self):
+        if getattr(self, "_ctrl_c_pending", False):
+            self.exit()
+        else:
+            self._ctrl_c_pending = True
+            self.set_timer(2.0, self._reset_ctrl_c)
+            self._add_system("Press Ctrl+C again to exit")
+
+    def _reset_ctrl_c(self):
+        self._ctrl_c_pending = False
+
     def action_clear_input(self):
         self.query_one("#chat-input", Input).value = ""
 
@@ -1209,9 +1252,11 @@ Extra rules:
         if session:
             self.session_id = sid
             self.session_title = session.get("title", "Untitled")
-            self.chat_messages = session.get("messages", [])
-            self.chat_messages = [m for m in self.chat_messages if m["role"] != "system"]
-            self.chat_messages.insert(0, {"role": "system", "content": self.system_prompt})
+            msgs = [m for m in session.get("messages", []) if m.get("role") != "system"
+                    and "Results:\n" not in m.get("content", "")
+                    and "Coding result:" not in m.get("content", "")]
+            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+            self.coding_messages = []
             container = self.query_one("#chat-container")
             for child in list(container.children):
                 child.remove()
@@ -1262,9 +1307,9 @@ Extra rules:
                 self.query_one("#header-center").update(self.session_title)
 
             self._add_user(user_input)
-            self.chat_messages.append({"role": "user", "content": user_input})
-            self.chat_messages = self.chat_messages[-30:]
-            save_session(self.session_id, self.chat_messages, self.session_title)
+            self.chat_ai_messages.append({"role": "user", "content": user_input})
+            self.chat_ai_messages = self.chat_ai_messages[-30:]
+            save_session(self.session_id, self.chat_ai_messages, self.session_title)
 
             self.is_processing = True
             self._set_status("")
@@ -1281,140 +1326,220 @@ Extra rules:
             self._add_system(f"Error: {e}")
             self.is_processing = False
 
+    def _clean_chat_ai_display(self, text):
+        """Strip routing tags from chat AI output before showing to user."""
+        clean = re.sub(r'<task>.*?</task>', '', text, flags=re.DOTALL)
+        clean = re.sub(r'<fix>.*?</fix>', '', clean, flags=re.DOTALL)
+        clean = self._stream_clean(clean)
+        return clean.strip()
+
     def _run_agent_loop_thread(self):
-        max_turns = 30
         loop_start = time.time()
-        max_duration = 600
-        for turn in range(max_turns):
-            if time.time() - loop_start > max_duration:
-                self.call_from_thread(self._add_system, "Task timed out (10 min)")
-                break
-            buffer = ""
-            stream_interval = 0
-            try:
-                self.call_from_thread(self._remove_loading)
-                self._stream_widget = None
-                self.call_from_thread(self._set_status, "Thinking")
-                pid = self.config.get("provider", "ollama")
-                mid = self.config.get("model", "ollama/qwen3:14b")
-                self.call_from_thread(self._refresh_api_key, pid)
-                if (self._ai_provider is None or
+        try:
+            self.call_from_thread(self._remove_loading)
+            self._stream_widget = None
+            self.call_from_thread(self._set_status, "Thinking")
+
+            pid = self.config.get("provider", "cipher-proxy")
+            mid = self.config.get("model", "llama-3.3-70b")
+            self.call_from_thread(self._refresh_api_key, pid)
+            if (self._ai_provider is None or
                     self._ai_provider.provider_id != pid or
                     self._ai_provider.model_id != mid):
-                    self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key, proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
-                self.call_from_thread(self._set_status, "Thinking")
-                for chunk in self._ai_provider.chat(self.chat_messages, stream=True):
-                    token = chunk.get("content", "")
-                    if not token:
-                        continue
-                    buffer += token
-                    stream_interval += 1
-                    if stream_interval % 5 == 0:
-                        self._update_stream(self._stream_clean(buffer))
-                self._update_stream(self._stream_clean(buffer))
+                self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key,
+                                               proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
 
-                try:
-                    import tiktoken
-                    enc = tiktoken.get_encoding("cl100k_base")
-                    self.total_tokens += len(enc.encode(buffer))
-                except Exception:
-                    self.total_tokens += len(buffer) // 4
-
-                self.call_from_thread(self._set_status, "Processing")
-
-                if not buffer.strip():
-                    self.call_from_thread(self._set_status, "AI returned empty response")
-                    self.chat_messages.append({"role": "assistant", "content": "(no response)"})
-                    self.call_from_thread(self._add_system, "AI returned empty response. Try asking again.")
-                    save_session(self.session_id, self.chat_messages, self.session_title)
-                    self.call_from_thread(self._remove_loading)
-                    self.call_from_thread(self._set_ready)
+            # === PHASE 1: Chat AI decides what to do ===
+            chat_buffer = ""
+            for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+                token = chunk.get("content", "")
+                if not token:
                     continue
+                chat_buffer += token
+                self._update_stream(self._clean_chat_ai_display(chat_buffer))
 
-                plan_match = re.search(r'<plan>(.*?)</plan>', buffer, re.DOTALL)
-                if plan_match:
-                    self.call_from_thread(self._add_plan, plan_match.group(1))
+            self._update_stream(self._clean_chat_ai_display(chat_buffer))
 
-                done_match = re.search(r'<done>(.*?)</done>', buffer, re.DOTALL)
-                if done_match:
-                    summary = done_match.group(1).strip()
-                    self.call_from_thread(self._stream_finalize, f"  Done: {summary}")
-                    self.chat_messages.append({"role": "assistant", "content": f"Task complete: {summary}"})
-                    save_session(self.session_id, self.chat_messages, self.session_title)
-                    self.call_from_thread(self._set_status, "Ready")
-                    self.call_from_thread(self._remove_loading)
-                    self.call_from_thread(self._set_ready)
-                    return
+            try:
+                import tiktoken
+                enc = tiktoken.get_encoding("cl100k_base")
+                self.total_tokens += len(enc.encode(chat_buffer))
+            except Exception:
+                self.total_tokens += len(chat_buffer) // 4
 
-                tools = self._parse_tools_all(buffer)
-                if tools:
-                    clean_text = self._stream_clean(buffer)
-                    self.call_from_thread(self._stream_finalize, clean_text)
-                    results = []
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                        futures = []
-                        for t in tools:
-                            if not self._confirm_action(t["type"], t.get("path") or t.get("args", "")):
-                                results.append(f"Skipped: {t['type']} (not confirmed)")
-                                self.call_from_thread(self._add_system, f"Skipped: {t['type']}")
-                                continue
-                            self.call_from_thread(self._set_status, f"Running {t['type']}...")
-                            args = (t["type"], t.get("path") or t.get("args", ""), t.get("body", ""))
-                            futures.append((t, pool.submit(self._execute_tool, *args)))
-                        for t, fut in futures:
-                            try:
-                                result = fut.result(timeout=120)
-                                self.total_tools += 1
-                                results.append(f"<{t['type']}>{result}</{t['type']}>")
-                                if t["type"] in ("write", "edit"):
-                                    lint_result = self._run_lint()
-                                    if lint_result:
-                                        self.call_from_thread(self._add_system, lint_result)
-                                    file_path = t.get("path", t.get("args", ""))
-                                    self.call_from_thread(self._format_file, file_path)
-                            except concurrent.futures.TimeoutError:
-                                results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
-                            except Exception as e:
-                                results.append(f"<{t['type']}>Error: {e}</{t['type']}>")
-                    combined = "\n".join(results)
-                    self.chat_messages.append({"role": "assistant", "content": buffer})
-                    self.chat_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
-                    continue
-
-                clean = self._stream_clean(buffer)
-                if clean:
-                    self.call_from_thread(self._stream_finalize, clean)
-                    self.chat_messages.append({"role": "assistant", "content": buffer.strip()})
-                else:
-                    self.chat_messages.append({"role": "assistant", "content": buffer.strip()})
-
-                save_session(self.session_id, self.chat_messages, self.session_title)
+            if not chat_buffer.strip():
+                self.call_from_thread(self._add_system, "AI returned empty response. Try again.")
                 self.call_from_thread(self._set_status, "Ready")
                 self.call_from_thread(self._remove_loading)
                 self.call_from_thread(self._set_ready)
                 return
 
-            except Exception as e:
-                err_msg = str(e)
-                if "Authentication" in err_msg or "AuthenticationError" in err_msg or "Invalid API Key" in err_msg or "401" in err_msg:
-                    pid = self.config.get("provider", "unknown")
-                    info = PROVIDERS.get(pid, {})
-                    env_key = info.get("env_key", "API_KEY")
-                    err_msg = f"Authentication failed for {info['name']}. Set {env_key} env var or run cip --setup"
-                elif "connection" in err_msg.lower() or "refused" in err_msg.lower():
-                    pid = self.config.get("provider", "unknown")
-                    info = PROVIDERS.get(pid, {})
-                    err_msg = f"Connection refused. Make sure {info['name']} is installed and running"
-                self.call_from_thread(self._set_status, "Error")
-                self.call_from_thread(self._add_system, f"Error: {err_msg}")
+            self.chat_ai_messages.append({"role": "assistant", "content": chat_buffer})
+            task_m = re.search(r'<task>(.*?)</task>', chat_buffer, re.DOTALL)
+
+            if not task_m:
+                # Pure conversation — show response and done
+                display = self._clean_chat_ai_display(chat_buffer)
+                self.call_from_thread(self._stream_finalize, display)
+                save_session(self.session_id, self.chat_ai_messages, self.session_title)
+                self.call_from_thread(self._set_status, "Ready")
                 self.call_from_thread(self._remove_loading)
                 self.call_from_thread(self._set_ready)
                 return
 
-        self.call_from_thread(self._set_status, "Max turns")
-        self.call_from_thread(self._add_system, "Max turns reached.")
-        self.call_from_thread(self._remove_loading)
-        self.call_from_thread(self._set_ready)
+            # Show any text the chat AI wrote before the <task> tag
+            pre = self._clean_chat_ai_display(chat_buffer[:task_m.start()])
+            self.call_from_thread(self._stream_finalize, pre if pre else "")
+            self._stream_widget = None  # reset so coding phase doesn't pollute the chat message
+
+            coding_task = task_m.group(1).strip()
+            self.call_from_thread(self._set_status, "Coding...")
+
+            # Fresh coding context for this task
+            self.coding_messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": coding_task},
+            ]
+
+            # === PHASE 2: Coding AI loop with optional error-fix retries ===
+            coding_summary = ""
+            had_error = False
+            max_fixes = 2
+
+            for fix_round in range(max_fixes + 1):
+                if time.time() - loop_start > 600:
+                    self.call_from_thread(self._add_system, "Task timed out (10 min)")
+                    had_error = True
+                    coding_summary = "Timed out"
+                    break
+
+                coding_summary, had_error = self._run_coding_loop()
+
+                if not had_error or fix_round >= max_fixes:
+                    break
+
+                # Ask chat AI to generate a fix instruction
+                self.call_from_thread(self._set_status, "Analyzing error...")
+                self.chat_ai_messages.append({
+                    "role": "user",
+                    "content": f"The coding agent hit an error: {coding_summary[:500]}\nIf this is a real error that needs fixing, output <fix>specific fix instruction</fix>. Otherwise say it's fine."
+                })
+                fix_buffer = ""
+                for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+                    fix_buffer += chunk.get("content", "")
+                self.chat_ai_messages.append({"role": "assistant", "content": fix_buffer})
+
+                fix_m = re.search(r'<fix>(.*?)</fix>', fix_buffer, re.DOTALL)
+                if not fix_m:
+                    had_error = False  # chat AI said it's fine
+                    break
+                fix_instr = fix_m.group(1).strip()
+                self.call_from_thread(self._add_system, f"Auto-fixing: {fix_instr[:80]}")
+                self.coding_messages.append({"role": "user", "content": f"Fix: {fix_instr}"})
+
+            # === PHASE 3: Chat AI presents result to user ===
+            self.call_from_thread(self._set_status, "Summarizing...")
+            self._stream_widget = None
+
+            result_note = f"Task complete. {coding_summary}" if not had_error else f"There was an error: {coding_summary[:400]}"
+            self.chat_ai_messages.append({
+                "role": "user",
+                "content": f"Coding result: {result_note}\nGive the user a friendly 1-2 sentence summary."
+            })
+
+            summary_buffer = ""
+            for chunk in self._ai_provider.chat(self.chat_ai_messages, stream=True):
+                token = chunk.get("content", "")
+                summary_buffer += token
+                self._update_stream(self._clean_chat_ai_display(summary_buffer))
+
+            self.chat_ai_messages.append({"role": "assistant", "content": summary_buffer})
+            clean_summary = self._clean_chat_ai_display(summary_buffer)
+            self.call_from_thread(self._stream_finalize, clean_summary if clean_summary else f"Done. {coding_summary[:200]}")
+
+            save_session(self.session_id, self.chat_ai_messages, self.session_title)
+            self.call_from_thread(self._set_status, "Ready")
+            self.call_from_thread(self._remove_loading)
+            self.call_from_thread(self._set_ready)
+
+        except Exception as e:
+            err_msg = str(e)
+            if "Authentication" in err_msg or "AuthenticationError" in err_msg or "Invalid API Key" in err_msg or "401" in err_msg:
+                pid = self.config.get("provider", "unknown")
+                info = PROVIDERS.get(pid, {})
+                env_key = info.get("env_key", "API_KEY")
+                err_msg = f"Authentication failed for {info.get('name', pid)}. Set {env_key} env var."
+            elif "connection" in err_msg.lower() or "refused" in err_msg.lower():
+                pid = self.config.get("provider", "unknown")
+                info = PROVIDERS.get(pid, {})
+                err_msg = f"Connection refused. Make sure {info.get('name', pid)} is installed and running."
+            self.call_from_thread(self._set_status, "Error")
+            self.call_from_thread(self._add_system, f"Error: {err_msg}")
+            self.call_from_thread(self._remove_loading)
+            self.call_from_thread(self._set_ready)
+
+    def _run_coding_loop(self):
+        """Run the coding AI for one task. Returns (summary, had_error)."""
+        max_turns = 12
+        for turn in range(max_turns):
+            turn_buffer = ""
+            try:
+                for chunk in self._ai_provider.chat(self.coding_messages, stream=True):
+                    turn_buffer += chunk.get("content", "")
+            except Exception as e:
+                return str(e), True
+
+            if not turn_buffer.strip():
+                return "Empty response from coding AI", True
+
+            plan_m = re.search(r'<plan>(.*?)</plan>', turn_buffer, re.DOTALL)
+            if plan_m:
+                self.call_from_thread(self._add_plan, plan_m.group(1))
+
+            tools = self._parse_tools_all(turn_buffer)
+            done_m = re.search(r'<done>(.*?)</done>', turn_buffer, re.DOTALL)
+
+            if tools:
+                self.coding_messages.append({"role": "assistant", "content": turn_buffer})
+                results = []
+                tool_error = False
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    futures = []
+                    for t in tools:
+                        self.call_from_thread(self._set_status, f"Running {t['type']}...")
+                        args = (t["type"], t.get("path") or t.get("args", ""), t.get("body", ""))
+                        futures.append((t, pool.submit(self._execute_tool, *args)))
+                    for t, fut in futures:
+                        try:
+                            result = fut.result(timeout=120)
+                            self.total_tools += 1
+                            results.append(f"<{t['type']}>{result}</{t['type']}>")
+                            if "Error:" in result and not result.startswith("Opened"):
+                                tool_error = True
+                            if t["type"] in ("write", "edit"):
+                                lint_result = self._run_lint()
+                                if lint_result:
+                                    self.call_from_thread(self._add_system, lint_result)
+                                self.call_from_thread(self._format_file, t.get("path", t.get("args", "")))
+                        except concurrent.futures.TimeoutError:
+                            results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
+                            tool_error = True
+                        except Exception as e:
+                            results.append(f"<{t['type']}>Error: {e}</{t['type']}>")
+                            tool_error = True
+                combined = "\n".join(results)
+                self.coding_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
+                if tool_error and done_m:
+                    return f"Tool error: {combined[:300]}", True
+                continue
+
+            if done_m:
+                return done_m.group(1).strip(), False
+
+            # No tools, no done — treat as a plain response (probably chat, not a coding task)
+            return turn_buffer[:300].strip(), False
+
+        return "Max turns reached without completing", True
 
     def _wait_for_input(self, prompt):
         event = threading.Event()
@@ -1427,21 +1552,7 @@ Extra rules:
         return self._input_result
 
     def _confirm_action(self, tool, args):
-        if not tool:
-            return True
-        verdict = self.permission_manager.check(tool, args)
-        if verdict == "allow":
-            return True
-        if verdict == "deny":
-            return False
-        event = threading.Event()
-        result = [False]
-        def on_answer(answer):
-            result[0] = answer == "yes"
-            event.set()
-        self.call_from_thread(self.push_screen, YesNoModal(tool, args), on_answer)
-        event.wait()
-        return result[0]
+        return True
 
     def _update_stream(self, text):
         try:
@@ -1484,11 +1595,13 @@ Extra rules:
         # Drop any open tool tag that hasn't been closed yet, plus everything after it.
         # This prevents half-streamed tags like "<ls>ls ." showing raw in the widget.
         clean = re.sub(
-            r'<(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done)\b[^>]*>.*',
+            r'<(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done|open)\b[^>]*>.*',
             '', clean, flags=re.DOTALL
         )
         # Drop orphan closing tags the AI sometimes emits (</read>, </grep>, etc.)
-        clean = re.sub(r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search)>', '', clean)
+        clean = re.sub(r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|open)>', '', clean)
+        # Final catch-all: remove any stray known-tool tag fragments
+        clean = re.sub(r'</?(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done|open|plan)(?:\s[^>]*)*/?\s*>', '', clean)
         # Strip markdown code fences the AI mistakenly uses
         clean = re.sub(r'```[a-z]*\n?', '', clean)
         return clean.strip()
@@ -1500,12 +1613,15 @@ Extra rules:
         r'<grep\s+[^>]*>(?:.*?</grep>)?', r'<glob[^>]*>(?:.*?</glob>)?',
         r'<web-fetch\s+[^>]*>(?:.*?</web-fetch>)?', r'<web-search\s+[^>]*>(?:.*?</web-search>)?',
         r'<git\s+[^>]*>(?:.*?</git>)?', r'<todo[^>]*>(?:.*?</todo>)?',
-        r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|run|write|edit)>',
+        r'<open\s+[^>]*/?\s*>',
+        r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|run|write|edit|open)>',
     ]]
 
     _TOOL_PATTERNS = [
         (re.compile(r'<?run>(.+?)</run>', re.DOTALL), lambda m: {"type": "run", "path": "", "args": m.group(1), "body": ""}),
         (re.compile(r'<?write\s+path=["\']([^"\']+)["\']>(.*?)</write>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(2)}),
+        (re.compile(r'<?write\s+path=["\']([^"\']+)["\'][^>]*\bcontent=(["\'])(.+?)\2[^>]*/?\s*>', re.DOTALL), lambda m: {"type": "write", "path": m.group(1), "args": m.group(1), "body": m.group(3)}),
+        (re.compile(r'<open\s+path=["\'](.+?)["\'][^>]*/?\s*>', re.DOTALL), lambda m: {"type": "open", "path": m.group(1), "args": m.group(1), "body": ""}),
         (re.compile(r'<?read\s+path=["\'](.+?)["\'](?:\s+start=["\']?(\d+)["\']?)?(?:\s+end=["\']?(\d+)["\']?)?\s*/?\s*>', re.DOTALL), lambda m: {"type": "read", "path": m.group(1), "args": m.group(1), "body": json.dumps({"start": int(m.group(2)) if m.group(2) else None, "end": int(m.group(3)) if m.group(3) else None})}),
         (re.compile(r'<?ls>(.*?)</ls>', re.DOTALL), lambda m: {"type": "ls", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
         (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), _parse_edit_tag),

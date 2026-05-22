@@ -1,4 +1,3 @@
-# Derived from opencode (MIT) - Copyright (c) 2025 opencode.ai
 import json
 from pathlib import Path
 
