@@ -620,17 +620,17 @@ class CipherApp(App):
     /* Sidebar — right side, opencode style */
     #sidebar { width: 26; dock: right; background: #111111; border-left: solid #1c1c1c; height: 100%; }
     #sidebar-header { height: 2; padding: 0 0 0 1; content-align: left middle; color: #fab283; text-style: bold; }
-    #sidebar-status { height: 1; color: #444444; padding: 0 1; }
-    #agent-tabs { height: 2; margin: 0; padding: 0 1; }
+    #sidebar-status { height: 1; color: #444444; padding: 0 1; margin-bottom: 1; }
+    #agent-tabs { height: 2; margin: 0 0 1 0; padding: 0 1; }
     #agent-tabs Label { padding: 0 1; color: #444444; }
     #agent-tabs .agent-active { color: #fab283; text-style: bold; }
     #sidebar-sessions { height: 1fr; overflow-y: auto; padding: 0; }
     #sidebar-sessions Label { padding: 0 1; color: #3a3a3a; }
-    #sidebar-sessions .sess-item { padding: 0 1; color: #484848; background: transparent; border: none; width: 100%; text-align: left; }
+    #sidebar-sessions .sess-item { padding: 0 1; color: #484848; background: transparent; border: none; width: 100%; text-align: left; height: 1; min-height: 1; }
     #sidebar-sessions .sess-item:hover { color: #fab283; background: #141414; }
-    #sidebar-footer { height: 5; border-top: solid #1c1c1c; padding: 1 1; }
-    #sidebar-footer Label { color: #383838; }
-    .sidebar-action { color: #444444; }
+    #sidebar-footer { height: 6; border-top: solid #1c1c1c; padding: 1 1; }
+    #sidebar-footer Label { color: #383838; margin-bottom: 0; }
+    .sidebar-action { color: #444444; height: 1; min-height: 1; padding: 0 1; }
     .sidebar-action:hover { color: #fab283; }
 
     /* Main area */
@@ -650,7 +650,7 @@ class CipherApp(App):
     /* Input area */
     #input-area { height: 5; background: #111111; border-top: solid #1c1c1c; }
     #input-bar { height: 3; padding: 0 2; background: #111111; }
-    #chat-input { width: 1fr; background: #111111; border: none; }
+    #chat-input { width: 1fr; background: #111111; border: none; padding: 0 1; }
     #input-hint { height: 2; padding: 0 2; color: #2e2e2e; content-align: left middle; }
 
     /* Messages */
@@ -680,7 +680,7 @@ class CipherApp(App):
 
     .msg-explanation { margin: 1 4; padding: 1 2; }
     .msg-system { margin: 1 4; color: #333333; text-style: italic; padding: 0 2; }
-    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #3a3a3a; }
+    .settings-section { margin-top: 1; margin-bottom: 0; text-style: bold; color: #3a3a3a; padding: 0 1; }
     .cmd-block { margin: 1 0; padding: 0 1; }
     .loading-msg { margin: 1 4; color: #fab283; }
     #app-layout > Container { height: 100%; }
@@ -721,6 +721,7 @@ class CipherApp(App):
         self.history_index = -1
         self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_title = ""
+        self._title_from_ai = False
         self.is_processing = False
         self.loading_widget = None
         self.autocomplete = None
@@ -1165,6 +1166,7 @@ Rules:
     def _do_new(self):
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_title = ""
+        self._title_from_ai = False
         self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}]
         self.coding_messages = []
         self.total_tools = 0
@@ -1175,6 +1177,13 @@ Rules:
                 child.remove()
             self.query_one("#header-center").update("New Session")
         self._add_system("New session started.")
+
+    def _set_session_title(self, title):
+        self.session_title = title
+        try:
+            self.query_one("#header-center").update(title)
+        except Exception:
+            pass
 
     def _reset_config(self):
         if CONFIG_FILE.exists():
@@ -1378,6 +1387,18 @@ Rules:
 
             self.chat_ai_messages.append({"role": "assistant", "content": chat_buffer})
             task_m = re.search(r'<task>(.*?)</task>', chat_buffer, re.DOTALL)
+
+            # Set AI-derived session title on the first response
+            if not self._title_from_ai:
+                if task_m:
+                    raw_t = task_m.group(1).strip().replace('\n', ' ')[:60]
+                else:
+                    cleaned_buf = self._clean_chat_ai_display(chat_buffer)
+                    raw_t = (cleaned_buf.split('\n')[0].strip() or cleaned_buf[:60])[:60]
+                if raw_t:
+                    ai_title = raw_t if len(raw_t) <= 42 else raw_t[:39] + "..."
+                    self._title_from_ai = True
+                    self.call_from_thread(self._set_session_title, ai_title)
 
             if not task_m:
                 # Pure conversation — show response and done

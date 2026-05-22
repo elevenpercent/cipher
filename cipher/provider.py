@@ -328,6 +328,7 @@ class AIProvider:
             "stream": False,
             "temperature": 0.15,
         }).encode()
+        _retry_waits = [5, 15, 30]
         for attempt in range(4):
             req = urllib.request.Request(url, data=payload,
                 headers={"Content-Type": "application/json"},
@@ -338,12 +339,16 @@ class AIProvider:
                     return data["choices"][0]["message"]["content"]
             except urllib.error.HTTPError as e:
                 if e.code == 429 and attempt < 3:
-                    time.sleep(2 ** attempt)
+                    try:
+                        wait = min(int(e.headers.get("Retry-After", 0) or 0), 60) or _retry_waits[attempt]
+                    except Exception:
+                        wait = _retry_waits[attempt]
+                    time.sleep(wait)
                     continue
-                return "Rate limited by proxy (429). Wait a moment then try again."
+                return "Rate limited (429) — the free proxy is busy. Please wait 30 seconds and try again."
             except Exception as e:
                 return f"Proxy error: {e}"
-        return "Rate limited by proxy. Try again later."
+        return "Rate limited — too many requests. Wait 30 seconds and try again."
 
     def _proxy_chat_stream(self, messages):
         url = f"{self.proxy_url.rstrip('/')}/v1/chat/completions"
@@ -354,6 +359,7 @@ class AIProvider:
             "temperature": 0.15,
         }).encode()
 
+        _retry_waits = [5, 15, 30]
         for attempt in range(4):
             req = urllib.request.Request(url, data=payload,
                 headers={"Content-Type": "application/json"},
@@ -398,9 +404,13 @@ class AIProvider:
                     return
             except urllib.error.HTTPError as e:
                 if e.code == 429 and attempt < 3:
-                    time.sleep(2 ** attempt)
+                    try:
+                        wait = min(int(e.headers.get("Retry-After", 0) or 0), 60) or _retry_waits[attempt]
+                    except Exception:
+                        wait = _retry_waits[attempt]
+                    time.sleep(wait)
                     continue
-                yield {"content": f"Rate limited by proxy (429). Wait a moment then try again."}
+                yield {"content": "Rate limited (429) — the free proxy is busy. Please wait 30 seconds and try again."}
                 return
             except Exception as e:
                 yield {"content": f" Proxy error: {e}"}
