@@ -93,7 +93,7 @@ footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-si
     <h2 id="overview">Overview</h2>
     <p>Cipher is an autonomous coding agent that runs in your terminal. You describe what to build, and Cipher plans the work, writes code, runs commands, and iterates until the task is done.</p>
     <p>It works with 14+ AI providers out of the box. The free Cipher Proxy gives you Llama 3.3 70B and Gemini 2.0 Flash with zero configuration — no API key needed.</p>
-    <p>Cipher's interface is minimal by design: only <kbd>Ctrl+S</kbd> to open settings. No slash commands, no clutter.</p>
+    <p>The interface has a sidebar for sessions and agent modes, a live streaming chat area, and a hint bar at the bottom. Use slash commands or <kbd>Ctrl+P</kbd> to access all actions.</p>
 
     <h2 id="install">Install</h2>
     <p>Python 3.10+ required. Choose your method:</p>
@@ -134,6 +134,12 @@ cip</code></pre>
     <table>
       <tr><th>Key</th><th>Action</th></tr>
       <tr><td><kbd>Ctrl+S</kbd></td><td>Open settings</td></tr>
+      <tr><td><kbd>Ctrl+P</kbd></td><td>Open command palette</td></tr>
+      <tr><td><kbd>Ctrl+N</kbd></td><td>Start a new session</td></tr>
+      <tr><td><kbd>Ctrl+L</kbd></td><td>Clear chat</td></tr>
+      <tr><td><kbd>Ctrl+D</kbd></td><td>Quit</td></tr>
+      <tr><td><kbd>Tab</kbd></td><td>Cycle agent mode (Build → Plan → Explore)</td></tr>
+      <tr><td><kbd>↑ / ↓</kbd></td><td>Navigate command history</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Clear input</td></tr>
     </table>
 
