@@ -47,7 +47,7 @@ def install_ollama():
 
 def interactive_setup():
     from textual.app import App, ComposeResult
-    from textual.containers import Container, Horizontal
+    from textual.containers import Container, Horizontal, VerticalScroll
     from textual.widgets import Static, Button, Input, Label
     from textual.screen import Screen
 
@@ -62,32 +62,27 @@ def interactive_setup():
             self.provider_map = {}
 
         def compose(self) -> ComposeResult:
-            with Container(id="setup-container"):
+            with Container(id="setup-outer"):
                 yield Static("  CIPHER  //  SETUP", id="setup-title")
-                yield Static("", classes="setup-spacer")
-                if gpu_vram > 0:
-                    yield Static(f"  GPU detected: {gpu_vram}GB VRAM", classes="setup-subtitle")
-                else:
-                    yield Static("  No GPU detected. Using cloud models.", classes="setup-subtitle")
-                yield Static("", classes="setup-spacer")
-                yield Static("LOCAL MODELS", classes="setup-section")
-                if local_available:
-                    for m in ollama_models:
-                        safe = m['id'].replace('/', '_').replace(':', '_').replace('.', '_')
-                        self.model_map[f"model-{safe}"] = m['id']
-                        yield Button(f"  {m['name']}", id=f"model-{safe}", variant="default")
-                else:
-                    yield Static("  No GPU -- local models not available", classes="setup-unavail")
-                yield Static("", classes="setup-spacer")
-                yield Static("CLOUD — NO KEY NEEDED", classes="setup-section")
-                yield Button("  Cipher Proxy  —  Free models (Groq + Gemini)", id="provider-cipher-proxy", variant="default")
-                yield Static("", classes="setup-spacer")
-                yield Static("BRING YOUR OWN KEY", classes="setup-section")
-                for pid, info in PROVIDERS.items():
-                    if info.get("env_key") and not info.get("proxy"):
-                        safe_pid = pid.replace('/', '_').replace(':', '_').replace('.', '_')
-                        self.provider_map[f"provider-{safe_pid}"] = pid
-                        yield Button(f"  {info['name']}  —  {info['desc']}", id=f"provider-{safe_pid}", variant="default")
+                yield Static("  Pick a provider to get started. Scroll down for more options.", classes="setup-subtitle")
+                with VerticalScroll(id="setup-scroll"):
+                    with Container(id="setup-container"):
+                        yield Static("FREE — NO KEY NEEDED", classes="setup-section")
+                        yield Button("  ★  Cipher Proxy  —  Llama 3.3 70B + Gemini (free, instant)", id="provider-cipher-proxy", variant="primary")
+                        yield Static("", classes="setup-spacer")
+                        if local_available:
+                            yield Static("LOCAL MODELS (Ollama)", classes="setup-section")
+                            for m in ollama_models:
+                                safe = m['id'].replace('/', '_').replace(':', '_').replace('.', '_')
+                                self.model_map[f"model-{safe}"] = m['id']
+                                yield Button(f"  {m['name']}", id=f"model-{safe}", variant="default")
+                            yield Static("", classes="setup-spacer")
+                        yield Static("BRING YOUR OWN KEY", classes="setup-section")
+                        for pid, info in PROVIDERS.items():
+                            if info.get("env_key") and not info.get("proxy"):
+                                safe_pid = pid.replace('/', '_').replace(':', '_').replace('.', '_')
+                                self.provider_map[f"provider-{safe_pid}"] = pid
+                                yield Button(f"  {info['name']}  —  {info['desc']}", id=f"provider-{safe_pid}", variant="default")
 
         def on_button_pressed(self, event: Button.Pressed):
             btn_id = event.button.id
@@ -134,12 +129,17 @@ def interactive_setup():
     class SetupApp(App):
         CSS = """
         Screen { background: #050505; }
-        .setup-subtitle { color: #888888; }
+        #setup-outer { height: 100%; padding: 1 2; }
+        #setup-title { color: #fab283; text-style: bold; margin-bottom: 1; }
+        #setup-scroll { height: 1fr; }
+        #setup-container { padding: 0; }
+        .setup-subtitle { color: #888888; margin-bottom: 1; }
         .setup-spacer { height: 1; }
-        .setup-section { color: #555; margin-top: 1; margin-bottom: 0; }
+        .setup-section { color: #fab283; text-style: bold; margin-top: 1; margin-bottom: 0; }
         .setup-hint { color: #555; margin-bottom: 1; }
         .setup-unavail { color: #444; }
         Button { width: 100%; margin: 0 0 0 0; }
+        Button.primary { background: #fab283 20%; border: tall #fab283; }
         """
         def __init__(self):
             super().__init__()
