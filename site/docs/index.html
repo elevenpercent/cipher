@@ -4,239 +4,752 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Docs — Cipher</title>
+<meta name="description" content="Complete documentation for Cipher — install, configure, use, and extend your autonomous coding agent.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{font-family:Inter,-apple-system,sans-serif;background:#050505;color:#fff;-webkit-font-smoothing:antialiased}
-:root{--gold:#f5c542;--gold-dim:#b8932e;--bg2:#0a0a0a;--bg3:#111;--border:#1a1a1a;--text2:#888;--text3:#555}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: #080808; color: #fff; -webkit-font-smoothing: antialiased; }
+:root {
+  --gold: #f5c542;
+  --gold-dim: #a8862a;
+  --gold-glow: rgba(245,197,66,.08);
+  --bg: #080808;
+  --bg2: #0d0d0d;
+  --bg3: #111;
+  --bg4: #161616;
+  --border: #1e1e1e;
+  --border2: #2a2a2a;
+  --text: #fff;
+  --text2: #999;
+  --text3: #555;
+  --mono: 'JetBrains Mono', monospace;
+}
 
-nav{position:fixed;top:0;left:0;right:0;z-index:1000;height:52px;background:rgba(5,5,5,.9);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem}
-.nav-l{display:flex;align-items:center;gap:1.5rem}
-.nav-l a{color:var(--text2);text-decoration:none;font-size:.85rem;transition:color .15s}
-.nav-l a:hover{color:#fff}
-.nav-r{display:flex;align-items:center;gap:.75rem}
-.btn-nav{padding:.4rem 1rem;border-radius:6px;font-size:.8rem;font-weight:500;text-decoration:none;transition:all .15s;border:1px solid var(--border);color:#fff;background:transparent}
-.btn-nav:hover{border-color:var(--gold)}
+/* ─── NAV ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 56px; background: rgba(8,8,8,.9);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem;
+}
+.nav-logo {
+  font-size: .95rem; font-weight: 700; color: #fff;
+  text-decoration: none; letter-spacing: -.01em;
+}
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; align-items: center; gap: .25rem; }
+.nav-links a {
+  color: var(--text2); text-decoration: none; font-size: .85rem;
+  padding: .4rem .75rem; border-radius: 6px; transition: color .15s;
+}
+.nav-links a:hover { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: .6rem; }
+.btn-ghost {
+  color: var(--text2); text-decoration: none; font-size: .82rem;
+  padding: .4rem .85rem; border-radius: 6px; border: 1px solid var(--border);
+  transition: all .15s; background: transparent;
+}
+.btn-ghost:hover { color: #fff; border-color: var(--border2); }
 
-.layout{display:flex;padding-top:52px;min-height:100vh}
-.sidebar{width:240px;flex-shrink:0;border-right:1px solid var(--border);padding:2rem 1rem;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
-.sidebar h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.6rem;margin-top:1.2rem}
-.sidebar h4:first-child{margin-top:0}
-.sidebar a{display:block;color:var(--text2);text-decoration:none;font-size:.82rem;padding:.35rem .5rem;border-radius:4px;transition:all .15s}
-.sidebar a:hover{color:#fff;background:var(--bg3)}
-.sidebar a.active{color:var(--gold);background:rgba(245,197,66,.06)}
+/* ─── LAYOUT ─── */
+.layout { display: flex; padding-top: 56px; min-height: 100vh; }
 
-.content{flex:1;padding:3rem 3rem 4rem;max-width:820px}
-.content h1{font-size:2rem;font-weight:700;margin-bottom:.3rem}
-.content h1 + p{color:var(--text2);font-size:.9rem;margin-bottom:2.5rem}
-.content h2{font-size:1.3rem;font-weight:600;margin-top:2.5rem;margin-bottom:.8rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
-.content h3{font-size:1rem;font-weight:600;margin-top:1.8rem;margin-bottom:.5rem}
-.content p{color:var(--text2);font-size:.88rem;line-height:1.7;margin-bottom:1rem}
-.content ul{color:var(--text2);font-size:.88rem;line-height:1.7;margin-bottom:1rem;padding-left:1.2rem}
-.content li{margin-bottom:.3rem}
-.content code{font-family:'JetBrains Mono',monospace;font-size:.82rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)}
-.content pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:.8rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;overflow-x:auto;margin-bottom:1rem;line-height:1.6}
-.content pre code{background:none;padding:0;border-radius:0;color:#ccc;font-size:.82rem}
-.content kbd{font-family:inherit;font-size:.8rem;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:.1rem .4rem;color:#ccc}
-.content table{width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:.85rem}
-.content th{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--border);color:var(--text3);font-weight:600;text-transform:uppercase;font-size:.75rem;letter-spacing:.05em}
-.content td{padding:.5rem .7rem;border-bottom:1px solid var(--border);color:var(--text2)}
-.content blockquote{border-left:2px solid var(--gold-dim);padding:.5rem 1rem;margin-bottom:1rem;background:rgba(245,197,66,.03);border-radius:0 4px 4px 0}
-.content blockquote p{color:var(--text2);margin-bottom:0}
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: 248px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 1.75rem 1rem;
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.sb-section { margin-bottom: .25rem; }
+.sb-label {
+  font-size: .68rem; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: .4rem .5rem; margin-top: 1.25rem; display: block;
+}
+.sb-label:first-child { margin-top: 0; }
+.sidebar a {
+  display: block; color: var(--text2); text-decoration: none;
+  font-size: .82rem; padding: .32rem .5rem; border-radius: 5px;
+  transition: all .15s; line-height: 1.4;
+}
+.sidebar a:hover { color: #fff; background: var(--bg3); }
+.sidebar a.active { color: var(--gold); background: var(--gold-glow); }
 
-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-size:.78rem;color:var(--text3)}
+/* ─── CONTENT ─── */
+.content {
+  flex: 1; padding: 3.5rem 4rem 6rem;
+  max-width: 800px; min-width: 0;
+}
+.doc-section { margin-bottom: 5rem; scroll-margin-top: 80px; }
+.doc-section:last-child { margin-bottom: 2rem; }
+
+h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .4rem; }
+.page-sub { font-size: .9rem; color: var(--text2); margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+h2 {
+  font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--border);
+  letter-spacing: -.02em;
+}
+h3 { font-size: 1rem; font-weight: 600; margin-top: 1.75rem; margin-bottom: .6rem; }
+h4 { font-size: .88rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: .4rem; color: var(--text2); }
+
+p { font-size: .875rem; color: var(--text2); line-height: 1.75; margin-bottom: 1rem; }
+ul, ol { font-size: .875rem; color: var(--text2); line-height: 1.75; margin-bottom: 1rem; padding-left: 1.4rem; }
+li { margin-bottom: .25rem; }
+li strong { color: #fff; font-weight: 600; }
+
+code {
+  font-family: var(--mono); font-size: .8rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: .1rem .4rem; border-radius: 4px; color: var(--gold);
+}
+pre {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem 1.25rem;
+  font-family: var(--mono); font-size: .8rem;
+  overflow-x: auto; margin-bottom: 1.25rem; line-height: 1.8;
+}
+pre code { background: none; border: none; padding: 0; border-radius: 0; color: #ccc; font-size: .8rem; }
+pre .cmd { color: var(--gold); }
+pre .cmt { color: var(--text3); }
+pre .str { color: #86efac; }
+pre .key { color: #60a5fa; }
+pre .val { color: #a78bfa; }
+
+kbd {
+  font-family: inherit; font-size: .78rem; background: var(--bg3);
+  border: 1px solid var(--border2); border-bottom-width: 2px;
+  border-radius: 4px; padding: .1rem .45rem; color: #ccc;
+}
+
+table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: .83rem; }
+th {
+  text-align: left; padding: .55rem .75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text3); font-weight: 600;
+  text-transform: uppercase; font-size: .7rem; letter-spacing: .06em;
+}
+td { padding: .55rem .75rem; border-bottom: 1px solid var(--border); color: var(--text2); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg2); }
+
+.callout {
+  border: 1px solid var(--border); border-left: 3px solid var(--gold-dim);
+  background: var(--gold-glow); border-radius: 0 6px 6px 0;
+  padding: .85rem 1rem; margin-bottom: 1.25rem;
+}
+.callout p { margin-bottom: 0; }
+.callout.info { border-left-color: #60a5fa; background: rgba(96,165,250,.05); }
+.callout.warn { border-left-color: #fb923c; background: rgba(251,146,60,.05); }
+
+.badge {
+  display: inline-block; font-size: .68rem; font-weight: 600;
+  padding: .1rem .45rem; border-radius: 4px; margin-left: .4rem;
+  vertical-align: middle;
+}
+.badge-free { background: rgba(74,222,128,.1); color: #4ade80; border: 1px solid rgba(74,222,128,.2); }
+.badge-api { background: rgba(96,165,250,.1); color: #60a5fa; border: 1px solid rgba(96,165,250,.2); }
+.badge-local { background: rgba(167,139,250,.1); color: #a78bfa; border: 1px solid rgba(167,139,250,.2); }
+
+.copy-btn {
+  font-size: .7rem; color: var(--text2); background: transparent;
+  border: 1px solid var(--border); border-radius: 4px; padding: .15rem .5rem;
+  cursor: pointer; transition: all .15s; font-family: var(--mono);
+}
+.copy-btn:hover { color: #fff; border-color: var(--border2); }
+.copy-btn.copied { color: #4ade80; border-color: rgba(74,222,128,.3); }
+
+.pre-wrap { position: relative; }
+.pre-wrap .copy-btn { position: absolute; top: .6rem; right: .75rem; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem; text-align: center;
+  font-size: .78rem; color: var(--text3);
+}
+footer a { color: var(--text3); text-decoration: none; }
+footer a:hover { color: var(--text2); }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .content { padding: 2rem 1.5rem 4rem; }
+}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-l">
-    <a href="/" style="color:var(--gold);font-weight:700;font-size:.95rem">Cipher</a>
-    <a href="/">Home</a>
-    <a href="/docs/" style="color:#fff">Docs</a>
+  <a href="/" class="nav-logo">cipher<span>.</span></a>
+  <div class="nav-links">
+    <a href="/#features">Features</a>
+    <a href="/#providers">Providers</a>
     <a href="/#install">Install</a>
+    <a href="/docs/" style="color:#fff">Docs</a>
   </div>
-  <div class="nav-r">
-    <a href="https://github.com/elevenpercent/cipher" target="_blank" style="color:var(--text3);font-size:.85rem;text-decoration:none">GitHub</a>
-    <a href="https://github.com/elevenpercent/cipher" target="_blank" class="btn-nav">Star</a>
+  <div class="nav-right">
+    <a href="https://github.com/elevenpercent/cipher" class="btn-ghost" target="_blank">GitHub</a>
   </div>
 </nav>
 
 <div class="layout">
+
+  <!-- SIDEBAR -->
   <aside class="sidebar">
-    <h4>Getting started</h4>
+    <span class="sb-label">Getting started</span>
     <a href="#overview" class="active">Overview</a>
-    <a href="#install">Install</a>
-    <a href="#setup">Setup</a>
-    <a href="#first-run">First run</a>
+    <a href="#install">Installation</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#setup">Provider setup</a>
 
-    <h4>Usage</h4>
-    <a href="#keyboard">Keyboard</a>
+    <span class="sb-label">Using Cipher</span>
+    <a href="#interface">Interface</a>
+    <a href="#shortcuts">Keyboard shortcuts</a>
     <a href="#slash-commands">Slash commands</a>
-    <a href="#settings">Settings</a>
-    <a href="#providers">Providers</a>
+    <a href="#sessions">Sessions</a>
 
-    <h4>Advanced</h4>
-    <a href="#config">Config</a>
-    <a href="#proxy">Proxy</a>
-    <a href="#cli">CLI</a>
+    <span class="sb-label">Reference</span>
+    <a href="#providers">Providers</a>
+    <a href="#config">Configuration</a>
+    <a href="#cli">CLI reference</a>
+    <a href="#tools">Tools reference</a>
+
+    <span class="sb-label">Architecture</span>
+    <a href="#two-agent">Two-agent system</a>
+    <a href="#proxy">Cipher Proxy</a>
+
+    <span class="sb-label">Help</span>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#uninstall">Uninstall</a>
   </aside>
 
+  <!-- CONTENT -->
   <main class="content">
 
     <h1>Documentation</h1>
-    <p>Everything you need to use Cipher effectively.</p>
+    <p class="page-sub">Everything you need to install, configure, and use Cipher — the autonomous coding agent for your terminal.</p>
 
-    <h2 id="overview">Overview</h2>
-    <p>Cipher is an autonomous coding agent that runs in your terminal. You describe what to build, and Cipher plans the work, writes code, runs commands, and iterates until the task is done.</p>
-    <p>It works with 14+ AI providers out of the box. The free Cipher Proxy gives you Llama 3.3 70B and Gemini 2.0 Flash with zero configuration — no API key needed.</p>
-    <p>The interface has a sidebar for sessions and agent modes, a live streaming chat area, and a hint bar at the bottom. Use slash commands or <kbd>Ctrl+P</kbd> to access all actions.</p>
+    <!-- OVERVIEW -->
+    <div class="doc-section" id="overview">
+      <h2>Overview</h2>
+      <p>
+        Cipher is an open-source, terminal-based autonomous coding agent. You describe a task in natural language — Cipher reads your codebase, writes files, runs commands, searches the web, and reports back when done.
+      </p>
+      <p>
+        It runs entirely in your terminal as a rich TUI (terminal user interface) with a persistent chat sidebar, live tool output display, and session history. No browser, no IDE extension, no cloud dashboard required.
+      </p>
+      <h3>Key characteristics</h3>
+      <ul>
+        <li><strong>Free to use</strong> — The built-in Cipher Proxy provides Gemini and Llama models at no cost, no API key needed.</li>
+        <li><strong>Bring your own model</strong> — Connect to any of 14+ providers using your own API keys.</li>
+        <li><strong>Local AI support</strong> — Works with Ollama and LM Studio for fully offline, private operation.</li>
+        <li><strong>Two-agent architecture</strong> — Separate Chat AI (reasoning) and Coding AI (execution) for better results and efficiency.</li>
+        <li><strong>Full tool suite</strong> — File read/write/edit, shell execution, web fetch, web search, git, grep, glob, and more.</li>
+        <li><strong>Cross-platform</strong> — Mac, Linux, and Windows (PowerShell) fully supported.</li>
+        <li><strong>Persistent sessions</strong> — All conversations saved with AI-generated titles, resumable at any time.</li>
+      </ul>
+    </div>
 
-    <h2 id="install">Install</h2>
-    <p>Python 3.10+ required. Choose your method:</p>
+    <!-- INSTALLATION -->
+    <div class="doc-section" id="install">
+      <h2>Installation</h2>
+      <p>Install Cipher using any of the methods below. All methods install the same package and create <code>cipher</code> and <code>cip</code> commands in your PATH.</p>
 
-    <p><strong>pip (recommended):</strong></p>
-    <pre><code>pip install --upgrade git+https://github.com/elevenpercent/cipher.git@master</code></pre>
+      <h3>pip (recommended)</h3>
+      <div class="pre-wrap">
+        <button class="copy-btn" onclick="copyCode(this,'pip install cipher-agent --upgrade')">copy</button>
+        <pre><span class="cmd">pip install cipher-agent --upgrade</span></pre>
+      </div>
+      <p>Requires Python 3.9 or later. The <code>--upgrade</code> flag ensures you get the latest version if already installed.</p>
 
-    <p><strong>npm:</strong></p>
-    <pre><code>npm install -g https://github.com/elevenpercent/cipher.git</code></pre>
+      <h3>npm</h3>
+      <div class="pre-wrap">
+        <button class="copy-btn" onclick="copyCode(this,'npm install -g cipher-agent')">copy</button>
+        <pre><span class="cmd">npm install -g cipher-agent</span></pre>
+      </div>
+      <p>Requires Node.js 14+. The npm wrapper automatically locates and runs the Python package.</p>
 
-    <p><strong>Windows (one-liner):</strong></p>
-    <pre><code>powershell -c "irm https://cipher.elevenpct.com/install.ps1 | iex"</code></pre>
+      <h3>Windows (one-line installer)</h3>
+      <div class="pre-wrap">
+        <button class="copy-btn" onclick="copyCode(this,'irm cipher.elevenpct.com/install.ps1 | iex')">copy</button>
+        <pre><span class="cmt"># Run in PowerShell as Administrator</span>
+<span class="cmd">irm cipher.elevenpct.com/install.ps1 | iex</span></pre>
+      </div>
 
-    <p><strong>macOS / Linux:</strong></p>
-    <pre><code>curl -fsSL https://cipher.elevenpct.com/install.sh | bash</code></pre>
+      <h3>Mac / Linux (one-line installer)</h3>
+      <div class="pre-wrap">
+        <button class="copy-btn" onclick="copyCode(this,'curl -fsSL cipher.elevenpct.com/install.sh | bash')">copy</button>
+        <pre><span class="cmd">curl -fsSL cipher.elevenpct.com/install.sh | bash</span></pre>
+      </div>
 
-    <h2 id="setup">Setup</h2>
-    <p>Run <code>cip</code> in any project directory. On first launch, the setup screen appears automatically. If you have a GPU with sufficient VRAM, local Ollama models will be detected and shown. Otherwise, cloud providers are listed.</p>
+      <h3>Install from source</h3>
+      <pre><span class="cmd">git clone https://github.com/elevenpercent/cipher</span>
+<span class="cmd">cd cipher</span>
+<span class="cmd">pip install -e .</span></pre>
+      <p>The <code>-e</code> flag installs in editable mode so local changes take effect immediately.</p>
+    </div>
 
-    <h3>Proxy (no key)</h3>
-    <p>Cipher Proxy is the default provider — free, no API key. It routes through <code>proxy-blue-kappa.vercel.app</code> and includes:</p>
-    <ul>
-      <li><strong>Llama 3.3 70B</strong> via Groq (~0.70s response)</li>
-      <li><strong>Llama 3.1 8B</strong> via Groq (~0.23s response)</li>
-      <li><strong>Gemini 2.0 Flash</strong> via Google (free tier, 60 RPM)</li>
-    </ul>
+    <!-- QUICKSTART -->
+    <div class="doc-section" id="quickstart">
+      <h2>Quick start</h2>
+      <p>After installing, navigate to your project directory and launch Cipher:</p>
+      <pre><span class="cmd">cd ~/my-project</span>
+<span class="cmd">cipher</span>
+<span class="cmt"># or the short alias:</span>
+<span class="cmd">cip</span></pre>
+      <p>The first time you run Cipher, it opens the <strong>setup screen</strong> where you choose a provider. Select <strong>Cipher Proxy</strong> to get started immediately with no API key.</p>
+      <p>Once inside, type any coding task and press <kbd>Enter</kbd>:</p>
+      <pre><span class="cmt">> build a Flask REST API with JWT authentication</span>
+<span class="cmt">> add unit tests to my payment module</span>
+<span class="cmt">> refactor auth.py to use async functions</span>
+<span class="cmt">> what does the DatabaseManager class do?</span></pre>
+      <p>Cipher will plan the task, use tools to execute it, and report back. You can ask follow-up questions, request changes, or start a new task.</p>
+    </div>
 
-    <h3>Bring your own key</h3>
-    <p>Select any provider from the setup screen and enter your API key. Supported providers include OpenAI, Anthropic, Groq, Gemini, DeepSeek, OpenRouter, Together, Mistral, xAI, Fireworks, Perplexity, Cohere, Ollama, and LM Studio.</p>
+    <!-- SETUP -->
+    <div class="doc-section" id="setup">
+      <h2>Provider setup</h2>
+      <p>The setup screen appears on first launch (or via <code>/settings</code>). It shows all available providers. Select one and press <kbd>Enter</kbd> to configure it.</p>
 
-    <h2 id="first-run">First run</h2>
-    <p>Navigate to a project directory and run:</p>
-    <pre><code>cd your-project
-cip</code></pre>
-    <p>The setup screen appears. Pick a provider (Cipher Proxy is default) and a model. That's it — you're ready to code.</p>
+      <h3>Cipher Proxy <span class="badge badge-free">Free</span></h3>
+      <p>
+        The easiest way to use Cipher. No API key, no account, no configuration. Cipher Proxy is a serverless proxy that routes requests to Gemini 2.0 Flash and Llama 3.3 70B models — free of charge.
+      </p>
+      <p>Select <strong>Cipher Proxy</strong> in the setup screen and you're done. The app will show <strong>Cipher AI</strong> in the interface to reflect that you're using the managed proxy.</p>
 
-    <h2 id="keyboard">Keyboard</h2>
-    <table>
-      <tr><th>Key</th><th>Action</th></tr>
-      <tr><td><kbd>Ctrl+S</kbd></td><td>Open settings</td></tr>
-      <tr><td><kbd>Ctrl+P</kbd></td><td>Open command palette</td></tr>
-      <tr><td><kbd>Ctrl+N</kbd></td><td>Start a new session</td></tr>
-      <tr><td><kbd>Ctrl+L</kbd></td><td>Clear chat</td></tr>
-      <tr><td><kbd>Ctrl+D</kbd></td><td>Quit</td></tr>
-      <tr><td><kbd>Tab</kbd></td><td>Cycle agent mode (Build → Plan → Explore)</td></tr>
-      <tr><td><kbd>↑ / ↓</kbd></td><td>Navigate command history</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>Clear input</td></tr>
-    </table>
+      <h3>OpenAI <span class="badge badge-api">API key</span></h3>
+      <pre><span class="key">Provider:</span> <span class="val">openai</span>
+<span class="key">Model:</span>    <span class="val">gpt-4o</span>
+<span class="key">API Key:</span>  <span class="val">sk-...</span></pre>
 
-    <h2 id="slash-commands">Slash Commands</h2>
-    <p>Type a slash command in the input box and press Enter:</p>
-    <table>
-      <tr><th>Command</th><th>Description</th></tr>
-      <tr><td><code>/help</code></td><td>Show all available commands</td></tr>
-      <tr><td><code>/clear</code></td><td>Clear the current chat</td></tr>
-      <tr><td><code>/new</code></td><td>Start a new session</td></tr>
-      <tr><td><code>/sessions</code></td><td>Browse and resume saved sessions</td></tr>
-      <tr><td><code>/theme &lt;name&gt;</code></td><td>Switch theme — e.g. <code>/theme dracula</code></td></tr>
-      <tr><td><code>/model &lt;id&gt;</code></td><td>Switch model — e.g. <code>/model llama-3.3-70b</code></td></tr>
-      <tr><td><code>/provider &lt;id&gt;</code></td><td>Switch provider — e.g. <code>/provider groq</code></td></tr>
-      <tr><td><code>/compact</code></td><td>Toggle compact mode</td></tr>
-      <tr><td><code>/tokens</code></td><td>Show token usage for this session</td></tr>
-      <tr><td><code>/quit</code></td><td>Exit Cipher</td></tr>
-    </table>
+      <h3>Anthropic <span class="badge badge-api">API key</span></h3>
+      <pre><span class="key">Provider:</span> <span class="val">anthropic</span>
+<span class="key">Model:</span>    <span class="val">claude-3-5-sonnet-20241022</span>
+<span class="key">API Key:</span>  <span class="val">sk-ant-...</span></pre>
 
-    <h2 id="settings">Settings</h2>
-    <p>Press <kbd>Ctrl+S</kbd> to open the settings modal. It has three sections:</p>
+      <h3>Google Gemini <span class="badge badge-api">API key</span></h3>
+      <pre><span class="key">Provider:</span> <span class="val">gemini</span>
+<span class="key">Model:</span>    <span class="val">gemini-2.0-flash</span>
+<span class="key">API Key:</span>  <span class="val">AIza...</span></pre>
 
-    <h3>Provider &amp; Model</h3>
-    <p>Select your AI provider and model from the dropdowns. Switching providers updates the available model list immediately.</p>
+      <h3>Ollama <span class="badge badge-local">Local</span></h3>
+      <pre><span class="key">Provider:</span> <span class="val">ollama</span>
+<span class="key">Model:</span>    <span class="val">llama3.2</span>
+<span class="cmt"># Make sure Ollama is running: ollama serve</span></pre>
 
-    <h3>Display</h3>
-    <p>Toggle what you see in the chat:</p>
-    <ul>
-      <li><strong>Show plan</strong> — display Cipher's reasoning steps</li>
-      <li><strong>Show code blocks</strong> — display code as it's written</li>
-      <li><strong>Show diff</strong> — display file diffs</li>
-      <li><strong>Show tool results</strong> — display command output</li>
-      <li><strong>Compact mode</strong> — reduce vertical spacing</li>
-      <li><strong>Auto-confirm</strong> — skip tool execution confirmation</li>
-    </ul>
+      <h3>LM Studio <span class="badge badge-local">Local</span></h3>
+      <pre><span class="key">Provider:</span> <span class="val">lm-studio</span>
+<span class="key">Model:</span>    <span class="val">your-model-name</span>
+<span class="cmt"># LM Studio must be running with the local server enabled</span></pre>
 
-    <h3>Actions</h3>
-    <ul>
-      <li><strong>Clear Chat</strong> — wipe current conversation</li>
-      <li><strong>New Session</strong> — start a fresh session</li>
-      <li><strong>Sessions</strong> — browse and resume previous sessions</li>
-      <li><strong>Quit</strong> — exit Cipher</li>
-    </ul>
+      <div class="callout info">
+        <p>You can switch providers at any time using the <code>/settings</code> command inside Cipher. Your current session context is preserved when you switch.</p>
+      </div>
+    </div>
 
-    <h2 id="providers">Providers</h2>
-    <table>
-      <tr><th>Provider</th><th>Type</th><th>Auth</th></tr>
-      <tr><td>Cipher Proxy</td><td>Free</td><td>No key</td></tr>
-      <tr><td>Ollama</td><td>Local</td><td>No key</td></tr>
-      <tr><td>LM Studio</td><td>Local</td><td>No key</td></tr>
-      <tr><td>Groq</td><td>Free tier</td><td>API key</td></tr>
-      <tr><td>Gemini</td><td>Free tier</td><td>API key</td></tr>
-      <tr><td>DeepSeek</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>OpenAI</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>Anthropic</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>OpenRouter</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>Mistral</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>xAI (Grok)</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>Together AI</td><td>Paid</td><td>API key</td></tr>
-      <tr><td>Fireworks AI</td><td>Free tier</td><td>API key</td></tr>
-      <tr><td>Perplexity</td><td>Free tier</td><td>API key</td></tr>
-      <tr><td>Cohere</td><td>Paid</td><td>API key</td></tr>
-    </table>
+    <!-- INTERFACE -->
+    <div class="doc-section" id="interface">
+      <h2>Interface</h2>
+      <p>Cipher's TUI is divided into two main areas:</p>
 
-    <h2 id="config">Config</h2>
-    <p>Cipher stores its configuration at <code>~/.cipher/config.json</code>. You can edit it directly. Key fields:</p>
-    <table>
-      <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
-      <tr><td><code>provider</code></td><td>string</td><td><code>cipher-proxy</code></td><td>Active provider ID</td></tr>
-      <tr><td><code>model</code></td><td>string</td><td><code>llama-3.3-70b</code></td><td>Active model ID</td></tr>
-      <tr><td><code>show_plan</code></td><td>bool</td><td><code>true</code></td><td>Show reasoning steps</td></tr>
-      <tr><td><code>show_code</code></td><td>bool</td><td><code>true</code></td><td>Show code blocks</td></tr>
-      <tr><td><code>show_diff</code></td><td>bool</td><td><code>true</code></td><td>Show file diffs</td></tr>
-      <tr><td><code>show_tool_exec</code></td><td>bool</td><td><code>true</code></td><td>Show tool output</td></tr>
-      <tr><td><code>compact_mode</code></td><td>bool</td><td><code>false</code></td><td>Reduce spacing</td></tr>
-      <tr><td><code>auto_confirm</code></td><td>bool</td><td><code>false</code></td><td>Skip tool confirmations</td></tr>
-    </table>
+      <h3>Left sidebar</h3>
+      <ul>
+        <li><strong>Session list</strong> — all saved sessions for the current project, with AI-generated titles. Click or navigate to resume any session.</li>
+        <li><strong>Provider info</strong> — shows the active provider name and model at the bottom of the sidebar.</li>
+        <li><strong>New session</strong> — press <kbd>Ctrl+N</kbd> or select the + button to start a new session.</li>
+      </ul>
 
-    <h2 id="proxy">Proxy</h2>
-    <p>The Cipher Proxy is a Vercel serverless function at <code>proxy-blue-kappa.vercel.app</code>. It forwards requests to Groq (Llama 3.3 70B, Llama 3.1 8B) and Google Gemini (2.0 Flash).</p>
-    <p>If the upstream provider returns an error, it's forwarded as-is. Gemini's free tier is limited to 60 requests per minute — if you see HTTP 429, wait a moment and try again.</p>
+      <h3>Main chat area</h3>
+      <ul>
+        <li><strong>Messages</strong> — your messages and Cipher's responses appear in a scrollable view.</li>
+        <li><strong>Tool output</strong> — when Cipher uses a tool (write, run, edit, etc.), the result appears as an expandable card. Click to expand and see the full content.</li>
+        <li><strong>Streaming</strong> — AI responses stream in real-time. You can see Cipher thinking and writing as it happens.</li>
+        <li><strong>Input</strong> — the text input is at the bottom. Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for a newline.</li>
+      </ul>
 
-    <h2 id="cli">CLI</h2>
-    <p>Available commands after installation:</p>
-    <table>
-      <tr><th>Command</th><th>Description</th></tr>
-      <tr><td><code>cip</code></td><td>Launch Cipher TUI</td></tr>
-      <tr><td><code>cipher-agent</code></td><td>Alias for <code>cip</code></td></tr>
-    </table>
-    <p>Both drop you into the terminal UI. No arguments needed.</p>
+      <h3>Header</h3>
+      <p>Shows the current provider/model on the right and the project path on the left. The header updates immediately when you switch providers.</p>
+    </div>
+
+    <!-- SHORTCUTS -->
+    <div class="doc-section" id="shortcuts">
+      <h2>Keyboard shortcuts</h2>
+      <table>
+        <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>Enter</kbd></td><td>Send message</td></tr>
+          <tr><td><kbd>Shift+Enter</kbd></td><td>Insert newline</td></tr>
+          <tr><td><kbd>Ctrl+N</kbd></td><td>New session</td></tr>
+          <tr><td><kbd>Ctrl+S</kbd></td><td>Open settings</td></tr>
+          <tr><td><kbd>Ctrl+C</kbd></td><td>Cancel current AI response</td></tr>
+          <tr><td><kbd>Ctrl+Q</kbd></td><td>Quit Cipher</td></tr>
+          <tr><td><kbd>↑ / ↓</kbd></td><td>Navigate session list (when sidebar is focused)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Switch focus between sidebar and chat</td></tr>
+          <tr><td><kbd>Page Up / Down</kbd></td><td>Scroll chat history</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SLASH COMMANDS -->
+    <div class="doc-section" id="slash-commands">
+      <h2>Slash commands</h2>
+      <p>Type a slash command in the input box and press <kbd>Enter</kbd> to execute it. Slash commands interact with Cipher directly and don't go to the AI.</p>
+      <table>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/settings</code></td><td>Open the provider/model settings screen</td></tr>
+          <tr><td><code>/new</code></td><td>Start a new session in the current project</td></tr>
+          <tr><td><code>/clear</code></td><td>Clear the current session's messages</td></tr>
+          <tr><td><code>/help</code></td><td>Show available commands</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SESSIONS -->
+    <div class="doc-section" id="sessions">
+      <h2>Sessions</h2>
+      <p>
+        Every conversation with Cipher is a session. Sessions are automatically saved to <code>~/.cipher/sessions/</code> and persist between launches.
+      </p>
+      <h3>Session titles</h3>
+      <p>
+        When you start a task, Cipher automatically generates a descriptive title for the session based on the task you gave it. The title comes from the AI's own understanding of the task — not just a truncation of your input. This makes it easy to find and resume past sessions.
+      </p>
+      <h3>Resuming a session</h3>
+      <p>
+        Navigate the session list in the left sidebar using arrow keys or by clicking. Selecting a session restores its full message history and context. You can continue any past session exactly where you left off.
+      </p>
+      <h3>Session storage</h3>
+      <p>Sessions are stored as JSON files in <code>~/.cipher/sessions/</code>. Each file contains the session ID, title, timestamp, and full message history. You can inspect, back up, or delete them directly.</p>
+      <div class="callout">
+        <p><strong>Note:</strong> Context is automatically trimmed when conversations get very long to keep AI responses fast and accurate. The most recent messages and the initial system context are always preserved.</p>
+      </div>
+    </div>
+
+    <!-- PROVIDERS -->
+    <div class="doc-section" id="providers">
+      <h2>Providers</h2>
+      <p>Cipher supports 14+ AI providers. Switch between them at any time using <code>/settings</code>.</p>
+      <table>
+        <thead><tr><th>Provider</th><th>Type</th><th>Notable models</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Cipher Proxy</strong></td><td><span class="badge badge-free">Free</span></td><td>Gemini 2.0 Flash, Llama 3.3 70B, Llama 3.1 8B</td><td>No key needed. Recommended for new users.</td></tr>
+          <tr><td><strong>OpenAI</strong></td><td><span class="badge badge-api">API</span></td><td>GPT-4o, GPT-4o Mini, o1, o3</td><td><code>OPENAI_API_KEY</code></td></tr>
+          <tr><td><strong>Anthropic</strong></td><td><span class="badge badge-api">API</span></td><td>Claude 3.5 Sonnet, Claude 3 Haiku</td><td><code>ANTHROPIC_API_KEY</code></td></tr>
+          <tr><td><strong>Google Gemini</strong></td><td><span class="badge badge-api">API</span></td><td>Gemini 2.0 Flash, Gemini 1.5 Pro</td><td><code>GEMINI_API_KEY</code></td></tr>
+          <tr><td><strong>Groq</strong></td><td><span class="badge badge-api">API</span></td><td>Llama 3.3 70B, Llama 3.1 8B, Mixtral</td><td><code>GROQ_API_KEY</code>. Very fast inference.</td></tr>
+          <tr><td><strong>DeepSeek</strong></td><td><span class="badge badge-api">API</span></td><td>DeepSeek Chat, DeepSeek Coder</td><td><code>DEEPSEEK_API_KEY</code></td></tr>
+          <tr><td><strong>Mistral</strong></td><td><span class="badge badge-api">API</span></td><td>Mistral Large, Mistral Small</td><td><code>MISTRAL_API_KEY</code></td></tr>
+          <tr><td><strong>Cohere</strong></td><td><span class="badge badge-api">API</span></td><td>Command R+, Command R</td><td><code>COHERE_API_KEY</code></td></tr>
+          <tr><td><strong>Together AI</strong></td><td><span class="badge badge-api">API</span></td><td>Llama, Mixtral, Qwen, and more</td><td><code>TOGETHER_API_KEY</code></td></tr>
+          <tr><td><strong>OpenRouter</strong></td><td><span class="badge badge-api">API</span></td><td>200+ models from all providers</td><td><code>OPENROUTER_API_KEY</code></td></tr>
+          <tr><td><strong>Ollama</strong></td><td><span class="badge badge-local">Local</span></td><td>Any pulled model</td><td>Requires <code>ollama serve</code> running locally.</td></tr>
+          <tr><td><strong>LM Studio</strong></td><td><span class="badge badge-local">Local</span></td><td>Any loaded model</td><td>Requires local server enabled in LM Studio.</td></tr>
+        </tbody>
+      </table>
+      <h3>Setting an API key</h3>
+      <p>You can set API keys in two ways:</p>
+      <ul>
+        <li><strong>In the settings screen</strong> — Enter the key directly when selecting a provider. It's saved to <code>~/.cipher/config.json</code>.</li>
+        <li><strong>Via environment variable</strong> — Set the appropriate env var before launching (e.g. <code>export OPENAI_API_KEY=sk-...</code>). Environment variables take precedence over the config file.</li>
+      </ul>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="doc-section" id="config">
+      <h2>Configuration</h2>
+      <p>Cipher stores its configuration in <code>~/.cipher/config.json</code>. This file is created automatically when you configure a provider. You can edit it directly.</p>
+      <pre>{
+  <span class="key">"provider"</span>: <span class="str">"cipher-proxy"</span>,
+  <span class="key">"model"</span>: <span class="str">"llama-3.3-70b"</span>,
+  <span class="key">"api_key"</span>: <span class="str">""</span>,
+  <span class="key">"base_url"</span>: <span class="str">""</span>
+}</pre>
+      <table>
+        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>provider</code></td><td>The active provider ID (e.g. <code>openai</code>, <code>anthropic</code>, <code>cipher-proxy</code>)</td></tr>
+          <tr><td><code>model</code></td><td>The model name for the selected provider</td></tr>
+          <tr><td><code>api_key</code></td><td>API key for the provider (empty string if not required)</td></tr>
+          <tr><td><code>base_url</code></td><td>Custom base URL, used for Ollama, LM Studio, or custom OpenAI-compatible endpoints</td></tr>
+        </tbody>
+      </table>
+      <div class="callout info">
+        <p>When using <strong>Cipher Proxy</strong>, both <code>api_key</code> and <code>base_url</code> are managed automatically. You don't need to set them.</p>
+      </div>
+    </div>
+
+    <!-- CLI REFERENCE -->
+    <div class="doc-section" id="cli">
+      <h2>CLI reference</h2>
+      <p>Cipher is invoked from the terminal. Both <code>cipher</code> and <code>cip</code> point to the same binary.</p>
+      <pre><span class="cmd">cipher</span> <span class="cmt">[directory] [-p prompt] [-h]</span></pre>
+      <table>
+        <thead><tr><th>Argument</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>directory</code></td><td>Project directory to open. Defaults to the current working directory.</td></tr>
+          <tr><td><code>-p, --prompt</code></td><td>Start with an initial prompt. Useful for scripted or automated usage.</td></tr>
+          <tr><td><code>-h, --help</code></td><td>Show help text and exit.</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3>
+      <pre><span class="cmt"># Open Cipher in the current directory</span>
+<span class="cmd">cipher</span>
+
+<span class="cmt"># Open a specific project</span>
+<span class="cmd">cipher ~/my-project</span>
+
+<span class="cmt"># Start with a task (skips the input box, immediately sends the prompt)</span>
+<span class="cmd">cipher -p "add error handling to all API endpoints"</span>
+
+<span class="cmt"># Short alias</span>
+<span class="cmd">cip</span></pre>
+    </div>
+
+    <!-- TOOLS -->
+    <div class="doc-section" id="tools">
+      <h2>Tools reference</h2>
+      <p>
+        The Coding AI communicates using XML-style tool tags. Each tool has a specific syntax. Understanding these tags helps you understand what Cipher is doing and how to describe tasks that use specific tools.
+      </p>
+
+      <h3>File tools</h3>
+      <table>
+        <thead><tr><th>Tag</th><th>Syntax</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;read&gt;</code></td><td><code>&lt;read path="file.py"&gt;</code></td><td>Read the contents of a file</td></tr>
+          <tr><td><code>&lt;write&gt;</code></td><td><code>&lt;write path="file.py"&gt;content&lt;/write&gt;</code></td><td>Write (create or overwrite) a file with given content</td></tr>
+          <tr><td><code>&lt;edit&gt;</code></td><td><code>&lt;edit path="file.py"&gt;&lt;old&gt;...&lt;/old&gt;&lt;new&gt;...&lt;/new&gt;&lt;/edit&gt;</code></td><td>Find and replace content within a file, without rewriting the whole file</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Search tools</h3>
+      <table>
+        <thead><tr><th>Tag</th><th>Syntax</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;ls&gt;</code></td><td><code>&lt;ls&gt;path/&lt;/ls&gt;</code></td><td>List files in a directory</td></tr>
+          <tr><td><code>&lt;glob&gt;</code></td><td><code>&lt;glob&gt;**/*.py&lt;/glob&gt;</code></td><td>Find files matching a glob pattern</td></tr>
+          <tr><td><code>&lt;grep&gt;</code></td><td><code>&lt;grep path="." pattern="def auth"&gt;</code></td><td>Search file contents using regex</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Execution tools</h3>
+      <table>
+        <thead><tr><th>Tag</th><th>Syntax</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;run&gt;</code></td><td><code>&lt;run&gt;pytest -v&lt;/run&gt;</code></td><td>Execute a shell command (PowerShell on Windows, bash on Mac/Linux). Captures stdout and stderr.</td></tr>
+          <tr><td><code>&lt;git&gt;</code></td><td><code>&lt;git&gt;status&lt;/git&gt;</code></td><td>Run git commands in the project root</td></tr>
+          <tr><td><code>&lt;open&gt;</code></td><td><code>&lt;open&gt;index.html&lt;/open&gt;</code></td><td>Open a file, URL, or application with the system default</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Web tools</h3>
+      <table>
+        <thead><tr><th>Tag</th><th>Syntax</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;web-fetch&gt;</code></td><td><code>&lt;web-fetch url="https://..."&gt;</code></td><td>Fetch a URL and return its text content. Useful for reading documentation, APIs, etc.</td></tr>
+          <tr><td><code>&lt;web-search&gt;</code></td><td><code>&lt;web-search&gt;query here&lt;/web-search&gt;</code></td><td>Search the web and return a summary of results</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Task management</h3>
+      <table>
+        <thead><tr><th>Tag</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;todo&gt;</code></td><td>Create a multi-step task plan that Cipher tracks and checks off as it works through it</td></tr>
+          <tr><td><code>&lt;done&gt;</code></td><td>Signal to the Chat AI that the coding task is complete</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <p>On <strong>Windows</strong>, <code>&lt;run&gt;</code> uses PowerShell. Use semicolons (<code>;</code>) instead of <code>&amp;&amp;</code> to chain commands. Commands like <code>python</code>, <code>npm</code>, and <code>pip</code> work as normal. To open a file or URL: <code>&lt;run&gt;Start-Process 'file.html'&lt;/run&gt;</code></p>
+      </div>
+    </div>
+
+    <!-- TWO AGENT -->
+    <div class="doc-section" id="two-agent">
+      <h2>Two-agent system</h2>
+      <p>
+        Cipher uses two specialized AI agents that work together on every task. Understanding how they work helps you write better prompts and understand what you see in the interface.
+      </p>
+
+      <h3>Phase 1 — Chat AI</h3>
+      <p>
+        When you send a message, it first goes to the <strong>Chat AI</strong> (Gemini 2.0 Flash when using Cipher Proxy). The Chat AI:
+      </p>
+      <ul>
+        <li>Understands the intent of your request</li>
+        <li>Maintains the conversation history and context</li>
+        <li>Decides whether to answer directly or delegate to the Coding AI</li>
+        <li>For coding tasks, emits a <code>&lt;task&gt;</code> tag with a clear, specific instruction for the Coding AI</li>
+        <li>Can ask clarifying questions if the request is ambiguous</li>
+      </ul>
+
+      <h3>Phase 2 — Coding AI</h3>
+      <p>
+        If the Chat AI emitted a <code>&lt;task&gt;</code>, the <strong>Coding AI</strong> (Llama 3.3 70B when using Cipher Proxy) takes over. The Coding AI:
+      </p>
+      <ul>
+        <li>Receives the specific task from the Chat AI</li>
+        <li>Has access to the full tool suite (read, write, edit, run, search, etc.)</li>
+        <li>Works autonomously through a loop: reads files, writes code, runs tests, checks output, fixes errors</li>
+        <li>Emits <code>&lt;done&gt;</code> when the task is finished, with a summary of what was done</li>
+        <li>Can request error recovery via <code>&lt;fix&gt;</code> tags if it encounters a problem it can't resolve</li>
+      </ul>
+
+      <h3>Phase 3 — Summary</h3>
+      <p>
+        After the Coding AI finishes, the Chat AI receives the summary and responds to you in natural language — explaining what was done, noting any caveats, and asking if you'd like anything else.
+      </p>
+
+      <h3>Why two agents?</h3>
+      <ul>
+        <li><strong>Efficiency</strong> — The Chat AI (fast, small) handles most conversation turns. The Coding AI (powerful, large) only runs when there's actual work to do.</li>
+        <li><strong>Rate limit management</strong> — Using two different models means each model's rate limit is only used for its specific role, reducing rate limit errors by roughly 2/3.</li>
+        <li><strong>Better results</strong> — Each model is optimized for its task. The Chat AI is tuned for reasoning and conversation; the Coding AI is tuned for code generation and tool use.</li>
+        <li><strong>Clear separation</strong> — The conversation layer stays clean while the execution layer gets as deep as it needs to.</li>
+      </ul>
+
+      <h3>Smart model routing (Cipher Proxy)</h3>
+      <p>When using Cipher Proxy, model selection is automatic:</p>
+      <table>
+        <thead><tr><th>Phase</th><th>Model</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Phase 1 (Chat)</td><td>Gemini 2.0 Flash</td><td>60 RPM rate limit, fast, context-efficient for conversation</td></tr>
+          <tr><td>Phase 2 (Coding)</td><td>Llama 3.3 70B</td><td>30 RPM rate limit, powerful, best for code generation and tool use</td></tr>
+          <tr><td>Phase 3 (Summary)</td><td>Gemini 2.0 Flash</td><td>Same as Phase 1 — keeps Groq usage only for actual coding work</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PROXY -->
+    <div class="doc-section" id="proxy">
+      <h2>Cipher Proxy</h2>
+      <p>
+        Cipher Proxy is a free, serverless proxy hosted on Vercel that gives you access to powerful AI models without needing your own API keys.
+      </p>
+      <h3>What it provides</h3>
+      <ul>
+        <li><strong>Gemini 2.0 Flash</strong> — Google's fast, capable model (via Google AI). 60 requests/minute on the free tier.</li>
+        <li><strong>Llama 3.3 70B</strong> — Meta's best open model, hosted on Groq's ultra-fast inference. 30 requests/minute on the free tier.</li>
+        <li><strong>Llama 3.1 8B</strong> — A smaller, faster Llama model for lightweight tasks. 30 requests/minute on the free tier.</li>
+      </ul>
+      <h3>Rate limits</h3>
+      <p>
+        Cipher Proxy uses the free tiers of Google AI and Groq. Rate limits are shared across all Cipher Proxy users. When a rate limit is hit, Cipher automatically retries with exponential backoff (5s → 15s → 30s). You'll see a "Rate limited, retrying..." message when this happens.
+      </p>
+      <div class="callout warn">
+        <p>If you're doing heavy, continuous use, consider providing your own API keys for Groq or Gemini to get dedicated rate limits.</p>
+      </div>
+      <h3>Privacy</h3>
+      <p>
+        Messages sent through Cipher Proxy pass through the Vercel serverless function to the respective AI provider. The proxy does not log or store messages. For sensitive codebases, use your own API keys or a local model via Ollama or LM Studio.
+      </p>
+    </div>
+
+    <!-- TROUBLESHOOTING -->
+    <div class="doc-section" id="troubleshooting">
+      <h2>Troubleshooting</h2>
+
+      <h3>Cipher command not found</h3>
+      <p>After installing with pip, the <code>cipher</code> command should be in your PATH. If not:</p>
+      <ul>
+        <li>On Mac/Linux: Add <code>~/.local/bin</code> to your PATH: <code>export PATH="$HOME/.local/bin:$PATH"</code></li>
+        <li>On Windows: Check <code>%APPDATA%\Python\Python3xx\Scripts</code> is in your PATH, or use the PowerShell installer which handles this automatically.</li>
+      </ul>
+
+      <h3>Rate limit errors</h3>
+      <p>You'll see this when the AI provider's free tier is temporarily exhausted. Cipher will retry automatically. If it persists:</p>
+      <ul>
+        <li>Wait a minute and try again</li>
+        <li>Use <code>/settings</code> to switch to a different provider</li>
+        <li>Get your own API key for Groq (free tier at console.groq.com) or Gemini (free tier at aistudio.google.com)</li>
+      </ul>
+
+      <h3>Commands not running on Windows</h3>
+      <p>Cipher uses PowerShell for all <code>&lt;run&gt;</code> commands on Windows. If a command fails:</p>
+      <ul>
+        <li>Cipher automatically converts <code>&amp;&amp;</code> to <code>;</code> for command chaining</li>
+        <li>To open files: tell Cipher to use <code>Start-Process 'filename'</code></li>
+        <li>Most common commands (python, pip, npm, node, git) work exactly the same in PowerShell</li>
+      </ul>
+
+      <h3>Ollama / LM Studio connection failed</h3>
+      <ul>
+        <li>For Ollama: make sure the daemon is running (<code>ollama serve</code>) and the model is pulled (<code>ollama pull llama3.2</code>)</li>
+        <li>For LM Studio: enable the local server in LM Studio's settings and ensure the model is loaded</li>
+        <li>The default base URL for Ollama is <code>http://localhost:11434</code> and LM Studio is <code>http://localhost:1234</code></li>
+      </ul>
+
+      <h3>Slow responses</h3>
+      <p>Response speed depends on the model and provider:</p>
+      <ul>
+        <li>Groq and Gemini Flash are the fastest options in Cipher Proxy</li>
+        <li>Large local models (via Ollama/LM Studio) depend on your hardware</li>
+        <li>If using your own API key and still slow, try a smaller/faster model variant</li>
+      </ul>
+    </div>
+
+    <!-- UNINSTALL -->
+    <div class="doc-section" id="uninstall">
+      <h2>Uninstall</h2>
+      <p>Cipher stores session data in <code>~/.cipher/</code>. Remove this folder along with the package to fully uninstall.</p>
+
+      <h3>Via pip</h3>
+      <pre><span class="cmd">pip uninstall cipher-agent</span></pre>
+
+      <h3>Via npm</h3>
+      <pre><span class="cmd">npm uninstall -g cipher-agent</span></pre>
+
+      <h3>Remove session data</h3>
+      <pre><span class="cmt"># Mac / Linux</span>
+<span class="cmd">rm -rf ~/.cipher</span>
+
+<span class="cmt"># Windows PowerShell</span>
+<span class="cmd">Remove-Item -Recurse -Force $HOME\.cipher</span></pre>
+    </div>
 
   </main>
 </div>
 
 <footer>
-  <p>MIT License — Cipher v0.6.0</p>
+  <a href="/">← cipher.elevenpct.com</a> &nbsp;·&nbsp;
+  <a href="https://github.com/elevenpercent/cipher" target="_blank">GitHub</a> &nbsp;·&nbsp;
+  <a href="https://github.com/elevenpercent/cipher/issues" target="_blank">Issues</a> &nbsp;·&nbsp;
+  v0.6.0 · MIT License
 </footer>
 
+<script>
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Active sidebar link on scroll
+const sections = document.querySelectorAll('.doc-section');
+const links = document.querySelectorAll('.sidebar a');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => obs.observe(s));
+</script>
 </body>
 </html>
