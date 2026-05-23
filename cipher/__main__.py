@@ -70,6 +70,20 @@ def interactive_setup():
                         yield Static("FREE — NO KEY NEEDED", classes="setup-section")
                         yield Button("  ★  Cipher Proxy  —  Llama 3.3 70B + Gemini (free, instant)", id="provider-cipher-proxy", variant="primary")
                         yield Static("", classes="setup-spacer")
+                        yield Static("RECOMMENDED — BRING YOUR KEY", classes="setup-section")
+                        priority = ["deepseek", "groq", "openai", "anthropic", "gemini"]
+                        shown = set()
+                        for pid in priority:
+                            info = PROVIDERS.get(pid, {})
+                            if info.get("env_key") and not info.get("proxy"):
+                                safe_pid = pid.replace('/', '_').replace(':', '_').replace('.', '_')
+                                self.provider_map[f"provider-{safe_pid}"] = pid
+                                label = f"  {info['name']}  —  {info['desc']}"
+                                if pid == "deepseek":
+                                    label = f"  ★  {info['name']}  —  Best for coding, very cheap"
+                                yield Button(label, id=f"provider-{safe_pid}", variant="default")
+                                shown.add(pid)
+                        yield Static("", classes="setup-spacer")
                         if local_available:
                             yield Static("LOCAL MODELS (Ollama)", classes="setup-section")
                             for m in ollama_models:
@@ -77,9 +91,9 @@ def interactive_setup():
                                 self.model_map[f"model-{safe}"] = m['id']
                                 yield Button(f"  {m['name']}", id=f"model-{safe}", variant="default")
                             yield Static("", classes="setup-spacer")
-                        yield Static("BRING YOUR OWN KEY", classes="setup-section")
+                        yield Static("MORE PROVIDERS", classes="setup-section")
                         for pid, info in PROVIDERS.items():
-                            if info.get("env_key") and not info.get("proxy"):
+                            if info.get("env_key") and not info.get("proxy") and pid not in shown:
                                 safe_pid = pid.replace('/', '_').replace(':', '_').replace('.', '_')
                                 self.provider_map[f"provider-{safe_pid}"] = pid
                                 yield Button(f"  {info['name']}  —  {info['desc']}", id=f"provider-{safe_pid}", variant="default")

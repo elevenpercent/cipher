@@ -736,8 +736,6 @@ class CipherApp(App):
         self.theme_manager = ThemeManager()
         self.formatter_manager = FormatterManager()
         self.formatter_manager.lint_command = self.config.get("lint_command", "")
-        self.mcp_manager = MCPServerManager()
-        self.lsp_manager = LSPManager()
 
     def _build_system_prompt(self):
         skills_text = self._load_skills()
@@ -1364,7 +1362,7 @@ Rules:
         try:
             self.call_from_thread(self._remove_loading)
             self._stream_widget = None
-            self.call_from_thread(self._set_status, "Thinking")
+            self.call_from_thread(self._set_status, "Thinking...")
 
             pid = self.config.get("provider", "cipher-proxy")
             mid = self.config.get("model", "llama-3.3-70b")
@@ -1373,13 +1371,52 @@ Rules:
                     self._ai_provider.provider_id != pid or
                     self._ai_provider.model_id != mid):
                 self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key,
-                                               proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
+                                               proxy_url=self.config.get("proxy_url", "https://proxy-blue-kappa.vercel.app"))
 
             _is_proxy = (pid == "cipher-proxy")
+
+            # ── SINGLE-AGENT MODE (any provider with an API key) ──────────────
+            if not _is_proxy:
+                user_msg = self.chat_ai_messages[-1]["content"]
+
+                # Rebuild coding context from conversation history on every turn
+                history = [m for m in self.chat_ai_messages[1:]
+                           if m["role"] in ("user", "assistant")]
+                self.coding_messages = (
+                    [{"role": "system", "content": self.system_prompt}]
+                    + history[-20:]
+                )
+
+                self.call_from_thread(self._set_status, "Thinking...")
+                coding_summary, had_error = self._run_coding_loop(stream_text=True)
+
+                if self._cancelled:
+                    return
+
+                # Store assistant reply in chat history for session persistence
+                if coding_summary:
+                    self.chat_ai_messages.append({"role": "assistant", "content": coding_summary})
+
+                # Session title from first user message
+                if not self._title_from_ai and user_msg:
+                    raw_t = user_msg[:60]
+                    ai_title = raw_t if len(raw_t) <= 42 else raw_t[:39] + "..."
+                    self._title_from_ai = True
+                    self.call_from_thread(self._set_session_title, ai_title)
+
+                save_session(self.session_id, self.chat_ai_messages, self.session_title)
+                self.call_from_thread(self._set_status, "Ready")
+                self.call_from_thread(self._remove_loading)
+                self.call_from_thread(self._set_ready)
+                return
+
+            # ── TWO-AGENT MODE (cipher-proxy) ─────────────────────────────────
+            # Phase 1: Gemini routes conversation vs coding task
+            # Phase 2: Llama executes the task
+            # Phase 3: Gemini summarises the result
+
             def _chat_call(msgs):
-                if _is_proxy:
-                    return self._ai_provider.chat_as_model(msgs, "gemini-2.0-flash", stream=True)
-                return self._ai_provider.chat(msgs, stream=True)
+                return self._ai_provider.chat_as_model(msgs, "gemini-2.0-flash", stream=True)
 
             # === PHASE 1: Chat AI decides what to do ===
             chat_buffer = ""
@@ -1393,18 +1430,10 @@ Rules:
                 self._update_stream(self._clean_chat_ai_display(chat_buffer))
 
             self._update_stream(self._clean_chat_ai_display(chat_buffer))
-
-            try:
-                import tiktoken
-                enc = tiktoken.get_encoding("cl100k_base")
-                self.total_tokens += len(enc.encode(chat_buffer))
-            except Exception:
-                self.total_tokens += len(chat_buffer) // 4
+            self.total_tokens += len(chat_buffer) // 4
 
             if not chat_buffer.strip():
-                self.call_from_thread(self._add_system, "AI returned empty response. Try again.")
-                self.call_from_thread(self._set_status, "Ready")
-                self.call_from_thread(self._remove_loading)
+                self.call_from_thread(self._add_system, "No response. Check your connection or try again.")
                 self.call_from_thread(self._set_ready)
                 return
 
@@ -1436,7 +1465,7 @@ Rules:
             # Show any text the chat AI wrote before the <task> tag
             pre = self._clean_chat_ai_display(chat_buffer[:task_m.start()])
             _phase1_widget = self._stream_widget
-            self._stream_widget = None  # reset before Phase 2
+            self._stream_widget = None
             if _phase1_widget is not None:
                 if pre:
                     self.call_from_thread(_phase1_widget.update, pre)
@@ -1446,7 +1475,6 @@ Rules:
             coding_task = task_m.group(1).strip()
             self.call_from_thread(self._set_status, "Coding...")
 
-            # Fresh coding context for this task
             self.coding_messages = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": coding_task},
@@ -1455,9 +1483,8 @@ Rules:
             # === PHASE 2: Coding AI loop with optional error-fix retries ===
             coding_summary = ""
             had_error = False
-            max_fixes = 2
 
-            for fix_round in range(max_fixes + 1):
+            for fix_round in range(3):
                 if time.time() - loop_start > 600:
                     self.call_from_thread(self._add_system, "Task timed out (10 min)")
                     had_error = True
@@ -1466,33 +1493,34 @@ Rules:
 
                 coding_summary, had_error = self._run_coding_loop()
 
-                if not had_error or fix_round >= max_fixes:
+                if not had_error or fix_round >= 2:
                     break
 
-                # Ask chat AI to generate a fix instruction
                 self.call_from_thread(self._set_status, "Analyzing error...")
                 self.chat_ai_messages.append({
                     "role": "user",
-                    "content": f"The coding agent hit an error: {coding_summary[:500]}\nIf this is a real error that needs fixing, output <fix>specific fix instruction</fix>. Otherwise say it's fine."
+                    "content": f"Coding error: {coding_summary[:500]}\nOutput <fix>specific fix instruction</fix> or say it's fine."
                 })
                 fix_buffer = ""
                 for chunk in _chat_call(self.chat_ai_messages):
+                    if self._cancelled:
+                        return
                     fix_buffer += chunk.get("content", "")
                 self.chat_ai_messages.append({"role": "assistant", "content": fix_buffer})
 
                 fix_m = re.search(r'<fix>(.*?)</fix>', fix_buffer, re.DOTALL)
                 if not fix_m:
-                    had_error = False  # chat AI said it's fine
+                    had_error = False
                     break
                 fix_instr = fix_m.group(1).strip()
                 self.call_from_thread(self._add_system, f"Auto-fixing: {fix_instr[:80]}")
                 self.coding_messages.append({"role": "user", "content": f"Fix: {fix_instr}"})
 
-            # === PHASE 3: Chat AI presents result to user ===
+            # === PHASE 3: Chat AI summarises result ===
             self.call_from_thread(self._set_status, "Summarizing...")
             self._stream_widget = None
 
-            result_note = f"Task complete. {coding_summary[:300]}" if not had_error else f"There was an error: {coding_summary[:300]}"
+            result_note = f"Task complete. {coding_summary[:300]}" if not had_error else f"Error: {coding_summary[:300]}"
             self.chat_ai_messages.append({
                 "role": "user",
                 "content": f"Coding result: {result_note}\nGive the user a friendly 1-2 sentence summary."
@@ -1531,25 +1559,28 @@ Rules:
             self.call_from_thread(self._remove_loading)
             self.call_from_thread(self._set_ready)
 
-    def _run_coding_loop(self):
-        """Run the coding AI for one task. Returns (summary, had_error)."""
-        pid = self.config.get("provider", "cipher-proxy")
-        _is_proxy = (pid == "cipher-proxy")
-
+    def _run_coding_loop(self, stream_text=False):
+        """Run the coding AI. Returns (summary, had_error)."""
         _is_proxy = (self.config.get("provider") == "cipher-proxy")
+
         def _code_stream(msgs):
             if _is_proxy:
                 return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
             return self._ai_provider.chat(msgs, stream=True)
 
-        max_turns = 12
+        max_turns = 20
         for turn in range(max_turns):
             turn_buffer = ""
             try:
                 for chunk in _code_stream(self.coding_messages):
                     if self._cancelled:
                         return "Cancelled", False
-                    turn_buffer += chunk.get("content", "")
+                    token = chunk.get("content", "")
+                    turn_buffer += token
+                    if stream_text:
+                        clean = self._stream_clean(turn_buffer)
+                        if clean:
+                            self._update_stream(clean)
             except Exception as e:
                 return str(e), True
 
@@ -1564,6 +1595,17 @@ Rules:
             done_m = re.search(r'<done>(.*?)</done>', turn_buffer, re.DOTALL)
 
             if tools:
+                # Clear streamed text before showing tool result widgets
+                if stream_text and self._stream_widget is not None:
+                    first_tag = re.search(r'<(?:run|write|read|edit|ls|grep|glob|git|web-fetch|web-search|todo|open)\b', turn_buffer)
+                    pre = self._stream_clean(turn_buffer[:first_tag.start()]) if first_tag else ""
+                    if pre:
+                        self.call_from_thread(self._stream_finalize, pre)
+                    else:
+                        w = self._stream_widget
+                        self.call_from_thread(w.remove)
+                    self._stream_widget = None
+
                 self.coding_messages.append({"role": "assistant", "content": turn_buffer})
                 results = []
                 tool_error = False
@@ -1601,25 +1643,18 @@ Rules:
                 continue
 
             if done_m:
-                return done_m.group(1).strip(), False
+                summary = done_m.group(1).strip()
+                if stream_text:
+                    self.call_from_thread(self._stream_finalize, summary)
+                return summary, False
 
-            # No tools, no done — treat as a plain response (probably chat, not a coding task)
-            return turn_buffer[:300].strip(), False
+            # No tools, no done — conversational response
+            display = self._stream_clean(turn_buffer)
+            if stream_text:
+                self.call_from_thread(self._stream_finalize, display if display else turn_buffer.strip())
+            return turn_buffer.strip(), False
 
         return "Max turns reached without completing", True
-
-    def _wait_for_input(self, prompt):
-        event = threading.Event()
-        self._input_event = event
-        self._input_result = ""
-        self.call_from_thread(self._add_system, prompt)
-        self.call_from_thread(self._set_status, "Waiting for your input...")
-        event.wait()
-        self.call_from_thread(self._set_status, "Continuing...")
-        return self._input_result
-
-    def _confirm_action(self, tool, args):
-        return True
 
     def _update_stream(self, text):
         try:
