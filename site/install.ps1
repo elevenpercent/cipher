@@ -3,13 +3,14 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "  ____ _   _ ____   ____ ___  " -ForegroundColor Cyan
-Write-Host " / ___| | | |  _ \ / ___/ _ \ " -ForegroundColor Cyan
-Write-Host "| |   | | | | |_) | |  | | | |" -ForegroundColor Cyan
-Write-Host "| |___| |_| |  _ <| |__| |_| |" -ForegroundColor Cyan
-Write-Host " \____|\___/|_| \_\\____\___/ " -ForegroundColor Cyan
+Write-Host "    |       |   " -ForegroundColor Green
+Write-Host "   ███     ███  " -NoNewline -ForegroundColor Green
+Write-Host "%" -ForegroundColor Red
+Write-Host "   ███     ███  " -ForegroundColor Green
+Write-Host "   ███     ███  " -ForegroundColor Green
+Write-Host "    |       |   " -ForegroundColor Green
 Write-Host ""
-Write-Host "cipher.elevenpct.com" -ForegroundColor DarkGray
+Write-Host "  elevenpercent  ·  cipher" -ForegroundColor DarkGray
 Write-Host ""
 
 # ── Step 1: Find or install Python 3.10+ ─────────────────────────────────────

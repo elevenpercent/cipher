@@ -3,14 +3,19 @@
 # Usage: curl -fsSL https://cipher.elevenpct.com/install.sh | bash
 set -euo pipefail
 
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+RESET='\033[0m'
+GRAY='\033[0;90m'
+
 echo ""
-echo "  ____ _   _ ____   ____ ___  "
-echo " / ___| | | |  _ \\ / ___/ _ \\ "
-echo "| |   | | | | |_) | |  | | | |"
-echo "| |___| |_| |  _ <| |__| |_| |"
-echo " \\____|\\___|_| \\_\\\\____\\___/ "
+echo -e "${GREEN}    |       |   ${RESET}"
+echo -e "${GREEN}   ███     ███  ${RED}%${RESET}"
+echo -e "${GREEN}   ███     ███  ${RESET}"
+echo -e "${GREEN}   ███     ███  ${RESET}"
+echo -e "${GREEN}    |       |   ${RESET}"
 echo ""
-echo "cipher.elevenpct.com"
+echo -e "${GRAY}  elevenpercent  ·  cipher${RESET}"
 echo ""
 
 # ── Step 1: Find or install Python 3.10+ ─────────────────────────────────────
