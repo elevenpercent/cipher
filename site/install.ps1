@@ -3,12 +3,11 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "    |       |   " -ForegroundColor Green
-Write-Host "   ███     ███  " -NoNewline -ForegroundColor Green
+Write-Host "  ████  ████  " -NoNewline -ForegroundColor Green
 Write-Host "%" -ForegroundColor Red
-Write-Host "   ███     ███  " -ForegroundColor Green
-Write-Host "   ███     ███  " -ForegroundColor Green
-Write-Host "    |       |   " -ForegroundColor Green
+Write-Host "     █     █  " -ForegroundColor Green
+Write-Host "     █     █  " -ForegroundColor Green
+Write-Host "  ████  ████  " -ForegroundColor Green
 Write-Host ""
 Write-Host "  elevenpercent  ·  cipher" -ForegroundColor DarkGray
 Write-Host ""

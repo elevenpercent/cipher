@@ -9,11 +9,10 @@ RESET='\033[0m'
 GRAY='\033[0;90m'
 
 echo ""
-echo -e "${GREEN}    |       |   ${RESET}"
-echo -e "${GREEN}   ███     ███  ${RED}%${RESET}"
-echo -e "${GREEN}   ███     ███  ${RESET}"
-echo -e "${GREEN}   ███     ███  ${RESET}"
-echo -e "${GREEN}    |       |   ${RESET}"
+echo -e "${GREEN}  ████  ████  ${RED}%${RESET}"
+echo -e "${GREEN}     █     █  ${RESET}"
+echo -e "${GREEN}     █     █  ${RESET}"
+echo -e "${GREEN}  ████  ████  ${RESET}"
 echo ""
 echo -e "${GRAY}  elevenpercent  ·  cipher${RESET}"
 echo ""
