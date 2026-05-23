@@ -68,7 +68,7 @@ def interactive_setup():
                 with VerticalScroll(id="setup-scroll"):
                     with Container(id="setup-container"):
                         yield Static("FREE — NO KEY NEEDED", classes="setup-section")
-                        yield Button("  ★  Cipher Proxy  —  Llama 3.3 70B + Gemini (free, instant)", id="provider-cipher-proxy", variant="primary")
+                        yield Button("  ★  Cipher Proxy  —  Llama 3.3 70B (free, instant)", id="provider-cipher-proxy", variant="primary")
                         yield Static("", classes="setup-spacer")
                         yield Static("RECOMMENDED — BRING YOUR KEY", classes="setup-section")
                         priority = ["deepseek", "groq", "openai", "anthropic", "gemini"]

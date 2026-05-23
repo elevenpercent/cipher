@@ -1412,18 +1412,21 @@ Rules:
                 return
 
             # ── TWO-AGENT MODE (cipher-proxy) ─────────────────────────────────
-            # Phase 1: Gemini routes conversation vs coding task
-            # Phase 2: DeepSeek executes the task
-            # Phase 3: Gemini summarises the result
+            # Phase 1: Llama 8B routes conversation vs coding task (fast)
+            # Phase 2: Llama 70B executes the task (best quality)
+            # Phase 3: Llama 8B summarises the result (fast)
 
             def _chat_call(msgs):
-                return self._ai_provider.chat_as_model(msgs, "gemini-2.0-flash", stream=True)
+                return self._ai_provider.chat_as_model(msgs, "llama-3.1-8b", stream=True)
 
             # === PHASE 1: Chat AI decides what to do ===
             chat_buffer = ""
             for chunk in _chat_call(self.chat_ai_messages):
                 if self._cancelled:
                     return
+                if chunk.get("status"):
+                    self.call_from_thread(self._set_status, chunk["status"])
+                    continue
                 token = chunk.get("content", "")
                 if not token:
                     continue
@@ -1506,6 +1509,9 @@ Rules:
                 for chunk in _chat_call(self.chat_ai_messages):
                     if self._cancelled:
                         return
+                    if chunk.get("status"):
+                        self.call_from_thread(self._set_status, chunk["status"])
+                        continue
                     fix_buffer += chunk.get("content", "")
                 self.chat_ai_messages.append({"role": "assistant", "content": fix_buffer})
 
@@ -1531,6 +1537,9 @@ Rules:
             for chunk in _chat_call(self.chat_ai_messages):
                 if self._cancelled:
                     return
+                if chunk.get("status"):
+                    self.call_from_thread(self._set_status, chunk["status"])
+                    continue
                 token = chunk.get("content", "")
                 summary_buffer += token
                 self._update_stream(self._clean_chat_ai_display(summary_buffer))
@@ -1566,7 +1575,7 @@ Rules:
 
         def _code_stream(msgs):
             if _is_proxy:
-                return self._ai_provider.chat_as_model(msgs, "deepseek-chat", stream=True)
+                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
             return self._ai_provider.chat(msgs, stream=True)
 
         max_turns = 20

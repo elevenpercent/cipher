@@ -231,7 +231,7 @@ PROVIDERS = {
     },
     "cipher-proxy": {
         "name": "Cipher Proxy",
-        "desc": "Free models via proxy — no API key needed. Powered by DeepSeek + Gemini.",
+        "desc": "Free models via proxy — no API key needed. Powered by Llama 3.3 70B.",
         "type": "cloud-free",
         "proxy": True,
         "models": [
@@ -416,12 +416,13 @@ class AIProvider:
                         wait = min(int(e.headers.get("Retry-After", 0) or 0), 60) or _retry_waits[attempt]
                     except Exception:
                         wait = _retry_waits[attempt]
+                    yield {"content": "", "status": f"Rate limited — retrying in {wait}s..."}
                     time.sleep(wait)
                     continue
-                yield {"content": "Rate limited (429) — the free proxy is busy. Please wait 30 seconds and try again."}
+                yield {"content": f"The free proxy is busy (rate limited). Wait a moment and try again."}
                 return
             except Exception as e:
-                yield {"content": f" Proxy error: {e}"}
+                yield {"content": f"Proxy error: {e}"}
                 return
 
     @staticmethod
