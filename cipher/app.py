@@ -105,7 +105,7 @@ def detect_available_providers():
 def load_config():
     defaults = {
         "provider": "cipher-proxy",
-        "model": "llama-3.3-70b",
+        "model": "deepseek-chat",
         "show_plan": True,
         "show_code": True,
         "show_summary": True,
@@ -736,6 +736,7 @@ class CipherApp(App):
         self.theme_manager = ThemeManager()
         self.formatter_manager = FormatterManager()
         self.formatter_manager.lint_command = self.config.get("lint_command", "")
+        self.mcp_manager = MCPServerManager()
 
     def _build_system_prompt(self):
         skills_text = self._load_skills()
@@ -1412,7 +1413,7 @@ Rules:
 
             # ── TWO-AGENT MODE (cipher-proxy) ─────────────────────────────────
             # Phase 1: Gemini routes conversation vs coding task
-            # Phase 2: Llama executes the task
+            # Phase 2: DeepSeek executes the task
             # Phase 3: Gemini summarises the result
 
             def _chat_call(msgs):
@@ -1758,22 +1759,6 @@ Rules:
 
         raw.sort(key=lambda t: t.pop("_pos", 0))
         return raw
-
-    def _parse_edit_body(self, m):
-        inner = m.group(2)
-        old_m = re.search(r'<old>(.*?)</old>', inner, re.DOTALL)
-        new_m = re.search(r'<new>(.*?)</new>', inner, re.DOTALL)
-        if old_m and new_m:
-            return {"type": "edit", "path": m.group(1), "args": m.group(1), "body": json.dumps({"old": old_m.group(1), "new": new_m.group(1)})}
-        return None
-
-    def _parse_git_body(self, m):
-        cmd = (m.group(1) or "status").strip()
-        msg_m = re.search(r'message=["\'](.+?)["\']', cmd)
-        if msg_m:
-            cmd = re.sub(r'message=["\'].+?["\']', '', cmd).strip()
-            return {"type": "git", "path": "", "args": cmd, "body": msg_m.group(1)}
-        return {"type": "git", "path": "", "args": cmd, "body": ""}
 
     def _execute_tool(self, tool_name, args, body=""):
         if tool_name == "write":

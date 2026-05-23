@@ -6,7 +6,6 @@ import subprocess
 import urllib.request
 import urllib.error
 from typing import Generator
-import os
 os.environ["LITELLM_LOG"] = "ERROR"
 import litellm
 import logging
