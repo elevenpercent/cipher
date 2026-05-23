@@ -723,6 +723,7 @@ class CipherApp(App):
         self.session_title = ""
         self._title_from_ai = False
         self.is_processing = False
+        self._cancelled = False
         self.loading_widget = None
         self.autocomplete = None
         self._input_event = None
@@ -1256,7 +1257,15 @@ Rules:
         self._ctrl_c_pending = False
 
     def action_clear_input(self):
-        self.query_one("#chat-input", Input).value = ""
+        if self.is_processing:
+            self._cancelled = True
+            self.workers.cancel_all()
+            self._add_system("Cancelled.")
+            self._remove_loading()
+            self._set_status("Ready")
+            self._set_ready()
+        else:
+            self.query_one("#chat-input", Input).value = ""
 
     def on_input_changed(self, event):
         if self.autocomplete:
@@ -1327,6 +1336,8 @@ Rules:
             save_session(self.session_id, self.chat_ai_messages, self.session_title)
 
             self.is_processing = True
+            self._cancelled = False
+            self.query_one("#chat-input", Input).disabled = True
             self._set_status("")
 
             container = self.query_one("#chat-container")
@@ -1364,19 +1375,14 @@ Rules:
                 self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key,
                                                proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
 
-            # Smart model routing for cipher-proxy: Gemini for chat, Llama 70B for coding
-            _is_proxy = (pid == "cipher-proxy")
-            _CHAT_MODEL = "gemini-2.0-flash"
-            _CODE_MODEL = "llama-3.3-70b"
-
             def _chat_call(msgs):
-                if _is_proxy:
-                    return self._ai_provider.chat_as_model(msgs, _CHAT_MODEL, stream=True)
                 return self._ai_provider.chat(msgs, stream=True)
 
             # === PHASE 1: Chat AI decides what to do ===
             chat_buffer = ""
             for chunk in _chat_call(self.chat_ai_messages):
+                if self._cancelled:
+                    return
                 token = chunk.get("content", "")
                 if not token:
                     continue
@@ -1491,6 +1497,8 @@ Rules:
 
             summary_buffer = ""
             for chunk in _chat_call(self.chat_ai_messages):
+                if self._cancelled:
+                    return
                 token = chunk.get("content", "")
                 summary_buffer += token
                 self._update_stream(self._clean_chat_ai_display(summary_buffer))
@@ -1526,8 +1534,6 @@ Rules:
         _is_proxy = (pid == "cipher-proxy")
 
         def _code_stream(msgs):
-            if _is_proxy:
-                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
             return self._ai_provider.chat(msgs, stream=True)
 
         max_turns = 12
@@ -1535,6 +1541,8 @@ Rules:
             turn_buffer = ""
             try:
                 for chunk in _code_stream(self.coding_messages):
+                    if self._cancelled:
+                        return "Cancelled", False
                     turn_buffer += chunk.get("content", "")
             except Exception as e:
                 return str(e), True
@@ -1636,8 +1644,11 @@ Rules:
 
     def _set_ready(self):
         self.is_processing = False
+        self._cancelled = False
         self._stream_widget = None
-        self.query_one("#chat-input").focus()
+        inp = self.query_one("#chat-input", Input)
+        inp.disabled = False
+        inp.focus()
 
     def _stream_clean(self, buffer):
         clean = buffer
