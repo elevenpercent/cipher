@@ -1375,7 +1375,10 @@ Rules:
                 self._ai_provider = AIProvider(provider_id=pid, model_id=mid, api_key=self.api_key,
                                                proxy_url=self.config.get("proxy_url", "http://localhost:8080"))
 
+            _is_proxy = (pid == "cipher-proxy")
             def _chat_call(msgs):
+                if _is_proxy:
+                    return self._ai_provider.chat_as_model(msgs, "gemini-2.0-flash", stream=True)
                 return self._ai_provider.chat(msgs, stream=True)
 
             # === PHASE 1: Chat AI decides what to do ===
@@ -1533,7 +1536,10 @@ Rules:
         pid = self.config.get("provider", "cipher-proxy")
         _is_proxy = (pid == "cipher-proxy")
 
+        _is_proxy = (self.config.get("provider") == "cipher-proxy")
         def _code_stream(msgs):
+            if _is_proxy:
+                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
             return self._ai_provider.chat(msgs, stream=True)
 
         max_turns = 12
