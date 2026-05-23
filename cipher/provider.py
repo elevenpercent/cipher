@@ -232,13 +232,14 @@ PROVIDERS = {
     },
     "cipher-proxy": {
         "name": "Cipher Proxy",
-        "desc": "Free models via proxy — no API key needed. Powered by Groq + Gemini.",
+        "desc": "Free models via proxy — no API key needed. Powered by DeepSeek + Gemini.",
         "type": "cloud-free",
         "proxy": True,
         "models": [
-            {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Groq, fast)", "free": True},
+            {"id": "deepseek-chat", "name": "DeepSeek Chat (coding)", "free": True},
+            {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash (chat)", "free": True},
+            {"id": "llama-3.3-70b", "name": "Llama 3.3 70B (Groq)", "free": True},
             {"id": "llama-3.1-8b", "name": "Llama 3.1 8B (Groq)", "free": True},
-            {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash (Google)", "free": True},
         ],
     },
     "fireworks": {

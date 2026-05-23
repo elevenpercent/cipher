@@ -1565,7 +1565,7 @@ Rules:
 
         def _code_stream(msgs):
             if _is_proxy:
-                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
+                return self._ai_provider.chat_as_model(msgs, "deepseek-chat", stream=True)
             return self._ai_provider.chat(msgs, stream=True)
 
         max_turns = 20
