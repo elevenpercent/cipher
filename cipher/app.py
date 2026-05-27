@@ -1687,8 +1687,18 @@ Rules:
             pass
 
     def _stream_finalize(self, text):
-        if self._stream_widget is not None:
-            self._stream_widget.update(text)
+        if not text:
+            return
+        if self._stream_widget is None:
+            # Widget not yet created (e.g. Phase 3 got no streaming tokens) — create it now
+            self._stream_widget = Static("", classes="msg-assistant")
+            try:
+                container = self.query_one("#chat-container")
+                container.mount(self._stream_widget)
+                container.scroll_end()
+            except Exception:
+                return
+        self._stream_widget.update(text)
 
     def _remove_loading(self):
         if self.loading_widget:
