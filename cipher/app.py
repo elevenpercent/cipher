@@ -794,6 +794,7 @@ Extra rules:
 - Do NOT create extra files (like main.py, utils.py, etc.) unless the user explicitly asks for them.
 - When the task is complete, output <done> immediately. Do not keep adding features or verifying things that weren't asked for.
 - When editing a file, read it first to get the exact current text before using <edit>.
+- HTML/CSS: always write visually polished output. Use a dark or bold color scheme, Google Fonts, flexbox/grid layouts, hover effects, box shadows, and smooth transitions. Never output plain unstyled HTML — every website should look modern and professional, like it was designed by a UI designer.
 {custom_text}"""
 
     def _build_chat_system_prompt(self):
