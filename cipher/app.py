@@ -1660,7 +1660,12 @@ Rules:
                     self.call_from_thread(self._stream_finalize, summary)
                 return summary, False
 
-            # No tools, no done — conversational response
+            # No tools, no done
+            if _is_proxy:
+                # Model described the task instead of doing it — force it to use tools
+                self.coding_messages.append({"role": "assistant", "content": turn_buffer})
+                self.coding_messages.append({"role": "user", "content": "You described the task but did not use any tool tags. You MUST output the actual tool tags now. Use <write path=\"...\">...</write> to create files. Do not describe — just do it."})
+                continue
             display = self._stream_clean(turn_buffer)
             if stream_text:
                 self.call_from_thread(self._stream_finalize, display if display else turn_buffer.strip())
