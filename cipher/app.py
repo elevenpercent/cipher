@@ -915,6 +915,11 @@ Rules:
             self.query_one("#status-bar", Static).update(text)
         except Exception:
             pass
+        if text and self.is_processing:
+            try:
+                self.query_one("#chat-input", Input).placeholder = f"{text}  (type to queue)"
+            except Exception:
+                pass
 
     def _get_chat(self):
         try:
@@ -1730,6 +1735,7 @@ Rules:
         self._cancelled = False
         self._stream_widget = None
         inp = self.query_one("#chat-input", Input)
+        inp.placeholder = "Ask Cipher..."
         inp.focus()
         if self._input_queue:
             next_input = self._input_queue.pop(0)
