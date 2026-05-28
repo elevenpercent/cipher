@@ -669,7 +669,7 @@ class CipherApp(App):
         background: #0c0c0c;
     }
     .msg-plan { margin: 1 4; padding: 1 2; border-left: solid #3b5bdb; background: #0a0a12; }
-    .msg-code { margin: 0 4; padding: 1 2; background: #080810; }
+    .msg-code { margin: 0 4; padding: 0 2; background: #080810; }
 
     /* Tool results — compact row, clickable */
     .msg-tool {
@@ -729,6 +729,7 @@ class CipherApp(App):
         self._input_event = None
         self._input_result = ""
         self._stream_widget = None
+        self._input_queue = []
         self.agent_mode = "build"
         self.tool_registry = ToolRegistry()
         self.permission_manager = PermissionManager(self.config)
@@ -1237,6 +1238,15 @@ Rules:
                     for child in list(container.children):
                         child.remove()
                     self.query_one("#header-center").update(self.session_title)
+                    for msg in msgs:
+                        role = msg.get("role")
+                        content = msg.get("content", "")
+                        if role == "user":
+                            self._add_user(content)
+                        elif role == "assistant":
+                            clean = self._clean_chat_ai_display(content)
+                            if clean.strip():
+                                self._add_assistant(clean)
                     self._add_system(f"Loaded: {self.session_title}")
         self.push_screen(SessionModal(), on_session)
 
@@ -1327,6 +1337,11 @@ Rules:
             self.history_index = len(self.command_history)
             self.query_one("#chat-input").value = ""
 
+            if self.is_processing:
+                self._input_queue.append(user_input)
+                self._add_system(f"Queued: {user_input[:60]}")
+                return
+
             if not self.session_title:
                 self.session_title = generate_title(user_input)
                 self.query_one("#header-center").update(self.session_title)
@@ -1338,7 +1353,6 @@ Rules:
 
             self.is_processing = True
             self._cancelled = False
-            self.query_one("#chat-input", Input).disabled = True
             self._set_status("")
 
             container = self.query_one("#chat-container")
@@ -1715,8 +1729,11 @@ Rules:
         self._cancelled = False
         self._stream_widget = None
         inp = self.query_one("#chat-input", Input)
-        inp.disabled = False
         inp.focus()
+        if self._input_queue:
+            next_input = self._input_queue.pop(0)
+            self._add_system(f"Processing queued: {next_input[:60]}")
+            self.post_message(Input.Submitted(inp, next_input))
 
     def _stream_clean(self, buffer):
         clean = buffer
@@ -1832,8 +1849,8 @@ Rules:
             extra = result.get("extra", "")
             self._add_tool_safe(tool_name, args, f"{count} files{extra}", success)
         elif tool_name == "edit":
-            self._add_code_safe(args.strip(), result.get("new_content", ""), result.get("old_content", ""))
             self._add_tool_safe(tool_name, args, "Applied", success)
+            self._add_code_safe(args.strip(), result.get("new_content", ""), result.get("old_content", ""))
         elif tool_name == "web-fetch":
             bytes_fetched = result.get("bytes", 0)
             self._add_tool_safe(tool_name, args, f"{bytes_fetched} bytes fetched", success)
