@@ -16,9 +16,10 @@ const MODELS = {
   "deepseek-chat":       { provider: "deepseek",  model: "deepseek-chat" },
   // SambaNova — free, strong models
   "sambanova-70b":       { provider: "sambanova", model: "Meta-Llama-3.3-70B-Instruct" },
-  "sambanova-405b":      { provider: "sambanova", model: "Meta-Llama-3.1-405B-Instruct" },
+  "sambanova-405b":      { provider: "sambanova", model: "Llama-4-Maverick-17B-128E-Instruct" },
   // Cerebras — free, very fast
   "cerebras-70b":        { provider: "cerebras",  model: "llama-3.3-70b" },
+  "cerebras-8b":         { provider: "cerebras",  model: "llama3.1-8b" },
 };
 
 function json(res, code, data) {
