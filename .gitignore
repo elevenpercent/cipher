@@ -34,3 +34,5 @@ Thumbs.db
 # Temp
 *.tmp
 tmp/
+test-output/
+*.png

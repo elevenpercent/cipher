@@ -5,6 +5,7 @@ import subprocess
 import time
 import json
 import shutil
+import difflib
 from pathlib import Path
 from datetime import datetime
 from textual.app import App, ComposeResult
@@ -45,11 +46,19 @@ SLASH_COMMANDS = {
     "/help": "Show available commands",
     "/clear": "Clear the chat",
     "/new": "Start a new session",
+    "/branch": "Branch current session (e.g., /branch try-approach-2)",
     "/sessions": "Browse saved sessions",
     "/theme": "Change theme (e.g., /theme dracula)",
-    "/model": "Switch model (e.g., /model llama-3.3-70b)",
+    "/model": "Switch model or list models for current provider",
     "/provider": "Switch provider (e.g., /provider groq)",
-    "/compact": "Toggle compact mode",
+    "/compact": "Summarize old messages to free up context",
+    "/attach": "Attach an image to the next message (e.g., /attach screenshot.png)",
+    "/export": "Export session to markdown file",
+    "/paste": "Paste clipboard content into input",
+    "/undo": "Undo last file write or edit",
+    "/redo": "Redo last undone file change",
+    "/git": "Run a safe git command (e.g., /git status, /git log)",
+    "/search": "Search chat history (e.g., /search error)",
     "/tokens": "Show token usage",
     "/quit": "Exit Cipher",
 }
@@ -106,13 +115,14 @@ def load_config():
     defaults = {
         "provider": "cipher-proxy",
         "model": "deepseek-chat",
+        "temperature": 0.15,
         "show_plan": True,
         "show_code": True,
         "show_summary": True,
         "show_tool_exec": True,
         "show_diff": True,
         "expand_explanations": False,
-        "auto_confirm": True,
+        "auto_confirm": False,
         "compact_mode": False,
         "lint_command": "",
         "skills_dir": str(SKILLS_DIR),
@@ -137,10 +147,11 @@ def save_config(config):
         json.dump(config, f, indent=2)
 
 
-def save_session(session_id, messages, title=""):
+def save_session(session_id, messages, title="", parent_id=None):
     session_file = SESSIONS_DIR / f"{session_id}.json"
     data = {
         "id": session_id,
+        "parent_id": parent_id,
         "title": title,
         "created": datetime.now().isoformat(),
         "messages": messages,
@@ -185,28 +196,41 @@ class CodeBlock(Static):
     def render(self):
         result = Text()
         result.append(f"  {self.path}\n", style="bold #fab283")
-        old_lines = self.old_content.split('\n') if self.old_content else []
-        new_lines = self.content.split('\n') if self.content else []
+        MAXCOL = 120
+        def _clip(s):
+            return s[:MAXCOL] + ("…" if len(s) > MAXCOL else "")
         if not self.old_content:
-            for line in new_lines:
-                result.append(f"  + ", style="#4ade80")
-                result.append(f"{line}\n", style="#86efac")
-        elif not self.content:
-            for line in old_lines:
-                result.append(f"  - ", style="#f87171")
-                result.append(f"{line}\n", style="#fca5a5")
-        else:
-            max_len = max(len(old_lines), len(new_lines))
-            for i in range(max_len):
-                ol = old_lines[i] if i < len(old_lines) else None
-                nl = new_lines[i] if i < len(new_lines) else None
-                if ol != nl:
-                    if ol is not None:
-                        result.append(f"  - ", style="#f87171")
-                        result.append(f"{ol}\n", style="#fca5a5")
-                    if nl is not None:
-                        result.append(f"  + ", style="#4ade80")
-                        result.append(f"{nl}\n", style="#86efac")
+            lines = (self.content or "").splitlines()
+            for line in lines[:60]:
+                result.append(f"  + {_clip(line)}\n", style="#86efac")
+            if len(lines) > 60:
+                result.append(f"  … ({len(lines) - 60} more lines)\n", style="dim #888888")
+            result.append(f"  ({len(lines)} lines)", style="dim #888888")
+            return result
+        if not self.content:
+            for line in self.old_content.splitlines()[:20]:
+                result.append(f"  - {_clip(line)}\n", style="#fca5a5")
+            return result
+        old_lines = self.old_content.splitlines(keepends=True)
+        new_lines = self.content.splitlines(keepends=True)
+        diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=2))
+        if not diff:
+            result.append(f"  (unchanged, {len(new_lines)} lines)", style="dim #888888")
+            return result
+        shown = 0
+        for line in diff[2:]:  # skip --- +++ header
+            if shown >= 80:
+                result.append(f"  … (diff truncated)\n", style="dim #888888")
+                break
+            if line.startswith("@@"):
+                result.append(f"  {_clip(line)}\n", style="dim #60a5fa")
+            elif line.startswith("+"):
+                result.append(f"  + {_clip(line[1:])}\n", style="#86efac")
+            elif line.startswith("-"):
+                result.append(f"  - {_clip(line[1:])}\n", style="#fca5a5")
+            else:
+                result.append(f"    {_clip(line)}\n", style="dim #888888")
+            shown += 1
         result.append(f"  ({len(new_lines)} lines)", style="dim #888888")
         return result
 
@@ -225,7 +249,6 @@ class PlanBlock(Static):
 
 
 class ExplanationBlock(Static):
-    BINDINGS = [Binding("enter", "toggle", "Toggle")]
     def __init__(self, summary, details="", expanded=False, **kwargs):
         super().__init__(**kwargs)
         self.summary = summary
@@ -580,6 +603,51 @@ class YesNoModal(ModalScreen):
     """
 
 
+class DiffModal(ModalScreen):
+    BINDINGS = [Binding("y", "accept", "Accept"), Binding("n", "reject", "Reject"), Binding("escape", "reject", "Reject")]
+    def __init__(self, tool, path, diff_lines, **kwargs):
+        super().__init__(**kwargs)
+        self.tool = tool
+        self.path = path
+        self.diff_lines = diff_lines
+    def compose(self):
+        with Container(id="dm-panel"):
+            yield Static(f"  {self.tool}: {self.path}", id="dm-title")
+            yield Static("  Accept this change?", id="dm-prompt")
+            with VerticalScroll(id="dm-scroll"):
+                diff_text = Text()
+                for line in self.diff_lines[:60]:
+                    if line.startswith("@@"):
+                        diff_text.append(f"  {line}\n", style="dim #60a5fa")
+                    elif line.startswith("+"):
+                        diff_text.append(f"  + {line[1:]}\n", style="#86efac")
+                    elif line.startswith("-"):
+                        diff_text.append(f"  - {line[1:]}\n", style="#fca5a5")
+                    else:
+                        diff_text.append(f"    {line}\n", style="dim #888888")
+                yield Static(diff_text, id="dm-diff")
+            with Horizontal(id="dm-buttons"):
+                yield Button("  ACCEPT (y)  ", id="dm_yes", variant="primary")
+                yield Button("  REJECT (n)  ", id="dm_no", variant="default")
+    def action_accept(self):
+        self.dismiss("yes")
+    def action_reject(self):
+        self.dismiss("no")
+    def on_button_pressed(self, event):
+        if event.button.id == "dm_yes":
+            self.action_accept()
+        else:
+            self.action_reject()
+    CSS = """
+    DiffModal { align: center middle; }
+    #dm-panel { width: 90; height: 30; background: #0e0e0e; border: tall #fab283; padding: 1 2; }
+    #dm-title { color: #fab283; text-style: bold; margin-bottom: 1; }
+    #dm-prompt { color: #888888; margin-bottom: 1; }
+    #dm-scroll { height: 20; border: solid #333333; margin-bottom: 1; }
+    #dm-buttons { margin-top: 1; }
+    """
+
+
 class QuestionScreen(ModalScreen):
     BINDINGS = [Binding("escape", "dismiss", "Cancel")]
     def __init__(self, question, **kwargs):
@@ -632,6 +700,11 @@ class CipherApp(App):
     #sidebar-footer Label { color: #383838; margin-bottom: 0; }
     .sidebar-action { color: #444444; height: 1; min-height: 1; padding: 0 1; }
     .sidebar-action:hover { color: #fab283; }
+    #sidebar-view-tabs { height: 1; margin: 0 0 0 0; padding: 0 1; }
+    .sidebar-tab { padding: 0 1; color: #3a3a3a; }
+    .sidebar-tab-active { color: #fab283; text-style: bold; }
+    .sidebar-file { padding: 0 1; color: #484848; height: 1; min-height: 1; }
+    .sidebar-dir { color: #60a5fa; }
 
     /* Main area */
     #main-area { width: 1fr; height: 100%; }
@@ -693,6 +766,7 @@ class CipherApp(App):
         Binding("ctrl+l", "clear_chat", "Clear", show=False),
         Binding("ctrl+d", "quit", "Quit", show=False),
         Binding("ctrl+c", "ctrl_c", "Quit", show=False),
+        Binding("ctrl+z", "undo_file", "Undo", show=False),
         Binding("escape", "clear_input", "Clear input", show=False),
         Binding("tab", "cycle_agent", "Agent", show=False),
     ]
@@ -730,6 +804,12 @@ class CipherApp(App):
         self._input_result = ""
         self._stream_widget = None
         self._input_queue = []
+        self._undo_stack = []  # list of {"path", "old", "new"}
+        self._redo_stack = []
+        self._files_edited = 0
+        self._task_start = time.time()
+        self._pending_attachments = []  # list of {"path", "base64", "mime"}
+        self.session_parent_id = None
         self.agent_mode = "build"
         self.tool_registry = ToolRegistry()
         self.permission_manager = PermissionManager(self.config)
@@ -739,8 +819,53 @@ class CipherApp(App):
         self.formatter_manager.lint_command = self.config.get("lint_command", "")
         self.mcp_manager = MCPServerManager()
 
+    def _load_project_instructions(self):
+        """Read CLAUDE.md or cipher.md from project root for project-specific instructions."""
+        for name in ("CLAUDE.md", "cipher.md", ".cipher.md", ".claude/instructions.md"):
+            p = Path(self.project_root) / name
+            if p.exists():
+                try:
+                    text = p.read_text(encoding="utf-8").strip()
+                    if text:
+                        return f"\n\n## Project Instructions ({name})\n{text}"
+                except Exception:
+                    pass
+        return ""
+
+    def _build_auto_context(self):
+        """Generate project tree + git status for auto-context at task start."""
+        try:
+            from cipher.tools import TreeTool
+            tool = TreeTool()
+            result = tool.execute(".", "", self.project_root)
+            tree = result.get("result", "")
+            if not tree:
+                return ""
+            lines = tree.splitlines()
+            if len(lines) <= 3:
+                return ""
+            if len(lines) > 50:
+                tree = "\n".join(lines[:50]) + f"\n… ({len(lines) - 50} more)"
+            ctx = f"Project structure:\n{tree}"
+            try:
+                r = subprocess.run(
+                    ["git", "status", "--short"],
+                    capture_output=True, text=True, timeout=5, cwd=self.project_root
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    status_lines = r.stdout.strip().splitlines()
+                    if len(status_lines) > 20:
+                        status_lines = status_lines[:20] + [f"… ({len(status_lines) - 20} more)"]
+                    ctx += "\n\nGit status:\n" + "\n".join(status_lines)
+            except Exception:
+                pass
+            return ctx
+        except Exception:
+            return ""
+
     def _build_system_prompt(self):
         skills_text = self._load_skills()
+        project_instructions = self._load_project_instructions()
         ctools = self.config.get("custom_tools", [])
         custom_text = ""
         if ctools:
@@ -752,7 +877,7 @@ class CipherApp(App):
         platform_hint = ""
         if _sys.platform == "win32":
             platform_hint = "\n- WINDOWS: <run> uses PowerShell. Use semicolons (;) not && to chain commands. To open files/URLs: <run>Start-Process 'index.html'</run> or <run>Start-Process 'https://example.com'</run>. To open apps: <run>Start-Process 'notepad'</run>. Normal commands (python, npm, node, pip) work as-is."
-        return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{skills_text}
+        return f"""You are Cipher, an autonomous coding agent. Working directory: {self.project_root}.{project_instructions}{skills_text}
 
 RULES — follow exactly:
 0. If the user is just chatting (greeting, question, casual message) — respond conversationally in plain text. Do NOT use tools or <done> for chat. Only use tools when the user asks you to DO something (create, run, edit, fix, build, etc.).
@@ -761,6 +886,7 @@ RULES — follow exactly:
 3. Only output <done> AFTER you have used tools and verified the work is complete.
 4. Before each tool tag, write ONE short sentence explaining what you're doing. This is how you talk to the user.
 5. After running something, briefly comment on the result before continuing.
+6. Every coding response MUST end with either more tool tags OR <done>summary</done>. Never end a turn with plain text after completing work.
 
 TOOL TAG FORMAT — this is the ONLY correct format:
 <run>python script.py</run>
@@ -769,6 +895,10 @@ TOOL TAG FORMAT — this is the ONLY correct format:
 <read path="hello.py">
 <edit path="hello.py"><old>print('hello')</old><new>print('hi')</new></edit>
 <ls>.</ls>
+<tree>.</tree>
+<tree depth="2">src</tree>
+<diff>file.py</diff>
+<diff>file1.py file2.py</diff>
 <grep pattern="def " path=".">
 <glob pattern="**/*.py">
 <git status>
@@ -791,9 +921,12 @@ Extra rules:
 - When a run result says "running in background", tell the user the app is open.
 - When the user says "open" a file, use <open path="file"> to open it in the default app. Do NOT write new code — just open the existing file.{platform_hint}
 - ONLY use the tools required for the task. Do NOT run git, ls, glob, todo, grep, or web tools unless the user explicitly asks. Doing extra unnecessary work wastes time and API calls.
-- Do NOT create extra files (like main.py, utils.py, etc.) unless the user explicitly asks for them.
+- Do NOT create, edit, write, or run any file the user did not explicitly ask for. Every tool call must directly serve the stated goal — no demos, no examples, no test files.
+- Never use <open> unless the user explicitly says to open a file (e.g. "open hello.py"). Do not open files as a side-effect of other work.
+- For destructive tasks (delete, remove, clear, wipe): execute the operation directly. Do NOT create or run anything beforehand.
 - When the task is complete, output <done> immediately. Do not keep adding features or verifying things that weren't asked for.
 - When editing a file, read it first to get the exact current text before using <edit>.
+- NEVER say "I will", "I'll", "I'm going to", "Let me", or describe what you are about to do. Just do it with tool tags. Describing an action is NOT the same as performing it.
 - HTML/CSS: always write visually polished output. Use a dark or bold color scheme, Google Fonts, flexbox/grid layouts, hover effects, box shadows, and smooth transitions. Never output plain unstyled HTML — every website should look modern and professional, like it was designed by a UI designer.
 {custom_text}"""
 
@@ -839,7 +972,9 @@ Rules:
                     yield Label("Build", id="agent-build", classes="agent-active")
                     yield Label("Plan", id="agent-plan")
                     yield Label("Explore", id="agent-explore")
-                yield Static("sessions", classes="settings-section")
+                with Horizontal(id="sidebar-view-tabs"):
+                    yield Label("Sessions", id="sidebar-tab-sessions", classes="sidebar-tab sidebar-tab-active")
+                    yield Label("Files", id="sidebar-tab-files", classes="sidebar-tab")
                 yield VerticalScroll(id="sidebar-sessions")
                 with Vertical(id="sidebar-footer"):
                     _sidebar_model = "Cipher AI" if self.config.get("provider") == "cipher-proxy" else self.config['model']
@@ -875,7 +1010,7 @@ Rules:
             msgs = [m for m in saved["messages"] if m.get("role") != "system"
                     and "Results:\n" not in m.get("content", "")
                     and "Coding result:" not in m.get("content", "")]
-            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-50:]
             self.coding_messages = []
             self._add_system(f"Resumed session: {saved.get('title', 'untitled')}")
 
@@ -933,16 +1068,81 @@ Rules:
             for c in list(container.children):
                 c.remove()
             sessions = load_sessions()
-            container.mount(Static("  Recent sessions", classes="sidebar-action"))
-            for s in sessions[:8]:
-                title = s.get("title", "Untitled")[:25]
+            container.mount(Static("  Sessions", classes="sidebar-action"))
+
+            # Build parent→children map for tree display
+            by_id = {s["id"]: s for s in sessions}
+            children_map = {}
+            for s in sessions:
+                pid = s.get("parent_id")
+                if pid and pid in by_id:
+                    children_map.setdefault(pid, []).append(s)
+            roots = [s for s in sessions
+                     if not s.get("parent_id") or s.get("parent_id") not in by_id]
+
+            tree_items = []
+            def _add_node(sess, depth):
+                tree_items.append((sess, depth))
+                for child in children_map.get(sess["id"], []):
+                    _add_node(child, depth + 1)
+
+            for root in roots[:12]:
+                _add_node(root, 0)
+
+            for s, depth in tree_items[:20]:
+                max_title = max(10, 24 - depth * 3)
+                title = s.get("title", "Untitled")[:max_title]
                 sid = s["id"]
-                btn = Button(f"  {title}", id=f"ss-{sid}", classes="sess-item", variant="default")
+                indent = "  " + ("   " * depth) + ("└ " if depth > 0 else "")
+                btn = Button(f"{indent}{title}", id=f"ss-{sid}", classes="sess-item", variant="default")
                 btn._sid = sid
                 container.mount(btn)
-            container.mount(Button("  browse all", id="sidebar-browse-all", classes="sidebar-action", variant="default"))
+
+            container.mount(Button("  browse all", id="sidebar-browse-all",
+                                   classes="sidebar-action", variant="default"))
         except Exception:
             pass
+
+    def _refresh_sidebar_files(self):
+        try:
+            container = self.query_one("#sidebar-sessions", VerticalScroll)
+            for c in list(container.children):
+                c.remove()
+            root = Path(self.project_root)
+            _skip = {".git", "__pycache__", "node_modules", ".venv", "venv", ".mypy_cache", "dist", "build"}
+            items = sorted(root.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+            container.mount(Static(f"  {root.name}/", classes="sidebar-action sidebar-dir"))
+            shown = 0
+            for item in items:
+                if item.name.startswith(".") or item.name in _skip:
+                    continue
+                if shown >= 30:
+                    container.mount(Static("  …", classes="sidebar-file"))
+                    break
+                if item.is_dir():
+                    container.mount(Static(f"  /{item.name}", classes="sidebar-file sidebar-dir"))
+                else:
+                    container.mount(Static(f"   {item.name}", classes="sidebar-file"))
+                shown += 1
+        except Exception:
+            pass
+
+    def on_label_click(self, event):
+        label_id = event.widget.id if event.widget else ""
+        if label_id == "sidebar-tab-sessions":
+            try:
+                self.query_one("#sidebar-tab-sessions").add_class("sidebar-tab-active")
+                self.query_one("#sidebar-tab-files").remove_class("sidebar-tab-active")
+                self._refresh_sidebar_sessions()
+            except Exception:
+                pass
+        elif label_id == "sidebar-tab-files":
+            try:
+                self.query_one("#sidebar-tab-files").add_class("sidebar-tab-active")
+                self.query_one("#sidebar-tab-sessions").remove_class("sidebar-tab-active")
+                self._refresh_sidebar_files()
+            except Exception:
+                pass
 
     def _add_user(self, text):
         container = self._get_chat()
@@ -1057,17 +1257,181 @@ Rules:
             self.refresh_css()
             save_config(self.config)
             self._add_system(f"Theme: {arg}")
-        elif base == "/model" and arg:
-            self.config["model"] = arg
-            self._add_system(f"Model: {arg}")
+        elif base == "/model":
+            if arg:
+                self.config["model"] = arg
+                self._add_system(f"Model: {arg}")
+            else:
+                pid = self.config.get("provider", "cipher-proxy")
+                models = PROVIDERS.get(pid, {}).get("models", [])
+                cur = self.config.get("model", "")
+                if models:
+                    lines = [f"  {'*' if m['id'] == cur else ' '} {m['id']}  —  {m['name']}" for m in models]
+                    self._add_system(f"Models for {pid} (* = current):\n" + "\n".join(lines))
+                else:
+                    self._add_system(f"No models listed for {pid}.")
         elif base == "/provider" and arg:
             self.config["provider"] = arg
             self._add_system(f"Provider: {arg}")
         elif base == "/compact":
-            self.config["compact_mode"] = not self.config.get("compact_mode", False)
-            self._add_system(f"Compact: {self.config['compact_mode']}")
+            self.run_worker(self._do_compact_thread, exclusive=False, thread=True)
+        elif base == "/undo":
+            if not self._undo_stack:
+                self._add_system("Nothing to undo.")
+            else:
+                entry = self._undo_stack.pop()
+                path = entry["path"]
+                old = entry["old"]
+                new = entry["new"]
+                try:
+                    abs_path = os.path.join(self.project_root, path) if not os.path.isabs(path) else path
+                    with open(abs_path, "w", encoding="utf-8") as f:
+                        f.write(old)
+                    self._redo_stack.append(entry)
+                    self._add_system(f"Undone: {path}")
+                    self._add_code_safe(path, old, new)
+                except Exception as e:
+                    self._add_system(f"Undo failed: {e}")
+        elif base == "/redo":
+            if not self._redo_stack:
+                self._add_system("Nothing to redo.")
+            else:
+                entry = self._redo_stack.pop()
+                path = entry["path"]
+                old = entry["old"]
+                new = entry["new"]
+                try:
+                    abs_path = os.path.join(self.project_root, path) if not os.path.isabs(path) else path
+                    with open(abs_path, "w", encoding="utf-8") as f:
+                        f.write(new)
+                    self._undo_stack.append(entry)
+                    self._add_system(f"Redone: {path}")
+                    self._add_code_safe(path, new, old)
+                except Exception as e:
+                    self._add_system(f"Redo failed: {e}")
+        elif base == "/search":
+            if not arg:
+                self._add_system("Usage: /search <query>")
+            else:
+                query = arg.lower()
+                matches = []
+                for msg in self.chat_ai_messages:
+                    content = msg.get("content", "")
+                    if query in content.lower() and msg["role"] != "system":
+                        snippet = content.replace("\n", " ")[:200]
+                        matches.append(f"[{msg['role']}] {snippet}")
+                if matches:
+                    result = f"Found {len(matches)} match{'es' if len(matches) != 1 else ''} for '{arg}':\n\n"
+                    result += "\n─\n".join(matches[:8])
+                    if len(matches) > 8:
+                        result += f"\n… ({len(matches) - 8} more)"
+                    self._add_system(result)
+                else:
+                    self._add_system(f"No matches for '{arg}'")
         elif base == "/tokens":
-            self._add_system(f"Tokens used: {self.total_tokens} | Tools: {self.total_tools} | Session: {self.session_id}")
+            msg_count = len([m for m in self.chat_ai_messages if m["role"] != "system"])
+            elapsed = int(time.time() - self.session_start)
+            h, rem = divmod(elapsed, 3600)
+            m_dur, s = divmod(rem, 60)
+            dur = f"{h}h{m_dur}m{s}s" if h else f"{m_dur}m{s}s" if m_dur else f"{s}s"
+            self._add_system(
+                f"Tokens: ~{self.total_tokens:,} | Tools: {self.total_tools} | "
+                f"Files edited: {self._files_edited} | Messages: {msg_count}/50 | "
+                f"Duration: {dur} | Session: {self.session_id}"
+            )
+        elif base == "/git":
+            _safe_git = {"status", "log", "diff", "branch", "stash", "show", "blame", "tag", "remote"}
+            git_arg = arg.strip() or "status"
+            git_sub = git_arg.split()[0].lower()
+            if git_sub not in _safe_git:
+                self._add_system(f"Allowed git sub-commands: {', '.join(sorted(_safe_git))}")
+            else:
+                try:
+                    r = subprocess.run(
+                        ["git"] + git_arg.split(),
+                        capture_output=True, text=True, timeout=15, cwd=self.project_root
+                    )
+                    out = (r.stdout or r.stderr or "(no output)").strip()
+                    if len(out) > 2000:
+                        out = out[:2000] + f"\n… (truncated)"
+                    self._add_system(f"git {git_arg}:\n{out}")
+                except FileNotFoundError:
+                    self._add_system("git not found in PATH.")
+                except Exception as e:
+                    self._add_system(f"git error: {e}")
+        elif base == "/export":
+            fname = f"cipher-session-{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+            fpath = os.path.join(self.project_root, fname)
+            lines = [f"# Cipher Session — {self.session_title or self.session_id}\n"]
+            for m in self.chat_ai_messages:
+                if m["role"] == "system":
+                    continue
+                role = "**You**" if m["role"] == "user" else "**Cipher**"
+                lines.append(f"\n{role}:\n\n{m['content']}\n")
+            try:
+                with open(fpath, "w", encoding="utf-8") as f:
+                    f.write("\n".join(lines))
+                self._add_system(f"Exported: {fname}")
+            except Exception as e:
+                self._add_system(f"Export failed: {e}")
+        elif base == "/paste":
+            try:
+                if sys.platform == "win32":
+                    r = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    text = r.stdout.strip()
+                else:
+                    r = subprocess.run(["xclip", "-o"], capture_output=True, text=True, timeout=5)
+                    text = r.stdout.strip()
+                if text:
+                    try:
+                        inp = self.query_one("#chat-input", Input)
+                        inp.value = text
+                    except Exception:
+                        self._add_system(f"Clipboard: {text[:200]}")
+                else:
+                    self._add_system("Clipboard is empty.")
+            except Exception as e:
+                self._add_system(f"Paste failed: {e}")
+        elif base == "/attach":
+            if not arg:
+                self._add_system("Usage: /attach <image_path>  (png, jpg, gif, webp)")
+            else:
+                import base64 as _b64
+                _mime_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                             ".gif": "image/gif", ".webp": "image/webp"}
+                img_path = arg if os.path.isabs(arg) else os.path.join(self.project_root, arg)
+                if not os.path.exists(img_path):
+                    self._add_system(f"File not found: {arg}")
+                else:
+                    ext = os.path.splitext(img_path)[1].lower()
+                    mime = _mime_map.get(ext)
+                    if not mime:
+                        self._add_system(f"Unsupported type: {ext}. Use png, jpg, gif, or webp.")
+                    else:
+                        try:
+                            with open(img_path, "rb") as f:
+                                b64 = _b64.b64encode(f.read()).decode()
+                            self._pending_attachments.append({"path": arg, "base64": b64, "mime": mime})
+                            size_kb = os.path.getsize(img_path) // 1024
+                            self._add_system(f"Attached: {os.path.basename(arg)} ({size_kb}KB) — will be sent with your next message")
+                        except Exception as e:
+                            self._add_system(f"Attach failed: {e}")
+        elif base == "/branch":
+            save_session(self.session_id, self.chat_ai_messages, self.session_title,
+                         parent_id=self.session_parent_id)
+            parent_id = self.session_id
+            new_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+            branch_name = arg or f"branch-{new_id[-6:]}"
+            self.session_id = new_id
+            self.session_parent_id = parent_id
+            self.session_title = branch_name
+            save_session(new_id, list(self.chat_ai_messages), branch_name, parent_id=parent_id)
+            self.query_one("#header-center").update(branch_name)
+            self._add_system(f"Branched → {branch_name}  (parent: {parent_id})")
+            self._refresh_sidebar_sessions()
         elif base == "/quit":
             self.exit()
         else:
@@ -1114,7 +1478,9 @@ Rules:
             ("/clear", "Clear chat"),
             ("/new", "New session"),
             ("/sessions", "Browse sessions"),
-            ("/compact", "Toggle compact mode"),
+            ("/compact", "Summarize old messages to free up context"),
+            ("/undo", "Undo last file change"),
+            ("/redo", "Redo last undone change"),
             ("/tokens", "Show usage"),
             ("Settings", "Open settings"),
             ("Reset config", "Reset config to defaults"),
@@ -1191,6 +1557,51 @@ Rules:
             self.query_one("#header-center").update("New Session")
         self._add_system("New session started.")
 
+    def _do_compact_thread(self):
+        KEEP_RECENT = 6
+        msgs = self.chat_ai_messages
+        system_msg = msgs[0]
+        history = msgs[1:]
+        if len(history) <= KEEP_RECENT:
+            self.call_from_thread(self._add_system, "Not enough history to compact (need more than 6 messages).")
+            return
+        to_compact = history[:-KEEP_RECENT]
+        to_keep = history[-KEEP_RECENT:]
+        self.call_from_thread(self._add_system, f"Compacting {len(to_compact)} messages...")
+
+        conversation_text = "\n\n".join(
+            f"[{m['role'].upper()}]: {m['content'][:800]}" for m in to_compact
+        )
+        summary_messages = [
+            {"role": "system", "content": "You summarize conversation history for an AI coding assistant. Be concise but preserve: files modified, decisions made, key code changes, errors encountered, and current task state."},
+            {"role": "user", "content": f"Summarize this conversation history:\n\n{conversation_text}"},
+        ]
+
+        pid = self.config.get("provider", "cipher-proxy")
+        mid = self.config.get("model", "llama-3.3-70b")
+        self.call_from_thread(self._refresh_api_key, pid)
+        provider = self._ai_provider
+        if provider is None:
+            provider = AIProvider(
+                provider_id=pid, model_id=mid, api_key=self.api_key,
+                proxy_url=self.config.get("proxy_url", "https://proxy-blue-kappa.vercel.app"),
+            )
+
+        try:
+            result = provider.chat_as_model(summary_messages, "llama-3.1-8b", stream=False)
+            if not isinstance(result, str) or not result.strip():
+                self.call_from_thread(self._add_system, "Compact failed: empty summary.")
+                return
+            summary_text = result.strip()
+        except Exception as e:
+            self.call_from_thread(self._add_system, f"Compact failed: {e}")
+            return
+
+        summary_msg = {"role": "system", "content": f"[Compacted conversation summary — {len(to_compact)} messages]\n{summary_text}"}
+        self.chat_ai_messages = [system_msg, summary_msg] + to_keep
+        save_session(self.session_id, self.chat_ai_messages, self.session_title, parent_id=self.session_parent_id)
+        self.call_from_thread(self._add_system, f"Compacted {len(to_compact)} messages → 1 summary. {len(to_keep)} recent messages kept.")
+
     def _set_session_title(self, title):
         self.session_title = title
         try:
@@ -1238,7 +1649,7 @@ Rules:
                     msgs = [m for m in session.get("messages", []) if m.get("role") != "system"
                             and "Results:\n" not in m.get("content", "")
                             and "Coding result:" not in m.get("content", "")]
-                    self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+                    self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-50:]
                     self.coding_messages = []
                     container = self.query_one("#chat-container")
                     for child in list(container.children):
@@ -1273,6 +1684,10 @@ Rules:
     def _reset_ctrl_c(self):
         self._ctrl_c_pending = False
 
+    def action_undo_file(self):
+        if not self.is_processing:
+            self._handle_slash_command("/undo")
+
     def action_clear_input(self):
         if self.is_processing:
             self._cancelled = True
@@ -1296,7 +1711,7 @@ Rules:
             msgs = [m for m in session.get("messages", []) if m.get("role") != "system"
                     and "Results:\n" not in m.get("content", "")
                     and "Coding result:" not in m.get("content", "")]
-            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-20:]
+            self.chat_ai_messages = [{"role": "system", "content": self._build_chat_system_prompt()}] + msgs[-50:]
             self.coding_messages = []
             container = self.query_one("#chat-container")
             for child in list(container.children):
@@ -1346,19 +1761,36 @@ Rules:
             if self.is_processing:
                 self._input_queue.append(user_input)
                 self._add_system(f"Queued: {user_input[:60]}")
+                self.query_one("#chat-input", Input).focus()
                 return
 
             if not self.session_title:
                 self.session_title = generate_title(user_input)
                 self.query_one("#header-center").update(self.session_title)
 
-            self._add_user(user_input)
-            self.chat_ai_messages.append({"role": "user", "content": user_input})
-            self.chat_ai_messages = self.chat_ai_messages[-20:]
-            save_session(self.session_id, self.chat_ai_messages, self.session_title)
+            if self._pending_attachments:
+                content = []
+                for att in self._pending_attachments:
+                    content.append({"type": "image_url",
+                                    "image_url": {"url": f"data:{att['mime']};base64,{att['base64']}"}})
+                content.append({"type": "text", "text": user_input})
+                n_imgs = len(self._pending_attachments)
+                self._pending_attachments = []
+                self._add_user(f"[{n_imgs} image{'s' if n_imgs > 1 else ''} attached] {user_input}")
+                self.chat_ai_messages.append({"role": "user", "content": content})
+            else:
+                self._add_user(user_input)
+                self.chat_ai_messages.append({"role": "user", "content": user_input})
+            self.chat_ai_messages = self.chat_ai_messages[-50:]
+            save_session(self.session_id, self.chat_ai_messages, self.session_title,
+                         parent_id=self.session_parent_id)
+            msg_count = len([m for m in self.chat_ai_messages if m["role"] != "system"])
+            if msg_count >= 45:
+                self._add_system("Context near limit — use /compact or /new to start fresh")
 
             self.is_processing = True
             self._cancelled = False
+            self._task_start = time.time()
             self._set_status("")
 
             container = self.query_one("#chat-container")
@@ -1398,6 +1830,9 @@ Rules:
 
             _is_proxy = (pid == "cipher-proxy")
 
+            # Rebuild system prompt each task so CLAUDE.md changes are live
+            self.system_prompt = self._build_system_prompt()
+
             # ── SINGLE-AGENT MODE (any provider with an API key) ──────────────
             if not _is_proxy:
                 user_msg = self.chat_ai_messages[-1]["content"]
@@ -1405,9 +1840,18 @@ Rules:
                 # Rebuild coding context from conversation history on every turn
                 history = [m for m in self.chat_ai_messages[1:]
                            if m["role"] in ("user", "assistant")]
+
+                # Inject project tree + git status into the current user message
+                auto_ctx = self._build_auto_context()
+                if auto_ctx and history and history[-1]["role"] == "user":
+                    augmented = list(history)
+                    last = augmented[-1]
+                    augmented[-1] = {"role": "user", "content": f"{auto_ctx}\n\nTask: {last['content']}"}
+                    history = augmented
+
                 self.coding_messages = (
                     [{"role": "system", "content": self.system_prompt}]
-                    + history[-20:]
+                    + history[-50:]
                 )
 
                 self.call_from_thread(self._set_status, "Thinking...")
@@ -1427,19 +1871,29 @@ Rules:
                     self._title_from_ai = True
                     self.call_from_thread(self._set_session_title, ai_title)
 
-                save_session(self.session_id, self.chat_ai_messages, self.session_title)
-                self.call_from_thread(self._set_status, "Ready")
+                # Token counting is done inside _run_coding_loop per turn
+
+                # Warn when conversation history is getting long
+                msg_count = len([m for m in self.chat_ai_messages if m["role"] != "system"])
+                if msg_count >= 40:
+                    self.call_from_thread(self._add_system, "Context near limit — use /compact or /new to start fresh")
+
+                save_session(self.session_id, self.chat_ai_messages, self.session_title, parent_id=self.session_parent_id)
+                elapsed = time.time() - self._task_start
+                self.call_from_thread(self._set_status, f"Done  {elapsed:.1f}s")
                 self.call_from_thread(self._remove_loading)
                 self.call_from_thread(self._set_ready)
                 return
 
             # ── TWO-AGENT MODE (cipher-proxy) ─────────────────────────────────
             # Phase 1: Llama 8B routes conversation vs coding task (fast)
-            # Phase 2: Llama 70B executes the task (best quality)
+            # Phase 2: DeepSeek V3 → Gemini 2.0 Flash → Llama 70B (cascading fallback)
             # Phase 3: Llama 8B summarises the result (fast)
 
+            _temp = float(self.config.get("temperature", 0.15))
+
             def _chat_call(msgs):
-                return self._ai_provider.chat_as_model(msgs, "llama-3.1-8b", stream=True)
+                return self._ai_provider.chat_as_model(msgs, "llama-3.1-8b", stream=True, temperature=_temp)
 
             # === PHASE 1: Chat AI decides what to do ===
             chat_buffer = ""
@@ -1456,7 +1910,10 @@ Rules:
                 self._update_stream(self._clean_chat_ai_display(chat_buffer))
 
             self._update_stream(self._clean_chat_ai_display(chat_buffer))
-            self.total_tokens += len(chat_buffer) // 4
+            try:
+                self.total_tokens += self._ai_provider.count_tokens(self.chat_ai_messages)
+            except Exception:
+                self.total_tokens += len(chat_buffer) // 4
 
             if not chat_buffer.strip():
                 self.call_from_thread(self._add_system, "No response. Check your connection or try again.")
@@ -1482,7 +1939,7 @@ Rules:
                 # Pure conversation — show response and done
                 display = self._clean_chat_ai_display(chat_buffer)
                 self.call_from_thread(self._stream_finalize, display)
-                save_session(self.session_id, self.chat_ai_messages, self.session_title)
+                save_session(self.session_id, self.chat_ai_messages, self.session_title, parent_id=self.session_parent_id)
                 self.call_from_thread(self._set_status, "Ready")
                 self.call_from_thread(self._remove_loading)
                 self.call_from_thread(self._set_ready)
@@ -1501,9 +1958,13 @@ Rules:
             coding_task = task_m.group(1).strip()
             self.call_from_thread(self._set_status, "Coding...")
 
+            auto_ctx = self._build_auto_context()
+            first_msg = coding_task
+            if auto_ctx:
+                first_msg = f"{auto_ctx}\n\nTask: {coding_task}"
             self.coding_messages = [
                 {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": coding_task},
+                {"role": "user", "content": first_msg},
             ]
 
             # === PHASE 2: Coding AI loop with optional error-fix retries ===
@@ -1570,8 +2031,9 @@ Rules:
             clean_summary = self._clean_chat_ai_display(summary_buffer)
             self.call_from_thread(self._stream_finalize, clean_summary if clean_summary else f"Done. {coding_summary[:200]}")
 
-            save_session(self.session_id, self.chat_ai_messages, self.session_title)
-            self.call_from_thread(self._set_status, "Ready")
+            save_session(self.session_id, self.chat_ai_messages, self.session_title, parent_id=self.session_parent_id)
+            elapsed = time.time() - self._task_start
+            self.call_from_thread(self._set_status, f"Done  {elapsed:.1f}s")
             self.call_from_thread(self._remove_loading)
             self.call_from_thread(self._set_ready)
 
@@ -1591,14 +2053,58 @@ Rules:
             self.call_from_thread(self._remove_loading)
             self.call_from_thread(self._set_ready)
 
+    # Coding model cascade (best → fastest → fallback):
+    # 1. SambaNova 405B — most powerful free model
+    # 2. Cerebras 70B  — extremely fast, free
+    # 3. DeepSeek V3   — best coding quality (paid, use if credits exist)
+    # 4. Gemini Flash  — free tier fallback
+    # 5. Groq Llama    — always-on safety net
+    _PROXY_CODING_MODELS = ["sambanova-405b", "cerebras-70b", "deepseek-chat", "gemini-2.0-flash", "llama-3.3-70b"]
+
+    _PROXY_ERROR_PREFIXES = (
+        "Rate limited", "rate limited", "Proxy error",
+        "The free proxy is busy", "busy", "error",
+    )
+
+    def _proxy_stream_with_fallback(self, messages, temperature):
+        """Stream from proxy trying each coding model in order, falling back on rate limit / error."""
+        models = self._PROXY_CODING_MODELS
+        for i, model in enumerate(models):
+            is_last = i == len(models) - 1
+            had_error = False
+            chunk_count = 0
+            for chunk in self._ai_provider.chat_as_model(messages, model, stream=True, temperature=temperature):
+                if self._cancelled:
+                    return
+                content = chunk.get("content", "")
+                # Detect a rate-limit or proxy error surfaced as streamed text
+                if chunk_count == 0 and content and any(
+                    content.lower().startswith(e.lower()) for e in self._PROXY_ERROR_PREFIXES
+                ):
+                    had_error = True
+                    if not is_last:
+                        next_model = models[i + 1]
+                        self.call_from_thread(
+                            self._add_system,
+                            f"⚡ {model} unavailable — switching to {next_model}"
+                        )
+                    break
+                chunk_count += 1
+                yield chunk
+            if not had_error:
+                return
+        # All models exhausted
+        yield {"content": "All models rate limited. Wait a moment and try again."}
+
     def _run_coding_loop(self, stream_text=False):
         """Run the coding AI. Returns (summary, had_error)."""
         _is_proxy = (self.config.get("provider") == "cipher-proxy")
+        _temp = float(self.config.get("temperature", 0.15))
 
         def _code_stream(msgs):
             if _is_proxy:
-                return self._ai_provider.chat_as_model(msgs, "llama-3.3-70b", stream=True)
-            return self._ai_provider.chat(msgs, stream=True)
+                return self._proxy_stream_with_fallback(msgs, _temp)
+            return self._ai_provider.chat(msgs, stream=True, temperature=_temp)
 
         max_turns = 20
         for turn in range(max_turns):
@@ -1619,6 +2125,11 @@ Rules:
             if not turn_buffer.strip():
                 return "Empty response from coding AI", True
 
+            try:
+                self.total_tokens += self._ai_provider.count_tokens(self.coding_messages)
+            except Exception:
+                pass
+
             plan_m = re.search(r'<plan>(.*?)</plan>', turn_buffer, re.DOTALL)
             if plan_m:
                 self.call_from_thread(self._add_plan, plan_m.group(1))
@@ -1629,7 +2140,7 @@ Rules:
             if tools:
                 # Clear streamed text before showing tool result widgets
                 if stream_text and self._stream_widget is not None:
-                    first_tag = re.search(r'<(?:run|write|read|edit|ls|grep|glob|git|web-fetch|web-search|todo|open)\b', turn_buffer)
+                    first_tag = re.search(r'<(?:run|write|read|edit|ls|grep|glob|git|web-fetch|web-search|todo|open|tree|diff)\b', turn_buffer)
                     pre = self._stream_clean(turn_buffer[:first_tag.start()]) if first_tag else ""
                     if pre:
                         self.call_from_thread(self._stream_finalize, pre)
@@ -1641,10 +2152,53 @@ Rules:
                 self.coding_messages.append({"role": "assistant", "content": turn_buffer})
                 results = []
                 tool_error = False
+                # Permission check before submitting to pool
+                approved_tools = []
+                for t in tools:
+                    tool_type = t["type"]
+                    tool_args = t.get("path") or t.get("args", "")
+                    decision = self.permission_manager.check(tool_type, tool_args)
+                    if decision == "allow":
+                        approved_tools.append(t)
+                    elif decision == "deny":
+                        results.append(f"<{tool_type}>Permission denied</{tool_type}>")
+                        tool_error = True
+                    else:  # "ask"
+                        event = threading.Event()
+                        result_holder = [False]
+                        args_preview = tool_args[:80] if tool_args else ""
+                        if tool_type in ("write", "edit"):
+                            # Show diff modal for file modifications
+                            try:
+                                full_path = os.path.normpath(os.path.join(self.project_root, tool_args.strip().strip('"\'') or ""))
+                                old_content = ""
+                                if os.path.exists(full_path):
+                                    with open(full_path, encoding="utf-8", errors="replace") as _f:
+                                        old_content = _f.read()
+                                new_content = t.get("body", "")
+                                old_lines = old_content.splitlines(keepends=True)
+                                new_lines = new_content.splitlines(keepends=True)
+                                diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=2))
+                                diff_lines = [l for l in diff[2:]] if diff else ["+++ (new file)"]
+                                self.call_from_thread(self._ask_diff_modal, tool_type, args_preview, diff_lines, event, result_holder)
+                            except Exception:
+                                self.call_from_thread(self._ask_permission_modal, tool_type, args_preview, event, result_holder)
+                        else:
+                            self.call_from_thread(self._ask_permission_modal, tool_type, args_preview, event, result_holder)
+                        event.wait(timeout=60)
+                        if result_holder[0]:
+                            approved_tools.append(t)
+                            self.permission_manager.allow_once(tool_type, tool_args)
+                        else:
+                            results.append(f"<{tool_type}>Rejected by user</{tool_type}>")
+                            tool_error = True
                 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
                     futures = []
-                    for t in tools:
-                        self.call_from_thread(self._set_status, f"Running {t['type']}...")
+                    for t in approved_tools:
+                        label = t.get("path") or t.get("args", "")
+                        short = label.split("/")[-1].split("\\")[-1] if label else ""
+                        status_msg = f"{t['type']} {short}..." if short else f"{t['type']}..."
+                        self.call_from_thread(self._set_status, status_msg.capitalize())
                         args = (t["type"], t.get("path") or t.get("args", ""), t.get("body", ""))
                         futures.append((t, pool.submit(self._execute_tool, *args)))
                     for t, fut in futures:
@@ -1658,7 +2212,9 @@ Rules:
                                 lint_result = self._run_lint()
                                 if lint_result:
                                     self.call_from_thread(self._add_system, lint_result)
-                                self.call_from_thread(self._format_file, t.get("path", t.get("args", "")))
+                                fpath = t.get("path", t.get("args", ""))
+                                self.call_from_thread(self._format_file, fpath)
+                                self._run_lsp_diagnostics(fpath)
                         except concurrent.futures.TimeoutError:
                             results.append(f"<{t['type']}>Error: timed out</{t['type']}>")
                             tool_error = True
@@ -1666,7 +2222,10 @@ Rules:
                             results.append(f"<{t['type']}>Error: {e}</{t['type']}>")
                             tool_error = True
                 combined = "\n".join(results)
-                self.coding_messages.append({"role": "user", "content": f"Results:\n{combined}\nContinue."})
+                # Cap combined tool output at 12k chars to protect context window
+                if len(combined) > 12000:
+                    combined = combined[:12000] + f"\n... (tool output truncated — {len(combined) - 12000} chars omitted)"
+                self.coding_messages.append({"role": "user", "content": f"Results:\n{combined}\nIf the task is complete, output <done>summary of what was done</done>. Otherwise continue with more tool tags."})
                 # Keep coding context lean: system + task + last 8 turn pairs
                 if len(self.coding_messages) > 20:
                     self.coding_messages = self.coding_messages[:2] + self.coding_messages[-18:]
@@ -1681,10 +2240,16 @@ Rules:
                 return summary, False
 
             # No tools, no done
-            if _is_proxy:
-                # Model described the task instead of doing it — force it to use tools
+            _intent_re = re.compile(
+                r"\b(I'?ll|I will|I'?m going to|Let me|going to create|going to write|going to add|"
+                r"going to update|going to fix|going to run|going to edit|Here'?s the|Here is the|"
+                r"I'?ve (?:created|written|added|updated|made|fixed))\b",
+                re.IGNORECASE
+            )
+            if _is_proxy or _intent_re.search(turn_buffer[:600]):
+                # Model described the task instead of doing it — force tool use
                 self.coding_messages.append({"role": "assistant", "content": turn_buffer})
-                self.coding_messages.append({"role": "user", "content": "You described the task but did not use any tool tags. You MUST output the actual tool tags now. Use <write path=\"...\">...</write> to create files. Do not describe — just do it."})
+                self.coding_messages.append({"role": "user", "content": "You described the task but did not use any tool tags. You MUST output actual tool tags now. Use <write path=\"...\">code</write>, <run>command</run>, <edit path=\"...\"><old>...</old><new>...</new></edit>, etc. Do not describe — just output the tags."})
                 continue
             display = self._stream_clean(turn_buffer)
             if stream_text:
@@ -1692,6 +2257,18 @@ Rules:
             return turn_buffer.strip(), False
 
         return "Max turns reached without completing", True
+
+    def _ask_permission_modal(self, tool_name, args_preview, event, result_holder):
+        def on_close(answer):
+            result_holder[0] = (answer == "yes")
+            event.set()
+        self.push_screen(YesNoModal(tool_name, args_preview), on_close)
+
+    def _ask_diff_modal(self, tool_name, args_preview, diff_lines, event, result_holder):
+        def on_close(answer):
+            result_holder[0] = (answer == "yes")
+            event.set()
+        self.push_screen(DiffModal(tool_name, args_preview, diff_lines), on_close)
 
     def _update_stream(self, text):
         try:
@@ -1751,11 +2328,11 @@ Rules:
         # Drop any open tool tag that hasn't been closed yet, plus everything after it.
         # This prevents half-streamed tags like "<ls>ls ." showing raw in the widget.
         clean = re.sub(
-            r'<(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done|open)\b[^>]*>.*',
+            r'<(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done|open|tree|diff)\b[^>]*>.*',
             '', clean, flags=re.DOTALL
         )
         # Drop orphan closing tags the AI sometimes emits (</read>, </grep>, etc.)
-        clean = re.sub(r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|open)>', '', clean)
+        clean = re.sub(r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|open|tree|diff)>', '', clean)
         # Final catch-all: remove any stray known-tool tag fragments
         clean = re.sub(r'</?(?:ls|run|write|read|edit|grep|glob|git|todo|web-fetch|web-search|done|open|plan)(?:\s[^>]*)*/?\s*>', '', clean)
         # Strip markdown code fences the AI mistakenly uses
@@ -1770,7 +2347,8 @@ Rules:
         r'<web-fetch\s+[^>]*>(?:.*?</web-fetch>)?', r'<web-search\s+[^>]*>(?:.*?</web-search>)?',
         r'<git\s+[^>]*>(?:.*?</git>)?', r'<todo[^>]*>(?:.*?</todo>)?',
         r'<open\s+[^>]*/?\s*>',
-        r'</(?:read|ls|grep|glob|git|todo|web-fetch|web-search|run|write|edit|open)>',
+        r'<tree>.*?</tree>', r'<diff>.*?</diff>',
+        r'</(?:read|ls|tree|diff|grep|glob|git|todo|web-fetch|web-search|run|write|edit|open)>',
     ]]
 
     _TOOL_PATTERNS = [
@@ -1780,8 +2358,10 @@ Rules:
         (re.compile(r'<open\s+path=["\'](.+?)["\'][^>]*/?\s*>', re.DOTALL), lambda m: {"type": "open", "path": m.group(1), "args": m.group(1), "body": ""}),
         (re.compile(r'<?read\s+path=["\'](.+?)["\'](?:\s+start=["\']?(\d+)["\']?)?(?:\s+end=["\']?(\d+)["\']?)?\s*/?\s*>', re.DOTALL), lambda m: {"type": "read", "path": m.group(1), "args": m.group(1), "body": json.dumps({"start": int(m.group(2)) if m.group(2) else None, "end": int(m.group(3)) if m.group(3) else None})}),
         (re.compile(r'<?ls>(.*?)</ls>', re.DOTALL), lambda m: {"type": "ls", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
+        (re.compile(r'<tree(?:\s+depth=["\']?(\d+)["\']?)?>(.+?)</tree>', re.DOTALL), lambda m: {"type": "tree", "path": m.group(2).strip(), "args": m.group(2).strip(), "body": json.dumps({"depth": int(m.group(1))}) if m.group(1) else ""}),
+        (re.compile(r'<diff>(.+?)</diff>', re.DOTALL), lambda m: {"type": "diff", "path": m.group(1).strip(), "args": m.group(1).strip(), "body": ""}),
         (re.compile(r'<edit\s+path=["\'](.+?)["\']>(.*?)</edit>', re.DOTALL), _parse_edit_tag),
-        (re.compile(r'<grep(?:\s+pattern=["\'](.+?)["\'])?(?:\s+path=["\'](.*?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "grep", "path": m.group(2) or ".", "args": m.group(1) or "", "body": m.group(1) or ""}),
+        (re.compile(r'<grep(?:\s+pattern=["\'](.+?)["\'])?(?:\s+path=["\'](.*?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "grep", "path": m.group(2) or ".", "args": m.group(1) or "", "body": m.group(2) or "."}),
         (re.compile(r'<glob(?:\s+pattern=["\'](.+?)["\'])?\s*/?\s*>', re.DOTALL), lambda m: {"type": "glob", "path": "", "args": m.group(1) or "", "body": ""}),
         (re.compile(r'<web-fetch\s+url=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-fetch", "path": m.group(1), "args": m.group(1), "body": ""}),
         (re.compile(r'<web-search\s+query=["\'](.+?)["\']\s*/?\s*>', re.DOTALL), lambda m: {"type": "web-search", "path": "", "args": m.group(1), "body": ""}),
@@ -1807,8 +2387,17 @@ Rules:
                     tool["_pos"] = m.start()
                     raw.append(tool)
 
-        raw.sort(key=lambda t: t.pop("_pos", 0))
-        return raw
+        raw.sort(key=lambda t: t.get("_pos", 0))
+        # Deduplicate: drop tools with identical (type, args, body[:80]) — handles overlapping patterns
+        seen = set()
+        deduped = []
+        for t in raw:
+            t.pop("_pos", None)
+            key = (t["type"], t.get("args", ""), t.get("body", "")[:80])
+            if key not in seen:
+                seen.add(key)
+                deduped.append(t)
+        return deduped
 
     def _execute_tool(self, tool_name, args, body=""):
         if tool_name == "write":
@@ -1835,6 +2424,18 @@ Rules:
 
         tool_result_text = result.get("result", "")
         success = result.get("success", True)
+
+        if tool_name in ("write", "edit") and success and result.get("old_content") is not None:
+            path_key = (args or "").strip().strip('"').strip("'")
+            self._undo_stack.append({
+                "path": path_key,
+                "old": result.get("old_content", ""),
+                "new": result.get("new_content", body or ""),
+            })
+            if len(self._undo_stack) > 20:
+                self._undo_stack.pop(0)
+            self._redo_stack.clear()
+            self._files_edited += 1
 
         if tool_name == "write" and result.get("old_content"):
             self._add_code_safe(args.strip().strip('"').strip("'"), body.strip(), result["old_content"])
@@ -1916,6 +2517,29 @@ Rules:
             for r in result:
                 if r:
                     self._add_system_safe(f"[format] {r}")
+
+    def _run_lsp_diagnostics(self, filepath):
+        if not filepath:
+            return
+        try:
+            abs_path = os.path.join(self.project_root, filepath) if not os.path.isabs(filepath) else filepath
+            if not os.path.exists(abs_path):
+                return
+            text = open(abs_path, encoding="utf-8", errors="replace").read()
+            self.lsp_manager.open_file(abs_path, self.project_root, text)
+            diags = self.lsp_manager.get_diagnostics(abs_path, self.project_root)
+            if not diags:
+                return
+            errors = [d for d in diags if d.severity == "error"]
+            warnings = [d for d in diags if d.severity == "warning"]
+            parts = []
+            for d in (errors + warnings)[:5]:
+                parts.append(str(d))
+            if parts:
+                sev = "error" if errors else "warning"
+                self._add_system_safe(f"[lsp {sev}] " + " | ".join(parts))
+        except Exception:
+            pass
 
     def _add_tool_safe(self, tool, args, result, success=True):
         try:
