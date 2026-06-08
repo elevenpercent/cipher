@@ -2053,13 +2053,13 @@ Rules:
             self.call_from_thread(self._remove_loading)
             self.call_from_thread(self._set_ready)
 
-    # Coding model cascade (best → fastest → fallback):
-    # 1. SambaNova 405B — most powerful free model
-    # 2. Cerebras 70B  — extremely fast, free
-    # 3. DeepSeek V3   — best coding quality (paid, use if credits exist)
-    # 4. Gemini Flash  — free tier fallback
-    # 5. Groq Llama    — always-on safety net
-    _PROXY_CODING_MODELS = ["sambanova-405b", "cerebras-70b", "deepseek-chat", "gemini-2.0-flash", "llama-3.3-70b"]
+    # Coding model cascade (best → fallback):
+    # 1. SambaNova Llama 4 Maverick — most powerful free model
+    # 2. SambaNova Llama 3.3 70B   — strong free fallback
+    # 3. DeepSeek V3               — best coding (paid, when credits exist)
+    # 4. Gemini 2.0 Flash          — free tier fallback
+    # 5. Groq Llama 3.3 70B        — always-on safety net
+    _PROXY_CODING_MODELS = ["sambanova-405b", "sambanova-70b", "deepseek-chat", "gemini-2.0-flash", "llama-3.3-70b"]
 
     _PROXY_ERROR_PREFIXES = (
         "Rate limited", "rate limited", "Proxy error",
