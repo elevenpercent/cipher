@@ -414,7 +414,7 @@ footer {
 <div class="stats-bar">
   <div class="stats-inner">
     <div class="stat fade-in">
-      <div class="stat-num">14+</div>
+      <div class="stat-num">10+</div>
       <div class="stat-lbl">AI Providers</div>
     </div>
     <div class="stat fade-in">
@@ -422,8 +422,8 @@ footer {
       <div class="stat-lbl">No API Key Needed</div>
     </div>
     <div class="stat fade-in">
-      <div class="stat-num">2</div>
-      <div class="stat-lbl">Specialized Agents</div>
+      <div class="stat-num">100%</div>
+      <div class="stat-lbl">Changes You Approve</div>
     </div>
     <div class="stat fade-in">
       <div class="stat-num">MIT</div>
@@ -452,14 +452,14 @@ footer {
         <p>Send a task in plain English. Cipher plans, executes tools, reads results, self-corrects on errors, and only stops when the task is done — no hand-holding required.</p>
       </div>
       <div class="feat fade-in">
-        <div class="feat-icon">🤖</div>
-        <h3>Two-agent architecture</h3>
-        <p>A fast Chat AI handles reasoning and planning. A powerful Coding AI handles tool execution. Each is optimized for its role — better results, fewer rate limit hits.</p>
+        <div class="feat-icon">🛡</div>
+        <h3>Approval gates</h3>
+        <p>Every file change is shown as a unified diff before it's applied, and every shell command is shown before it runs. Allow once, always allow, or deny — you stay in control.</p>
       </div>
       <div class="feat fade-in">
         <div class="feat-icon">🔌</div>
-        <h3>14+ AI providers</h3>
-        <p>Works with OpenAI, Anthropic, Groq, Gemini, DeepSeek, Mistral, Cohere, Together, OpenRouter, Ollama, LM Studio, and more. Swap providers in seconds from the settings screen.</p>
+        <h3>10+ AI providers</h3>
+        <p>Works with OpenAI, Anthropic, Groq, Gemini, DeepSeek, SambaNova, OpenRouter, Ollama, or any OpenAI-compatible endpoint. Swap providers in seconds with Ctrl+P.</p>
       </div>
       <div class="feat fade-in">
         <div class="feat-icon">🛠</div>
@@ -492,7 +492,7 @@ footer {
       <div class="step fade-in">
         <div class="step-num">02</div>
         <h3>Cipher plans and executes</h3>
-        <p>The Chat AI understands intent and routes to the Coding AI, which reads your codebase, writes files, runs commands, and checks outputs — automatically.</p>
+        <p>The agent reads your codebase, then proposes changes. Every diff and every command is shown to you for approval before it touches your machine.</p>
       </div>
       <div class="step fade-in">
         <div class="step-num">03</div>
@@ -509,18 +509,18 @@ footer {
     <div class="arch-grid">
       <div class="arch-text fade-in">
         <div class="sec-label">Architecture</div>
-        <h2 class="sec-title">Dual-agent design</h2>
+        <h2 class="sec-title">One agent. Your approval.</h2>
         <p class="sec-sub" style="margin-bottom:1.5rem">
-          Cipher uses two specialized AI agents working in sequence. This keeps reasoning clean, reduces costs, avoids rate limits, and makes each model do what it's best at.
+          Cipher is a single agent loop with approval gates. The model acts through tool tags, the runtime executes them, and anything that touches your machine goes through you first.
         </p>
         <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">
-          <strong style="color:#fff">Chat AI (Gemini 2.0 Flash)</strong> — understands your request, maintains conversation context, decides when to delegate to the Coding AI, summarizes results, and handles follow-up questions. Fast and context-efficient.
+          <strong style="color:#fff">Read-only tools run freely</strong> — reading files, grep, glob, directory listings, and web lookups never prompt. The agent orients itself in your codebase without friction.
         </p>
         <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">
-          <strong style="color:#fff">Coding AI (Llama 4 Maverick → 70B → Gemini fallback)</strong> — receives a clear task from the Chat AI and executes it using the full tool suite. Reads, writes, edits, runs commands, searches the web, manages git. Returns a summary when done.
+          <strong style="color:#fff">Mutations need your approval</strong> — every <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;write&gt;</code> and <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;edit&gt;</code> shows a unified diff before it's applied; every <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;run&gt;</code> shows the command before it executes. Allow once, always allow, or deny.
         </p>
         <p style="font-size:.85rem;color:var(--text2);line-height:1.75">
-          The agents communicate via structured XML tags. The Chat AI emits <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;task&gt;</code> to delegate, and the Coding AI emits <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;done&gt;</code> when finished. Errors trigger automatic <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;fix&gt;</code> retries.
+          Tool results feed straight back into the loop. The agent reads errors, self-corrects, and finishes with <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;done&gt;</code> — a summary of exactly what changed.
         </p>
       </div>
       <div class="fade-in">
@@ -531,29 +531,30 @@ footer {
           </div>
           <div class="arch-arrow">↓</div>
           <div class="arch-box gold">
-            <div class="arch-box-title">Chat AI — Gemini 2.0 Flash</div>
-            <p>Understands intent, maintains context, decides to delegate</p>
+            <div class="arch-box-title">Agent — Llama 4 Maverick → 70B → Gemini fallback</div>
+            <p>Reads the codebase, plans, and emits tool tags</p>
             <div class="arch-tags">
-              <span class="arch-tag gold">&lt;task&gt;build REST API with auth&lt;/task&gt;</span>
+              <span class="arch-tag">&lt;read&gt;</span>
+              <span class="arch-tag">&lt;grep&gt;</span>
+              <span class="arch-tag">&lt;write&gt;</span>
+              <span class="arch-tag">&lt;edit&gt;</span>
+              <span class="arch-tag">&lt;run&gt;</span>
+              <span class="arch-tag">&lt;git&gt;</span>
             </div>
           </div>
           <div class="arch-arrow">↓</div>
           <div class="arch-box">
-            <div class="arch-box-title">Coding AI — Llama 4 Maverick → 70B → Gemini fallback</div>
-            <p>Executes: reads codebase, writes files, runs commands, verifies output</p>
+            <div class="arch-box-title">Approval gate</div>
+            <p>File changes show a diff, commands show the exact command — allow once, always, or deny</p>
             <div class="arch-tags">
-              <span class="arch-tag">&lt;read&gt;</span>
-              <span class="arch-tag">&lt;write&gt;</span>
-              <span class="arch-tag">&lt;run&gt;</span>
-              <span class="arch-tag">&lt;edit&gt;</span>
-              <span class="arch-tag">&lt;git&gt;</span>
-              <span class="arch-tag">&lt;done&gt;</span>
+              <span class="arch-tag gold">+ added line</span>
+              <span class="arch-tag">- removed line</span>
             </div>
           </div>
           <div class="arch-arrow">↓</div>
           <div class="arch-box gold">
-            <div class="arch-box-title">Chat AI summarizes</div>
-            <p>Reports back to you with a clear summary of what was done</p>
+            <div class="arch-box-title">&lt;done&gt;</div>
+            <p>Results feed back into the loop until the task is finished — then you get a summary of what changed</p>
           </div>
         </div>
       </div>
@@ -611,12 +612,12 @@ footer {
         <div class="tool-desc">Search the web for information</div>
       </div>
       <div class="tool-item">
-        <div class="tool-tag">&lt;todo&gt;</div>
-        <div class="tool-desc">Track multi-step task progress</div>
+        <div class="tool-tag">&lt;tree&gt;</div>
+        <div class="tool-desc">Project structure overview</div>
       </div>
       <div class="tool-item">
-        <div class="tool-tag">&lt;open&gt;</div>
-        <div class="tool-desc">Open files, URLs, or applications</div>
+        <div class="tool-tag">&lt;done&gt;</div>
+        <div class="tool-desc">Finish with a summary of changes</div>
       </div>
     </div>
   </div>
@@ -662,19 +663,9 @@ footer {
         <span class="prov-models">DeepSeek Chat, DeepSeek Coder</span>
       </div>
       <div class="provider">
-        <span class="prov-name">Mistral</span>
-        <span class="prov-tag tag-api">API key</span>
-        <span class="prov-models">Mistral Large, Mistral Small</span>
-      </div>
-      <div class="provider">
-        <span class="prov-name">Cohere</span>
-        <span class="prov-tag tag-api">API key</span>
-        <span class="prov-models">Command R+, Command R</span>
-      </div>
-      <div class="provider">
-        <span class="prov-name">Together AI</span>
-        <span class="prov-tag tag-api">API key</span>
-        <span class="prov-models">Llama, Mixtral, Qwen, and more</span>
+        <span class="prov-name">SambaNova</span>
+        <span class="prov-tag tag-api">API key · free tier</span>
+        <span class="prov-models">Llama 4 Maverick, Llama 3.3 70B</span>
       </div>
       <div class="provider">
         <span class="prov-name">OpenRouter</span>
@@ -687,9 +678,9 @@ footer {
         <span class="prov-models">Any model you've pulled locally</span>
       </div>
       <div class="provider">
-        <span class="prov-name">LM Studio</span>
-        <span class="prov-tag tag-local">Local</span>
-        <span class="prov-models">Any model loaded in LM Studio</span>
+        <span class="prov-name">Custom</span>
+        <span class="prov-tag tag-local">Any endpoint</span>
+        <span class="prov-models">Point Cipher at any OpenAI-compatible URL</span>
       </div>
     </div>
   </div>
@@ -814,7 +805,7 @@ Remove-Item -Recurse ~\.cipher</pre>
       <a href="https://github.com/elevenpercent/cipher/issues" target="_blank">Issues</a>
       <a href="#install">Install</a>
     </div>
-    <span class="footer-copy">MIT License · v0.6.0</span>
+    <span class="footer-copy">MIT License · v1.0.0</span>
   </div>
 </footer>
 

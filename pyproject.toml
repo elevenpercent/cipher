@@ -4,15 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cipher-agent"
-version = "0.6.0"
+version = "1.0.0"
 description = "Autonomous coding agent for your terminal"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "textual>=0.50",
-    "litellm>=1.30",
-    "python-dotenv>=1.0",
     "rich>=13.0",
 ]
 

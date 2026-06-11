@@ -1,22 +1,16 @@
 # Cipher
 
-Autonomous coding agent for your terminal. Write, edit, and run code with AI.
+Autonomous coding agent for your terminal. Describe a task — Cipher reads your codebase, proposes diffs, runs commands (with your approval), and ships working code.
 
 ## Install
 
-**pip:**
 ```bash
 pip install git+https://github.com/elevenpercent/cipher.git@master
 ```
 
-**npm:**
-```bash
-npm install https://github.com/elevenpercent/cipher.git
-```
-
 **Windows (one-liner):**
 ```powershell
-irm https://raw.githubusercontent.com/elevenpercent/cipher/master/install.ps1 | iex
+irm https://cipher.elevenpct.com/install.ps1 | iex
 ```
 
 **macOS / Linux:**
@@ -28,37 +22,46 @@ curl -fsSL https://cipher.elevenpct.com/install.sh | bash
 
 ```bash
 cd your-project
-cip
+cipher            # or: cip
+cipher -p "add tests for auth.py"   # start with a task
+cipher --setup    # re-run provider setup
 ```
 
-First run shows the setup screen. Pick your provider and model, then start coding.
+First run shows the setup screen. Pick **Cipher Proxy** to start with zero configuration — no API key needed.
+
+## How it works
+
+Cipher is a single agent loop with **approval gates**:
+
+- **File changes** — every `write`/`edit` shows you a unified diff first. Allow once, always allow, or deny.
+- **Commands** — every shell/git command is shown before it runs. Same three choices.
+- **Read-only tools** (read, grep, glob, ls, tree, web) run freely.
+
+The model acts through tool tags (`<read>`, `<write>`, `<edit>`, `<run>`, `<git>`, `<grep>`, `<glob>`, `<web-fetch>`, `<web-search>`) and finishes with `<done>`.
 
 ## Keyboard
 
-| Key     | Action        |
-|---------|---------------|
-| `Ctrl+S` | Open settings |
-| `Esc`   | Clear input   |
-
-Ctrl+S opens the settings modal where you can change provider/model, clear chat, start a new session, browse saved sessions, or quit.
+| Key      | Action                  |
+|----------|-------------------------|
+| `Ctrl+P` | Provider settings       |
+| `Esc`    | Cancel the running task |
+| `Ctrl+Q` | Quit                    |
+| `a / y / d` | Approve once / always / deny (in approval dialog) |
 
 ## Providers
 
-### Cipher Proxy (No API Key)
-Just works. Free models via proxy: Llama 3.3 70B (Groq), Llama 3.1 8B (Groq), Gemini 2.0 Flash (Google).
+All providers speak the OpenAI chat-completions protocol.
 
-### Local Models (No API Key, GPU recommended)
-- **Ollama** — Qwen3, Llama, Mistral, DeepSeek R1. Install at ollama.com
-- **LM Studio** — Any model. Install at lmstudio.ai
+- **Cipher Proxy** — free, no key. Llama 4 Maverick → Llama 3.3 70B → Gemini fallback chain.
+- **BYOK** — OpenAI, Anthropic, Groq, Gemini, DeepSeek, SambaNova, OpenRouter.
+- **Local** — Ollama (and anything OpenAI-compatible via the Custom provider).
 
-### Cloud (API Key Required)
-- **Groq** — Free tier, fast inference
-- **Google Gemini** — 60 RPM free tier
-- **OpenRouter** — 100+ models, free tiers
-- **OpenAI** — GPT-4o, o-series
-- **Anthropic** — Claude Sonnet 4, Opus 4
-- **Mistral**, **xAI (Grok)**, **Together AI**, **Fireworks**, **Cohere**, **Perplexity**
+API keys can be stored in setup or read from env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, …).
+
+## Data
+
+Config and session history live in `~/.cipher/`. Delete that folder to remove all data.
 
 ## License
 
-MIT - See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details.
