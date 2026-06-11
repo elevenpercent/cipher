@@ -238,6 +238,9 @@ class CipherApp(App):
         self._stream_text = ""
         self._editor_visible = False
         self._mcp: MCPManager | None = None
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
+        self._session_cost = 0.0
 
     # ── layout ────────────────────────────────────────────────────────
 
@@ -299,9 +302,19 @@ class CipherApp(App):
     def _refresh_topbar(self) -> None:
         _, model, _ = resolve_endpoint(self.cfg)
         provider = PROVIDERS.get(self.cfg.get("provider", "proxy"), {}).get("name", "?")
-        mcp_tag = f"  MCP✓" if (self._mcp and self._mcp.active) else ""
+        mcp_tag = "  MCP✓" if (self._mcp and self._mcp.active) else ""
+
+        # Token / cost display
+        total_tok = self._prompt_tokens + self._completion_tokens
+        if total_tok > 0:
+            tok_str = f"{total_tok / 1000:.1f}k tok"
+            cost_str = f"  ${self._session_cost:.4f}" if self._session_cost > 0 else "  free"
+            tok_display = f"  ·  {tok_str}{cost_str}"
+        else:
+            tok_display = ""
+
         self.query_one("#topbar", Static).update(
-            f" {Path(self.project_root).name}  ·  {provider}  ·  {model}{mcp_tag}")
+            f" {Path(self.project_root).name}  ·  {provider}  ·  {model}{mcp_tag}{tok_display}")
 
     # ── editor panel toggle ───────────────────────────────────────────
 
@@ -353,6 +366,7 @@ class CipherApp(App):
                 on_result=self._cb_result, on_status=self._cb_status,
                 request_approval=self._cb_approval,
                 on_file_change=self._cb_file_change,
+                on_token_update=self._cb_token_update,
                 mcp=self._mcp,
             )
         else:
@@ -421,6 +435,12 @@ class CipherApp(App):
 
     def _cb_file_change(self, path: str, content: str) -> None:
         self.call_from_thread(self._open_editor, path, content)
+
+    def _cb_token_update(self, prompt: int, completion: int, cost: float) -> None:
+        self._prompt_tokens = prompt
+        self._completion_tokens = completion
+        self._session_cost = cost
+        self.call_from_thread(self._refresh_topbar)
 
     def _cb_approval(self, req: dict) -> str:
         result: dict = {}

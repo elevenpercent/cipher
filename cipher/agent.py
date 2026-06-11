@@ -2,12 +2,13 @@
 behind approval callbacks, feed results back, repeat until <done>.
 
 The loop is UI-agnostic. The TUI supplies callbacks:
-    on_text(delta)                    streamed assistant prose
-    on_tool(name, summary)            a tool is about to run
-    on_result(name, ok, output)       tool finished
-    on_status(msg)                    fallbacks / notices
-    on_file_change(path, content)     file was successfully written/edited
-    request_approval(req) -> str      "allow" | "always" | "deny"
+    on_text(delta)                             streamed assistant prose
+    on_tool(name, summary)                     a tool is about to run
+    on_result(name, ok, output)                tool finished
+    on_status(msg)                             fallbacks / notices
+    on_file_change(path, content)              file successfully written/edited
+    on_token_update(prompt, completion, total, cost_usd)  token counts
+    request_approval(req) -> str               "allow" | "always" | "deny"
         req = {"kind": "write"|"run", "title": str, "detail": str}
 """
 
@@ -17,8 +18,14 @@ from pathlib import Path
 
 from . import lsp, tools
 from .client import ChatClient, ChatError
+from .config import model_cost
 
 MAX_TURNS = 30
+
+# Compress context when messages exceed this many characters (~25k tokens).
+CONTEXT_COMPRESS_CHARS = 100_000
+# Keep this many messages at the tail verbatim after compression.
+CONTEXT_KEEP_RECENT = 8
 
 TAG_NAMES = ["read", "write", "edit", "ls", "glob", "grep", "tree",
              "run", "git", "web-fetch", "web-search", "mcp", "done"]
@@ -28,7 +35,6 @@ TAG_RX = re.compile(
     re.DOTALL,
 )
 
-# Model said "I'll create..." instead of acting — force a retry.
 INTENT_RX = re.compile(
     r"\b(I'?ll|I will|I'?m going to|Let me|going to (?:create|write|add|update|fix|run|edit)|"
     r"Here'?s the|Here is the|I'?ve (?:created|written|added|updated|made|fixed))\b",
@@ -83,7 +89,6 @@ def _build_system_prompt(mcp_section: str = "") -> str:
 
 
 def parse_tags(text: str) -> list[dict]:
-    """Extract tool calls in document order, deduplicated."""
     calls, seen = [], set()
     for m in TAG_RX.finditer(text):
         name, body = m.group(1), m.group(2)
@@ -96,14 +101,13 @@ def parse_tags(text: str) -> list[dict]:
 
 
 def strip_tags(text: str) -> str:
-    """Prose with tool tags removed, for display."""
     return TAG_RX.sub("", text).strip()
 
 
 class Agent:
     def __init__(self, project_root: str, client: ChatClient, auto_approve: dict,
                  on_text, on_tool, on_result, on_status, request_approval,
-                 on_file_change=None, mcp=None):
+                 on_file_change=None, on_token_update=None, mcp=None):
         self.root = project_root
         self.client = client
         self.auto = dict(auto_approve)
@@ -111,9 +115,15 @@ class Agent:
         self.on_tool = on_tool
         self.on_result = on_result
         self.on_status = on_status
-        self.on_file_change = on_file_change  # (path: str, content: str) -> None
-        self.mcp = mcp                        # MCPManager | None
+        self.on_file_change = on_file_change
+        self.on_token_update = on_token_update
+        self.mcp = mcp
         self.cancelled = False
+
+        # Cumulative token counts for the whole session
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
+        self._session_cost = 0.0
 
         mcp_section = mcp.prompt_section() if mcp else ""
         self.messages: list[dict] = [
@@ -123,10 +133,14 @@ class Agent:
     def cancel(self):
         self.cancelled = True
 
+    @property
+    def token_counts(self) -> tuple[int, int, float]:
+        """Return (prompt_tokens, completion_tokens, session_cost_usd)."""
+        return self._prompt_tokens, self._completion_tokens, self._session_cost
+
     # ── main loop ─────────────────────────────────────────────────────
 
     def run_task(self, user_text: str) -> str:
-        """Run one user request to completion. Returns the final summary."""
         self.cancelled = False
         self.messages.append({"role": "user", "content": user_text})
         nudges = 0
@@ -134,6 +148,9 @@ class Agent:
         for _ in range(MAX_TURNS):
             if self.cancelled:
                 return "(cancelled)"
+
+            self._maybe_compress_context()
+
             try:
                 response = self._stream_response()
             except ChatError as e:
@@ -178,15 +195,65 @@ class Agent:
 
         return "Stopped: hit the maximum number of turns for one task."
 
-    # ── helpers ───────────────────────────────────────────────────────
+    # ── context compression ───────────────────────────────────────────
+
+    def _context_chars(self) -> int:
+        return sum(len(str(m.get("content", ""))) for m in self.messages)
+
+    def _maybe_compress_context(self) -> None:
+        if self._context_chars() < CONTEXT_COMPRESS_CHARS:
+            return
+        system = self.messages[0]
+        keep = min(CONTEXT_KEEP_RECENT, len(self.messages) - 1)
+        recent = self.messages[-keep:]
+        old = self.messages[1:-keep]
+        if len(old) < 4:
+            return
+
+        history = "\n\n".join(
+            f"{m['role'].upper()}: {str(m.get('content', ''))[:600]}"
+            for m in old
+        )
+        summary_msgs = [{"role": "user", "content":
+            "Summarize this coding agent conversation history. "
+            "Keep: files created/modified (exact paths), commands and their outcomes, "
+            "errors and how they were fixed. Be terse and specific.\n\n" + history}]
+        try:
+            summary = self.client.complete(summary_msgs, temperature=0.1)
+            self.messages = [
+                system,
+                {"role": "user", "content":
+                    f"[Prior context — {len(old)} messages condensed]\n{summary}"},
+                {"role": "assistant", "content": "Understood."},
+                *recent,
+            ]
+            self.on_status(f"context compressed ({len(old)} msgs → summary)")
+        except Exception:
+            pass  # compression failed — continue with full context
+
+    # ── streaming ─────────────────────────────────────────────────────
 
     def _stream_response(self) -> str:
         parts = []
         visible_upto = 0
+
+        def _on_usage(prompt: int, completion: int) -> None:
+            self._prompt_tokens += prompt
+            self._completion_tokens += completion
+            cost = model_cost(self.client.model, prompt, completion)
+            self._session_cost += cost
+            if self.on_token_update:
+                self.on_token_update(
+                    self._prompt_tokens,
+                    self._completion_tokens,
+                    self._session_cost,
+                )
+
         for delta in self.client.stream(
                 self.messages,
                 on_fallback=lambda old, new: self.on_status(
-                    f"{old} unavailable — trying {new}")):
+                    f"{old} unavailable — trying {new}"),
+                on_usage=_on_usage):
             if self.cancelled:
                 break
             parts.append(delta)
@@ -197,6 +264,8 @@ class Agent:
                 self.on_text(text[visible_upto:safe_upto])
                 visible_upto = safe_upto
         return "".join(parts)
+
+    # ── tool dispatch ─────────────────────────────────────────────────
 
     def _execute(self, call: dict) -> dict:
         name, body = call["name"], call["body"]
@@ -247,13 +316,10 @@ class Agent:
         res = tools.apply_file_change(prep)
 
         if res["ok"]:
-            # LSP diagnostics — catches linting errors beyond syntax
             diag = lsp.check(prep["path"])
             if diag:
                 res["output"] = (res["output"] or "written") + f"\n\nLSP diagnostics:\n{diag}"
-                # Don't fail the write — let the agent decide whether to fix
 
-            # Notify the UI so the inline editor can refresh
             if self.on_file_change:
                 try:
                     content = Path(prep["path"]).read_text(encoding="utf-8", errors="replace")

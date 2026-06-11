@@ -28,14 +28,17 @@ class ChatClient:
     # ── public ────────────────────────────────────────────────────────
 
     def stream(self, messages: list[dict], temperature: float = 0.15,
-               on_fallback=None):
-        """Yield content deltas. on_fallback(old, new) is called when the
-        proxy chain switches models."""
+               on_fallback=None, on_usage=None):
+        """Yield content deltas.
+        on_fallback(old, new) — called when the proxy chain switches models.
+        on_usage(prompt_tokens, completion_tokens) — called once after the
+          stream ends with token counts (when the provider reports them).
+        """
         models = self._model_chain()
         last_err = None
         for i, model in enumerate(models):
             try:
-                yield from self._stream_one(model, messages, temperature)
+                yield from self._stream_one(model, messages, temperature, on_usage)
                 return
             except ChatError as e:
                 last_err = e
@@ -46,6 +49,10 @@ class ChatClient:
     def complete(self, messages: list[dict], temperature: float = 0.15) -> str:
         return "".join(self.stream(messages, temperature))
 
+    @property
+    def active_model(self) -> str:
+        return self.model
+
     # ── internals ─────────────────────────────────────────────────────
 
     def _model_chain(self) -> list[str]:
@@ -54,12 +61,14 @@ class ChatClient:
         chain = [self.model] + [m for m in PROXY_FALLBACK if m != self.model]
         return chain
 
-    def _stream_one(self, model: str, messages: list[dict], temperature: float):
+    def _stream_one(self, model: str, messages: list[dict], temperature: float,
+                    on_usage=None):
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -111,6 +120,13 @@ class ChatClient:
                         if not emitted:
                             raise ChatError(f"{model}: {msg}")
                         return
+                    # Capture usage when the provider sends it (final chunk)
+                    usage = parsed.get("usage")
+                    if usage and on_usage:
+                        on_usage(
+                            usage.get("prompt_tokens", 0),
+                            usage.get("completion_tokens", 0),
+                        )
                     delta = (parsed.get("choices") or [{}])[0].get("delta", {})
                     content = delta.get("content")
                     if content:

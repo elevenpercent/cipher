@@ -97,6 +97,42 @@ PROVIDERS = {
     },
 }
 
+# Cost per 1M tokens (input, output) in USD. 0.0 = free / unknown.
+MODEL_PRICING: dict[str, tuple[float, float]] = {
+    # OpenAI
+    "gpt-4o":                           (2.50,  10.00),
+    "gpt-4o-mini":                      (0.15,   0.60),
+    "o3-mini":                          (1.10,   4.40),
+    # Anthropic
+    "claude-opus-4-8":                  (15.00, 75.00),
+    "claude-sonnet-4-6":                (3.00,  15.00),
+    "claude-sonnet-4-5":                (3.00,  15.00),
+    "claude-haiku-4-5":                 (0.80,   4.00),
+    # DeepSeek
+    "deepseek-chat":                    (0.27,   1.10),
+    "deepseek-reasoner":                (0.55,   2.19),
+    # Gemini
+    "gemini-2.0-flash":                 (0.10,   0.40),
+    "gemini-1.5-pro":                   (1.25,   5.00),
+    # Proxy / free models
+    "sambanova-405b":                   (0.0,    0.0),
+    "sambanova-70b":                    (0.0,    0.0),
+    "Llama-4-Maverick-17B-128E-Instruct": (0.0, 0.0),
+    "Meta-Llama-3.3-70B-Instruct":      (0.0,   0.0),
+    "llama-3.3-70b":                    (0.0,   0.0),
+    "llama-3.3-70b-versatile":          (0.0,   0.0),
+    "llama-3.1-8b-instant":             (0.0,   0.0),
+    "cerebras-70b":                     (0.0,   0.0),
+    "cerebras-8b":                      (0.0,   0.0),
+}
+
+
+def model_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """Return total cost in USD for a call, or 0.0 if model is unknown/free."""
+    inp, out = MODEL_PRICING.get(model, (0.0, 0.0))
+    return (prompt_tokens * inp + completion_tokens * out) / 1_000_000
+
+
 DEFAULTS = {
     "provider": "proxy",
     "model": "",            # empty -> provider default
