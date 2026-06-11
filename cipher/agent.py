@@ -10,8 +10,10 @@ The loop is UI-agnostic. The TUI supplies callbacks:
         req = {"kind": "write"|"run", "title": str, "detail": str}
 """
 
+import ast
 import re
 import sys
+from pathlib import Path
 
 from . import tools
 from .client import ChatClient, ChatError
@@ -66,9 +68,10 @@ RULES:
 5. Verify your work: after writing code, <run> it or run the tests when it is cheap to do so.
 6. Every response must contain at least one tool tag, or <done> if the task is finished. Plain text alone is only allowed when answering a pure question that needs no action.
 7. For real-world factual documents (licenses, legal texts, specs), fetch them with <web-fetch> or <web-search> — never reproduce them from memory.
-8. If a tool fails, read the error and correct course. Do not repeat the identical call.
+8. If a tool fails, read the error and correct course. Do not repeat the identical call. Analyze errors carefully — syntax errors mean your code generation failed, not that the file format was wrong.
 9. Keep prose minimal: one short line before a tag describing the step is plenty.
 10. Plan file structure sensibly: real projects get a proper layout (src dir, tests, README) — not one giant file, unless the task is trivially small.
+11. SYNTAX MATTERS: All code must be syntactically correct before writing. For Python: closing brackets/braces match opening ones, indentation is consistent, strings are properly quoted, function definitions are complete. Do not write code with syntax errors.
 """
 
 
@@ -223,7 +226,28 @@ class Agent:
                                                "Ask what they want instead or adjust."}
             if verdict == "always":
                 self.auto["write"] = True
-        return tools.apply_file_change(prep)
+
+        res = tools.apply_file_change(prep)
+
+        # Validate Python syntax for .py files
+        if res["ok"] and prep["rel"].endswith(".py"):
+            syntax_err = self._check_python_syntax(prep["path"])
+            if syntax_err:
+                res["ok"] = False
+                res["output"] = f"Syntax error in {prep['rel']}:\n{syntax_err}\nFix the code."
+
+        return res
+
+    def _check_python_syntax(self, path: str) -> str:
+        """Check if a Python file has valid syntax. Return error string if not, empty if ok."""
+        try:
+            Path(path).read_text(encoding="utf-8", errors="replace").encode()
+            ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
+            return ""
+        except SyntaxError as e:
+            return f"Line {e.lineno}: {e.msg}"
+        except Exception:
+            return ""
 
     def _approve_and_run(self, command: str) -> dict:
         if not self.auto.get("run"):
