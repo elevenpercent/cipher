@@ -517,7 +517,7 @@ footer {
           <strong style="color:#fff">Chat AI (Gemini 2.0 Flash)</strong> — understands your request, maintains conversation context, decides when to delegate to the Coding AI, summarizes results, and handles follow-up questions. Fast and context-efficient.
         </p>
         <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">
-          <strong style="color:#fff">Coding AI (Llama 3.3 70B)</strong> — receives a clear task from the Chat AI and executes it using the full tool suite. Reads, writes, edits, runs commands, searches the web, manages git. Returns a summary when done.
+          <strong style="color:#fff">Coding AI (Llama 4 Maverick → 70B → Gemini fallback)</strong> — receives a clear task from the Chat AI and executes it using the full tool suite. Reads, writes, edits, runs commands, searches the web, manages git. Returns a summary when done.
         </p>
         <p style="font-size:.85rem;color:var(--text2);line-height:1.75">
           The agents communicate via structured XML tags. The Chat AI emits <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;task&gt;</code> to delegate, and the Coding AI emits <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;done&gt;</code> when finished. Errors trigger automatic <code style="font-family:var(--mono);font-size:.8rem;background:var(--bg3);padding:.15rem .4rem;border-radius:3px;color:var(--gold)">&lt;fix&gt;</code> retries.
@@ -539,7 +539,7 @@ footer {
           </div>
           <div class="arch-arrow">↓</div>
           <div class="arch-box">
-            <div class="arch-box-title">Coding AI — Llama 3.3 70B</div>
+            <div class="arch-box-title">Coding AI — Llama 4 Maverick → 70B → Gemini fallback</div>
             <p>Executes: reads codebase, writes files, runs commands, verifies output</p>
             <div class="arch-tags">
               <span class="arch-tag">&lt;read&gt;</span>
@@ -634,7 +634,7 @@ footer {
       <div class="provider">
         <span class="prov-name">Cipher Proxy</span>
         <span class="prov-tag tag-free">Free · No key</span>
-        <span class="prov-models">Gemini 2.0 Flash, Llama 3.3 70B, Llama 3.1 8B</span>
+        <span class="prov-models">Llama 4 Maverick, Llama 3.3 70B, Gemini 2.0 Flash + fallback chain</span>
       </div>
       <div class="provider">
         <span class="prov-name">OpenAI</span>
