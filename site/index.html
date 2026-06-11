@@ -776,19 +776,19 @@ footer {
       <p style="font-size:.85rem;color:var(--text2);margin-bottom:1.5rem">Session history is stored in <code style="font-family:var(--mono);font-size:.78rem;background:var(--bg3);padding:.1rem .35rem;border-radius:3px;color:var(--gold)">~/.cipher/</code> — delete that folder to remove all data.</p>
       <div class="uninstall-grid">
         <div class="uninstall-card">
-          <h4>Uninstall via pip</h4>
-          <pre>pip uninstall cipher-agent</pre>
+          <h4>Windows (one-liner)</h4>
+          <pre>irm https://cipher.elevenpct.com/uninstall.ps1 | iex</pre>
         </div>
         <div class="uninstall-card">
-          <h4>Uninstall via npm</h4>
-          <pre>npm uninstall -g cipher-agent</pre>
+          <h4>Mac / Linux (one-liner)</h4>
+          <pre>curl -fsSL https://cipher.elevenpct.com/uninstall.sh | bash</pre>
         </div>
         <div class="uninstall-card">
-          <h4>Remove session data</h4>
-          <pre><span class="t-dim"># Mac / Linux</span>
-rm -rf ~/.cipher
-<span class="t-dim"># Windows PowerShell</span>
-Remove-Item -Recurse ~\.cipher</pre>
+          <h4>Manual</h4>
+          <pre>pip uninstall cipher-agent -y
+<span class="t-dim"># then delete data:</span>
+<span class="t-dim"># Windows:</span> Remove-Item -Recurse ~\.cipher
+<span class="t-dim"># Mac/Linux:</span> rm -rf ~/.cipher</pre>
         </div>
       </div>
     </div>
