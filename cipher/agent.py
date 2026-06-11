@@ -6,22 +6,22 @@ The loop is UI-agnostic. The TUI supplies callbacks:
     on_tool(name, summary)            a tool is about to run
     on_result(name, ok, output)       tool finished
     on_status(msg)                    fallbacks / notices
+    on_file_change(path, content)     file was successfully written/edited
     request_approval(req) -> str      "allow" | "always" | "deny"
         req = {"kind": "write"|"run", "title": str, "detail": str}
 """
 
-import ast
 import re
 import sys
 from pathlib import Path
 
-from . import tools
+from . import lsp, tools
 from .client import ChatClient, ChatError
 
 MAX_TURNS = 30
 
 TAG_NAMES = ["read", "write", "edit", "ls", "glob", "grep", "tree",
-             "run", "git", "web-fetch", "web-search", "done"]
+             "run", "git", "web-fetch", "web-search", "mcp", "done"]
 
 TAG_RX = re.compile(
     r"<(" + "|".join(TAG_NAMES) + r")>(.*?)</\1>",
@@ -37,7 +37,7 @@ INTENT_RX = re.compile(
 
 SHELL_NAME = "PowerShell" if sys.platform == "win32" else "sh"
 
-SYSTEM_PROMPT = f"""You are Cipher, an autonomous coding agent working inside a project directory.
+_BASE_SYSTEM_PROMPT = f"""You are Cipher, an autonomous coding agent working inside a project directory.
 You act by emitting tool tags. The runtime executes them and returns results. You never pretend — every file change and command happens through a tag.
 
 TOOLS (the only way to act):
@@ -58,6 +58,9 @@ replacement text
 <git>status</git>                      run a git command
 <web-fetch>url</web-fetch>             fetch a web page as text
 <web-search>query</web-search>         search the web
+<mcp>server_name/tool_name
+{{"arg": "value"}}
+</mcp>                                 call an MCP tool (only when MCP servers are listed below)
 <done>summary of what was done</done>  finish the task
 
 RULES:
@@ -73,6 +76,10 @@ RULES:
 10. Plan file structure sensibly: real projects get a proper layout (src dir, tests, README) — not one giant file, unless the task is trivially small.
 11. SYNTAX MATTERS: All code must be syntactically correct before writing. For Python: closing brackets/braces match opening ones, indentation is consistent, strings are properly quoted, function definitions are complete. Do not write code with syntax errors.
 """
+
+
+def _build_system_prompt(mcp_section: str = "") -> str:
+    return _BASE_SYSTEM_PROMPT + mcp_section
 
 
 def parse_tags(text: str) -> list[dict]:
@@ -95,7 +102,8 @@ def strip_tags(text: str) -> str:
 
 class Agent:
     def __init__(self, project_root: str, client: ChatClient, auto_approve: dict,
-                 on_text, on_tool, on_result, on_status, request_approval):
+                 on_text, on_tool, on_result, on_status, request_approval,
+                 on_file_change=None, mcp=None):
         self.root = project_root
         self.client = client
         self.auto = dict(auto_approve)
@@ -103,9 +111,14 @@ class Agent:
         self.on_tool = on_tool
         self.on_result = on_result
         self.on_status = on_status
-        self.request_approval = request_approval
+        self.on_file_change = on_file_change  # (path: str, content: str) -> None
+        self.mcp = mcp                        # MCPManager | None
         self.cancelled = False
-        self.messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        mcp_section = mcp.prompt_section() if mcp else ""
+        self.messages: list[dict] = [
+            {"role": "system", "content": _build_system_prompt(mcp_section)}
+        ]
 
     def cancel(self):
         self.cancelled = True
@@ -138,7 +151,6 @@ class Agent:
             if not actions:
                 if done:
                     return done["body"].strip()
-                # No tags at all: either a plain answer or a hallucination.
                 if INTENT_RX.search(response[:600]) and nudges < 2:
                     nudges += 1
                     self.messages.append({"role": "user", "content":
@@ -178,7 +190,6 @@ class Agent:
             if self.cancelled:
                 break
             parts.append(delta)
-            # Stream only prose to the UI; hold back once a tag opens.
             text = "".join(parts)
             tag_at = text.find("<", visible_upto)
             safe_upto = tag_at if tag_at != -1 else len(text)
@@ -208,6 +219,12 @@ class Agent:
                 command = f"git {command}"
             res = self._approve_and_run(command)
 
+        elif name == "mcp":
+            if self.mcp is None:
+                res = {"ok": False, "output": "No MCP servers configured. Add servers to ~/.cipher/mcp.json"}
+            else:
+                res = self.mcp.call(body)
+
         else:
             res = {"ok": False, "output": f"unknown tool: {name}"}
 
@@ -229,25 +246,22 @@ class Agent:
 
         res = tools.apply_file_change(prep)
 
-        # Validate Python syntax for .py files
-        if res["ok"] and prep["rel"].endswith(".py"):
-            syntax_err = self._check_python_syntax(prep["path"])
-            if syntax_err:
-                res["ok"] = False
-                res["output"] = f"Syntax error in {prep['rel']}:\n{syntax_err}\nFix the code."
+        if res["ok"]:
+            # LSP diagnostics — catches linting errors beyond syntax
+            diag = lsp.check(prep["path"])
+            if diag:
+                res["output"] = (res["output"] or "written") + f"\n\nLSP diagnostics:\n{diag}"
+                # Don't fail the write — let the agent decide whether to fix
+
+            # Notify the UI so the inline editor can refresh
+            if self.on_file_change:
+                try:
+                    content = Path(prep["path"]).read_text(encoding="utf-8", errors="replace")
+                    self.on_file_change(prep["path"], content)
+                except OSError:
+                    pass
 
         return res
-
-    def _check_python_syntax(self, path: str) -> str:
-        """Check if a Python file has valid syntax. Return error string if not, empty if ok."""
-        try:
-            Path(path).read_text(encoding="utf-8", errors="replace").encode()
-            ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
-            return ""
-        except SyntaxError as e:
-            return f"Line {e.lineno}: {e.msg}"
-        except Exception:
-            return ""
 
     def _approve_and_run(self, command: str) -> dict:
         if not self.auto.get("run"):

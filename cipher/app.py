@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from rich.syntax import Syntax
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -16,6 +17,7 @@ from textual.widgets import Button, Input, Label, Select, Static
 from .agent import Agent
 from .client import ChatClient
 from .config import PROVIDERS, SESSIONS_DIR, load_config, resolve_endpoint, save_config
+from .mcp import MCPManager
 
 
 # ── approval modal ────────────────────────────────────────────────────
@@ -138,6 +140,62 @@ class SetupScreen(ModalScreen[bool]):
             self.dismiss(False)
 
 
+# ── inline code editor panel ──────────────────────────────────────────
+
+class CodePanel(Vertical):
+    """Right-side live file viewer. Updates whenever the agent writes/edits a file."""
+
+    DEFAULT_CSS = """
+    CodePanel {
+        width: 1fr; border-left: tall $primary-darken-2;
+        background: $surface-darken-1;
+    }
+    #editor-header {
+        height: 1; background: $primary-darken-3;
+        color: $text-muted; padding: 0 1; dock: top;
+    }
+    #editor-scroll { padding: 0; }
+    #editor-content { padding: 0 1; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("  No file open", id="editor-header")
+        with VerticalScroll(id="editor-scroll"):
+            yield Static("", id="editor-content")
+
+    def show_file(self, path: str, content: str) -> None:
+        """Update panel with new file content (called from the main thread)."""
+        rel = path
+        try:
+            rel = str(Path(path).relative_to(Path.cwd()))
+        except ValueError:
+            pass
+
+        ext = Path(path).suffix.lstrip(".") or "text"
+        _LANG_MAP = {
+            "py": "python", "js": "javascript", "ts": "typescript",
+            "tsx": "tsx", "jsx": "jsx", "rs": "rust", "go": "go",
+            "md": "markdown", "json": "json", "yaml": "yaml", "yml": "yaml",
+            "toml": "toml", "sh": "bash", "ps1": "powershell",
+            "html": "html", "css": "css",
+        }
+        lang = _LANG_MAP.get(ext, "text")
+
+        self.query_one("#editor-header", Static).update(f"  {rel}")
+        syntax = Syntax(
+            content, lang,
+            theme="monokai",
+            line_numbers=True,
+            word_wrap=False,
+        )
+        self.query_one("#editor-content", Static).update(syntax)
+        self.query_one("#editor-scroll", VerticalScroll).scroll_home(animate=False)
+
+    def clear(self) -> None:
+        self.query_one("#editor-header", Static).update("  No file open")
+        self.query_one("#editor-content", Static).update("")
+
+
 # ── main app ──────────────────────────────────────────────────────────
 
 class CipherApp(App):
@@ -145,6 +203,7 @@ class CipherApp(App):
 
     BINDINGS = [
         Binding("ctrl+p", "settings", "settings"),
+        Binding("ctrl+e", "toggle_editor", "editor"),
         Binding("escape", "cancel_task", "cancel", show=False),
         Binding("ctrl+q", "quit", "quit"),
     ]
@@ -154,6 +213,8 @@ class CipherApp(App):
         dock: top; height: 1; background: $surface;
         color: $text-muted; padding: 0 1;
     }
+    #main-area { height: 1fr; }
+    #chat-area { width: 2fr; }
     #chat { padding: 0 1; }
     #chat > Static { margin-bottom: 1; }
     #inputbar { dock: bottom; height: 3; padding: 0 1; }
@@ -175,25 +236,56 @@ class CipherApp(App):
         self.session_path = SESSIONS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}.json"
         self._stream_widget: Static | None = None
         self._stream_text = ""
+        self._editor_visible = False
+        self._mcp: MCPManager | None = None
 
     # ── layout ────────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
         yield Static("", id="topbar")
-        yield VerticalScroll(id="chat")
+        with Horizontal(id="main-area"):
+            with Vertical(id="chat-area"):
+                yield VerticalScroll(id="chat")
+            yield CodePanel(id="editor-panel")
         with Vertical(id="inputbar"):
-            yield Input(placeholder="Describe a task…  (Esc cancels, Ctrl+P settings, Ctrl+Q quits)",
+            yield Input(placeholder="Describe a task…  (Ctrl+E editor, Ctrl+P settings, Ctrl+Q quit)",
                         id="prompt")
 
     def on_mount(self) -> None:
+        # Hide editor panel initially
+        self.query_one("#editor-panel", CodePanel).display = False
+
         self._refresh_topbar()
         self.query_one("#prompt", Input).focus()
         self._add("msg-status",
                   f"cipher · {Path(self.project_root).name} · ready")
+
+        # Start MCP in background so it doesn't block startup
+        def _init_mcp():
+            try:
+                mgr = MCPManager(self.project_root)
+                self._mcp = mgr
+                if mgr.active:
+                    tools = mgr.all_tools()
+                    names = ", ".join(f"{t['server']}/{t['name']}" for t in tools[:5])
+                    suffix = f" +{len(tools)-5} more" if len(tools) > 5 else ""
+                    self.call_from_thread(
+                        self._add_text, "msg-status",
+                        f"  MCP: {len(tools)} tool(s) connected — {names}{suffix}"
+                    )
+            except Exception:
+                pass
+
+        threading.Thread(target=_init_mcp, daemon=True).start()
+
         if not self.cfg.get("_configured"):
             self.push_screen(SetupScreen(self.cfg), self._setup_closed)
         elif self.first_task:
             self._start_task(self.first_task)
+
+    def on_unmount(self) -> None:
+        if self._mcp:
+            self._mcp.stop_all()
 
     def _setup_closed(self, saved: bool) -> None:
         if saved:
@@ -207,8 +299,22 @@ class CipherApp(App):
     def _refresh_topbar(self) -> None:
         _, model, _ = resolve_endpoint(self.cfg)
         provider = PROVIDERS.get(self.cfg.get("provider", "proxy"), {}).get("name", "?")
+        mcp_tag = f"  MCP✓" if (self._mcp and self._mcp.active) else ""
         self.query_one("#topbar", Static).update(
-            f" {Path(self.project_root).name}  ·  {provider}  ·  {model}")
+            f" {Path(self.project_root).name}  ·  {provider}  ·  {model}{mcp_tag}")
+
+    # ── editor panel toggle ───────────────────────────────────────────
+
+    def action_toggle_editor(self) -> None:
+        self._editor_visible = not self._editor_visible
+        self.query_one("#editor-panel", CodePanel).display = self._editor_visible
+
+    def _open_editor(self, path: str, content: str) -> None:
+        """Called when agent writes/edits a file — auto-open editor."""
+        if not self._editor_visible:
+            self._editor_visible = True
+            self.query_one("#editor-panel", CodePanel).display = True
+        self.query_one("#editor-panel", CodePanel).show_file(path, content)
 
     # ── chat helpers ──────────────────────────────────────────────────
 
@@ -246,15 +352,20 @@ class CipherApp(App):
                 on_text=self._cb_text, on_tool=self._cb_tool,
                 on_result=self._cb_result, on_status=self._cb_status,
                 request_approval=self._cb_approval,
+                on_file_change=self._cb_file_change,
+                mcp=self._mcp,
             )
         else:
             self.agent.client = client
+            # Update MCP in case servers connected after agent was created
+            if self._mcp and self.agent.mcp is None:
+                self.agent.mcp = self._mcp
         self.run_worker(lambda: self._agent_worker(text), thread=True, exclusive=True)
 
     def _agent_worker(self, text: str) -> None:
         try:
             summary = self.agent.run_task(text)
-        except Exception as e:  # never let the worker die silently
+        except Exception as e:
             summary = f"internal error: {e}"
             self.call_from_thread(self._add_text, "msg-error", summary)
         else:
@@ -307,6 +418,9 @@ class CipherApp(App):
 
     def _cb_status(self, msg: str) -> None:
         self.call_from_thread(self._add_text, "msg-status", f"  ⚡ {msg}")
+
+    def _cb_file_change(self, path: str, content: str) -> None:
+        self.call_from_thread(self._open_editor, path, content)
 
     def _cb_approval(self, req: dict) -> str:
         result: dict = {}
