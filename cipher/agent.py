@@ -261,18 +261,12 @@ class Agent:
             if self.cancelled:
                 break
             parts.append(delta)
-            text = "".join(parts)
-            tag_at = text.find("<", visible_upto)
-            safe_upto = tag_at if tag_at != -1 else len(text)
-            if safe_upto > visible_upto:
-                self.on_text(text[visible_upto:safe_upto])
-                visible_upto = safe_upto
 
-        # Flush any remaining prose that came after the last complete tag
         full = "".join(parts)
-        after_tags = TAG_RX.sub("", full[visible_upto:]).strip()
-        if after_tags:
-            self.on_text(after_tags)
+        # Send only prose to the UI — strip all tool tags cleanly after stream ends
+        prose = TAG_RX.sub("", full).strip()
+        if prose:
+            self.on_text(prose)
 
         return full
 
