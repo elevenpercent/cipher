@@ -1,6 +1,7 @@
 """Cipher TUI — Textual front end for the agent loop."""
 
 import json
+import re
 import threading
 import time
 from datetime import datetime
@@ -343,6 +344,14 @@ class CipherApp(App):
 
     # ── input / task lifecycle ────────────────────────────────────────
 
+    # Pure conversational inputs that should never reach the agent loop.
+    _CHAT_ONLY = re.compile(
+        r"^\s*(hi|hello|hey|sup|yo|what'?s up|howdy|greetings|good\s+(morning|afternoon|evening)|"
+        r"thanks?|thank you|ty|cheers|ok|okay|cool|got it|sounds good|nice|great|awesome|"
+        r"who are you|what are you|what can you do|help)\s*[!?.]*\s*$",
+        re.IGNORECASE,
+    )
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
         if not text:
@@ -351,7 +360,35 @@ class CipherApp(App):
         if self.busy:
             self._add_text("msg-status", "still working — Esc to cancel first")
             return
-        self._start_task(text)
+        if self._CHAT_ONLY.match(text):
+            self._start_chat(text)
+        else:
+            self._start_task(text)
+
+    def _start_chat(self, text: str) -> None:
+        """Lightweight chat path — no agent loop, no tool tags, no approval gates."""
+        self.busy = True
+        self._add("msg-user", Text(f"> {text}", style="bold"))
+        base, model, key = resolve_endpoint(self.cfg)
+        client = ChatClient(base, model, key,
+                            is_proxy=self.cfg.get("provider") == "proxy")
+
+        def _worker():
+            try:
+                messages = [
+                    {"role": "system", "content":
+                        "You are Cipher, a helpful coding assistant. "
+                        "Reply conversationally and briefly."},
+                    {"role": "user", "content": text},
+                ]
+                reply = client.complete(messages, temperature=0.7)
+                self.call_from_thread(self._add_text, "msg-ai", reply.strip())
+            except Exception as e:
+                self.call_from_thread(self._add_text, "msg-error", str(e))
+            finally:
+                self.call_from_thread(self._task_finished)
+
+        self.run_worker(_worker, thread=True, exclusive=True)
 
     def _start_task(self, text: str) -> None:
         self.busy = True
