@@ -75,7 +75,7 @@ RULES:
 3. Prefer <edit> for changing existing files; <write> only for new files or full rewrites.
 4. In <edit>, the old text must match the file EXACTLY, character for character, including indentation.
 5. Verify your work: after writing code, <run> it or run the tests when it is cheap to do so.
-6. Every response must contain at least one tool tag, or <done> if the task is finished. Plain text alone is only allowed when answering a pure question that needs no action.
+6. Every response must contain at least one tool tag, or <done> if the task is finished. Plain text alone is allowed only for pure conversational messages (greetings, clarifying questions, short answers) that need no file or shell action.
 7. For real-world factual documents (licenses, legal texts, specs), fetch them with <web-fetch> or <web-search> — never reproduce them from memory.
 8. If a tool fails, read the error and correct course. Do not repeat the identical call. Analyze errors carefully — syntax errors mean your code generation failed, not that the file format was wrong.
 9. Keep prose minimal: one short line before a tag describing the step is plenty.
@@ -168,7 +168,11 @@ class Agent:
             if not actions:
                 if done:
                     return done["body"].strip()
-                if INTENT_RX.search(response[:600]) and nudges < 2:
+                # Only nudge if the message looks like a deferred action,
+                # not a short conversational reply (< 3 words = greeting/answer).
+                words = response.strip().split()
+                is_conversational = len(words) < 20
+                if not is_conversational and INTENT_RX.search(response[:600]) and nudges < 2:
                     nudges += 1
                     self.messages.append({"role": "user", "content":
                         "You described actions but emitted no tool tags. Nothing happened. "
@@ -263,7 +267,14 @@ class Agent:
             if safe_upto > visible_upto:
                 self.on_text(text[visible_upto:safe_upto])
                 visible_upto = safe_upto
-        return "".join(parts)
+
+        # Flush any remaining prose that came after the last complete tag
+        full = "".join(parts)
+        after_tags = TAG_RX.sub("", full[visible_upto:]).strip()
+        if after_tags:
+            self.on_text(after_tags)
+
+        return full
 
     # ── tool dispatch ─────────────────────────────────────────────────
 
