@@ -12,14 +12,10 @@ const MODELS = {
   "llama-3.1-8b":        { provider: "groq",      model: "llama-3.1-8b-instant" },
   // Gemini — free tier
   "gemini-2.0-flash":    { provider: "gemini",    model: "gemini-2.0-flash" },
-  // DeepSeek — best coding (paid)
+  // DeepSeek — best coding (paid, ~$0.27/1M tokens)
   "deepseek-chat":       { provider: "deepseek",  model: "deepseek-chat" },
-  // SambaNova — free, strong models
+  // SambaNova — free fallback
   "sambanova-70b":       { provider: "sambanova", model: "Meta-Llama-3.3-70B-Instruct" },
-  "sambanova-405b":      { provider: "sambanova", model: "Llama-4-Maverick-17B-128E-Instruct" },
-  // Cerebras — free, very fast
-  "cerebras-70b":        { provider: "cerebras",  model: "llama3.3-70b" },
-  "cerebras-8b":         { provider: "cerebras",  model: "llama3.1-8b" },
 };
 
 function json(res, code, data) {

@@ -21,7 +21,6 @@ PROXY_FALLBACK = [
     "sambanova-70b",
     "gemini-2.0-flash",
     "deepseek-chat",
-    "sambanova-405b",
 ]
 
 PROVIDERS = {
@@ -71,8 +70,8 @@ PROVIDERS = {
         "name": "SambaNova",
         "base": "https://api.sambanova.ai/v1",
         "env": "SAMBANOVA_API_KEY",
-        "models": ["Llama-4-Maverick-17B-128E-Instruct", "Meta-Llama-3.3-70B-Instruct"],
-        "default_model": "Llama-4-Maverick-17B-128E-Instruct",
+        "models": ["Meta-Llama-3.3-70B-Instruct"],
+        "default_model": "Meta-Llama-3.3-70B-Instruct",
     },
     "openrouter": {
         "name": "OpenRouter",
@@ -115,15 +114,12 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gemini-2.0-flash":                 (0.10,   0.40),
     "gemini-1.5-pro":                   (1.25,   5.00),
     # Proxy / free models
-    "sambanova-405b":                   (0.0,    0.0),
-    "sambanova-70b":                    (0.0,    0.0),
-    "Llama-4-Maverick-17B-128E-Instruct": (0.0, 0.0),
+    "sambanova-70b":                    (0.0,   0.0),
     "Meta-Llama-3.3-70B-Instruct":      (0.0,   0.0),
     "llama-3.3-70b":                    (0.0,   0.0),
+    "llama-3.1-8b":                     (0.0,   0.0),
     "llama-3.3-70b-versatile":          (0.0,   0.0),
     "llama-3.1-8b-instant":             (0.0,   0.0),
-    "cerebras-70b":                     (0.0,   0.0),
-    "cerebras-8b":                      (0.0,   0.0),
 }
 
 
