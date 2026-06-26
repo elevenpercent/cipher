@@ -263,8 +263,10 @@ class Agent:
             parts.append(delta)
 
         full = "".join(parts)
-        # Send only prose to the UI — strip all tool tags cleanly after stream ends
-        prose = TAG_RX.sub("", full).strip()
+        # Strip complete tags, then strip any leftover partial/closing tag fragments
+        prose = TAG_RX.sub("", full)
+        prose = re.sub(r"</?[a-z][\w-]*>", "", prose)  # orphaned open/close tags
+        prose = prose.strip()
         if prose:
             self.on_text(prose)
 
