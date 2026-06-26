@@ -1,21 +1,11 @@
 const PROVIDERS = {
-  groq:      { base: "https://api.groq.com/openai/v1",                          key: "CIPHER_PROXY_GROQ_KEY" },
-  gemini:    { base: "https://generativelanguage.googleapis.com/v1beta/openai", key: "CIPHER_PROXY_GEMINI_KEY" },
-  deepseek:  { base: "https://api.deepseek.com",                                key: "CIPHER_PROXY_DEEPSEEK_KEY" },
-  sambanova: { base: "https://api.sambanova.ai/v1",                             key: "CIPHER_PROXY_SAMBANOVA_KEY" },
-  cerebras:  { base: "https://api.cerebras.ai/v1",                              key: "CIPHER_PROXY_CEREBRAS_KEY" },
+  gemini:   { base: "https://generativelanguage.googleapis.com/v1beta/openai", key: "CIPHER_PROXY_GEMINI_KEY" },
+  deepseek: { base: "https://api.deepseek.com",                                key: "CIPHER_PROXY_DEEPSEEK_KEY" },
 };
 
 const MODELS = {
-  // Groq — fast, free tier
-  "llama-3.3-70b":       { provider: "groq",      model: "llama-3.3-70b-versatile" },
-  "llama-3.1-8b":        { provider: "groq",      model: "llama-3.1-8b-instant" },
-  // Gemini — free tier
-  "gemini-2.0-flash":    { provider: "gemini",    model: "gemini-2.0-flash" },
-  // DeepSeek — best coding (paid, ~$0.27/1M tokens)
-  "deepseek-chat":       { provider: "deepseek",  model: "deepseek-chat" },
-  // SambaNova — free fallback
-  "sambanova-70b":       { provider: "sambanova", model: "Meta-Llama-3.3-70B-Instruct" },
+  "gemini-2.0-flash":    { provider: "gemini",   model: "gemini-2.0-flash" },
+  "deepseek-chat":       { provider: "deepseek", model: "deepseek-chat" },
 };
 
 function json(res, code, data) {

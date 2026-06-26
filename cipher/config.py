@@ -15,21 +15,15 @@ SESSIONS_DIR = CIPHER_HOME / "sessions"
 
 PROXY_URL = "https://proxy-blue-kappa.vercel.app"
 
-# Models the proxy tries in order when the primary is rate limited.
-PROXY_FALLBACK = [
-    "llama-3.3-70b",
-    "sambanova-70b",
-    "gemini-2.0-flash",
-    "deepseek-chat",
-]
+PROXY_MODELS = ["gemini-2.0-flash", "deepseek-chat"]
 
 PROVIDERS = {
     "proxy": {
         "name": "Cipher Proxy (free, no key)",
         "base": PROXY_URL + "/v1",
         "env": None,
-        "models": PROXY_FALLBACK,
-        "default_model": "llama-3.3-70b",
+        "models": PROXY_MODELS,
+        "default_model": "gemini-2.0-flash",
     },
     "openai": {
         "name": "OpenAI",

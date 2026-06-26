@@ -1,19 +1,12 @@
-"""Minimal streaming chat client for OpenAI-compatible endpoints.
-
-Stdlib only — no SDK dependency. Yields text deltas as they arrive.
-For the Cipher Proxy provider it walks the fallback chain when a
-model is rate limited or down.
-"""
+"""Minimal streaming chat client for OpenAI-compatible endpoints."""
 
 import json
 import urllib.error
 import urllib.request
 
-from .config import PROXY_FALLBACK
-
 
 class ChatError(Exception):
-    """Raised when the endpoint returns an error for all attempted models."""
+    pass
 
 
 class ChatClient:
@@ -25,26 +18,9 @@ class ChatClient:
         self.is_proxy = is_proxy
         self.timeout = timeout
 
-    # ── public ────────────────────────────────────────────────────────
-
     def stream(self, messages: list[dict], temperature: float = 0.15,
                on_fallback=None, on_usage=None):
-        """Yield content deltas.
-        on_fallback(old, new) — called when the proxy chain switches models.
-        on_usage(prompt_tokens, completion_tokens) — called once after the
-          stream ends with token counts (when the provider reports them).
-        """
-        models = self._model_chain()
-        last_err = None
-        for i, model in enumerate(models):
-            try:
-                yield from self._stream_one(model, messages, temperature, on_usage)
-                return
-            except ChatError as e:
-                last_err = e
-                if i + 1 < len(models) and on_fallback:
-                    on_fallback(model, models[i + 1])
-        raise ChatError(str(last_err) if last_err else "All models failed")
+        yield from self._stream_one(self.model, messages, temperature, on_usage)
 
     def complete(self, messages: list[dict], temperature: float = 0.15) -> str:
         return "".join(self.stream(messages, temperature))
@@ -52,14 +28,6 @@ class ChatClient:
     @property
     def active_model(self) -> str:
         return self.model
-
-    # ── internals ─────────────────────────────────────────────────────
-
-    def _model_chain(self) -> list[str]:
-        if not self.is_proxy:
-            return [self.model]
-        chain = [self.model] + [m for m in PROXY_FALLBACK if m != self.model]
-        return chain
 
     def _stream_one(self, model: str, messages: list[dict], temperature: float,
                     on_usage=None):
@@ -90,9 +58,9 @@ class ChatClient:
                     detail = detail.get("message", body)
             except (json.JSONDecodeError, AttributeError):
                 detail = body
-            raise ChatError(f"{model}: HTTP {e.code} — {detail}") from None
+            raise ChatError(f"HTTP {e.code} — {detail}") from None
         except urllib.error.URLError as e:
-            raise ChatError(f"{model}: connection failed — {e.reason}") from None
+            raise ChatError(f"connection failed — {e.reason}") from None
 
         emitted = False
         with resp:
@@ -118,9 +86,8 @@ class ChatClient:
                         err = parsed["error"]
                         msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
                         if not emitted:
-                            raise ChatError(f"{model}: {msg}")
+                            raise ChatError(msg)
                         return
-                    # Capture usage when the provider sends it (final chunk)
                     usage = parsed.get("usage")
                     if usage and on_usage:
                         on_usage(
@@ -133,4 +100,4 @@ class ChatClient:
                         emitted = True
                         yield content
         if not emitted:
-            raise ChatError(f"{model}: empty response")
+            raise ChatError("empty response")
