@@ -17,11 +17,11 @@ PROXY_URL = "https://proxy-blue-kappa.vercel.app"
 
 # Models the proxy tries in order when the primary is rate limited.
 PROXY_FALLBACK = [
-    "deepseek-chat",
-    "gemini-2.0-flash",
-    "sambanova-405b",
-    "sambanova-70b",
     "llama-3.3-70b",
+    "sambanova-70b",
+    "gemini-2.0-flash",
+    "deepseek-chat",
+    "sambanova-405b",
 ]
 
 PROVIDERS = {
@@ -30,7 +30,7 @@ PROVIDERS = {
         "base": PROXY_URL + "/v1",
         "env": None,
         "models": PROXY_FALLBACK,
-        "default_model": "deepseek-chat",
+        "default_model": "llama-3.3-70b",
     },
     "openai": {
         "name": "OpenAI",
